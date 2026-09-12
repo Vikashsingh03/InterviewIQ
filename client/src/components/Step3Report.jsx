@@ -47,18 +47,25 @@ function Step3Report({ report }) {
     { label: "Correctness", value: correctness },
   ];
 
+  // single source of truth for the score tiers — used for the headline
+  // text, the PDF advice section, and the progress-bar color, so all
+  // three always agree on where "excellent" starts.
   let performanceText = "";
   let shortTagline = "";
+  let progressColor = "";
 
-  if (finalScore > 8) {
+  if (finalScore >= 8) {
     performanceText = "Ready for job opportunities.";
     shortTagline = "Excellent clarity and structured responses.";
+    progressColor = "#10b981"; // emerald — matches the ring color
   } else if (finalScore >= 5) {
     performanceText = "Needs minor improvement before interviews.";
     shortTagline = "Good foundation, refine articulation.";
+    progressColor = "#f59e0b"; // amber
   } else {
     performanceText = "Significant improvement required.";
     shortTagline = "Work on clarity and confidence.";
+    progressColor = "#ef4444"; // red
   }
 
   const score = finalScore;
@@ -114,6 +121,8 @@ function Step3Report({ report }) {
     currentY += 45;
 
     // ================ ADVICE ================
+    // uses the same >=8 / >=5 tiers as the on-screen headline above,
+    // so the PDF and the dashboard never disagree on a score like exactly 8
     let advice = "";
 
     if (finalScore >= 8) {
@@ -222,8 +231,8 @@ function Step3Report({ report }) {
                 text={`${score}/10`}
                 styles={buildStyles({
                   textSize: "18px",
-                  pathColor: "#10b981",
-                  textColor: "#ef4444",
+                  pathColor: progressColor,
+                  textColor: progressColor,
                   trailColor: "#e5e7eb",
                 })}
               />

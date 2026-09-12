@@ -7,6 +7,7 @@ import {
   FaMicrophoneAlt,
   FaChartLine,
 } from "react-icons/fa";
+import { IoWarningOutline } from "react-icons/io5";
 import axios from "axios";
 import { ServerUrl } from "../App";
 import { useDispatch, useSelector } from "react-redux";
@@ -26,9 +27,14 @@ function Step1Setup({ onstart }) {
   const [analysisDone, setAnalysisDone] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
 
+  // shown to the user on resume-analysis or start-interview failures
+  const [resumeError, setResumeError] = useState("");
+  const [startError, setStartError] = useState("");
+
   const handleUploadResume = async () => {
     if (!resumeFile || analyzing) return;
     setAnalyzing(true);
+    setResumeError("");
 
     const formdata = new FormData();
     formdata.append("resume", resumeFile);
@@ -40,37 +46,50 @@ function Step1Setup({ onstart }) {
         { withCredentials: true },
       );
 
-      console.log(result.data);
-
       setRole(result.data.role || "");
       setExperience(result.data.experience || "");
-      setProjects(result.data.projects || "");
-      setSkills(result.data.skills || "");
+      // these must stay arrays — a "" fallback would break the .map() calls below
+      setProjects(
+        Array.isArray(result.data.projects) ? result.data.projects : [],
+      );
+      setSkills(Array.isArray(result.data.skills) ? result.data.skills : []);
       setResumeText(result.data.resumeText || "");
       setAnalysisDone(true);
-      setAnalyzing(false);
     } catch (error) {
       console.log(error);
+      setResumeError(
+        error?.response?.data?.message ||
+          "Couldn't analyze the resume. You can still fill the details manually below.",
+      );
+    } finally {
       setAnalyzing(false);
     }
   };
 
   const handleStart = async () => {
     setLoading(true);
+    setStartError("");
     try {
       const result = await axios.post(
         ServerUrl + "/api/interview/generate-questions",
         { role, experience, mode, resumeText, projects, skills },
         { withCredentials: true },
       );
+
+      // backend sends `creditsLeft`, not `credits` — this was silently setting credits to undefined
       if (userData) {
-        dispatch(setUserData({ ...userData, credits: result.data.credits }));
+        dispatch(
+          setUserData({ ...userData, credits: result.data.creditsLeft }),
+        );
       }
-      setLoading(false);
       onstart(result.data);
-      console.log(result.data);
     } catch (error) {
       console.log(error);
+      setStartError(
+        error?.response?.data?.message ||
+          "Couldn't start the interview. Please try again.",
+      );
+    } finally {
       setLoading(false);
     }
   };
@@ -194,7 +213,10 @@ function Step1Setup({ onstart }) {
                   id="resumeUpload"
                   accept="application/pdf"
                   className="hidden"
-                  onChange={(e) => setResumeFile(e.target.files[0])}
+                  onChange={(e) => {
+                    setResumeFile(e.target.files[0]);
+                    setResumeError("");
+                  }}
                 />
 
                 <p className="text-gray-600 dark:text-gray-300 font-medium">
@@ -210,12 +232,25 @@ function Step1Setup({ onstart }) {
                       e.stopPropagation();
                       handleUploadResume();
                     }}
-                    className="mt-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition"
+                    disabled={analyzing}
+                    className="mt-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition disabled:opacity-70"
                   >
                     {analyzing ? "Analyzing..." : "Analyze Resume"}
                   </motion.button>
                 )}
               </motion.div>
+            )}
+
+            {resumeError && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3 flex items-start gap-2">
+                <IoWarningOutline
+                  size={16}
+                  className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0"
+                />
+                <p className="text-amber-700 dark:text-amber-400 text-xs sm:text-sm leading-relaxed">
+                  {resumeError}
+                </p>
+              </div>
             )}
 
             <AnimatePresence>
@@ -262,6 +297,18 @@ function Step1Setup({ onstart }) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {startError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 flex items-start gap-2">
+                <IoWarningOutline
+                  size={16}
+                  className="text-red-600 dark:text-red-400 mt-0.5 shrink-0"
+                />
+                <p className="text-red-700 dark:text-red-400 text-xs sm:text-sm leading-relaxed">
+                  {startError}
+                </p>
+              </div>
+            )}
 
             <motion.button
               onClick={handleStart}

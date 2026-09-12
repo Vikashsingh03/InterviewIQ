@@ -11,22 +11,30 @@ import {
   BsChatDots,
 } from "react-icons/bs";
 import { HiSparkles } from "react-icons/hi";
+import { IoWarningOutline } from "react-icons/io5";
 
 const InterviewHistory = () => {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     const getMyInterviews = async () => {
+      setLoading(true);
+      setError("");
       try {
         const result = await axios.get(
           ServerUrl + "/api/interview/get-interviews",
           { withCredentials: true },
         );
         setInterviews(result.data);
-      } catch (error) {
-        console.log(error);
+      } catch (err) {
+        console.log(err);
+        setError(
+          err?.response?.data?.message ||
+            "Couldn't load your interview history. Please try again.",
+        );
       } finally {
         setLoading(false);
       }
@@ -34,6 +42,14 @@ const InterviewHistory = () => {
 
     getMyInterviews();
   }, []);
+
+  // an "Incompleted" interview never got a final score computed, and opening
+  // its report would force-mark it Completed with a misleading 0/10 — so we
+  // keep these cards non-clickable instead of routing to the report page.
+  const handleCardClick = (item) => {
+    if (item.status !== "Completed") return;
+    navigate(`/report/${item._id}`);
+  };
 
   return (
     <div className="relative min-h-screen bg-[#f3f3f3] dark:bg-gray-950 transition-colors duration-300 overflow-hidden">
@@ -93,6 +109,28 @@ const InterviewHistory = () => {
               ></div>
             ))}
           </div>
+        ) : error ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-md border border-red-200 dark:border-red-900/40 p-10 rounded-3xl shadow-sm text-center"
+          >
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+              <IoWarningOutline size={24} />
+            </div>
+            <p className="text-gray-700 dark:text-gray-200 font-medium">
+              {error}
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => window.location.reload()}
+              className="mt-6 bg-black dark:bg-white text-white dark:text-black px-8 py-2.5 rounded-full font-medium text-sm shadow-lg"
+            >
+              Retry
+            </motion.button>
+          </motion.div>
         ) : interviews.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -120,76 +158,93 @@ const InterviewHistory = () => {
           </motion.div>
         ) : (
           <div className="grid gap-5">
-            {interviews.map((item, index) => (
-              <motion.div
-                key={item._id || index}
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, delay: index * 0.06 }}
-                whileHover={{ y: -4, scale: 1.01 }}
-                onClick={() => navigate(`/report/${item._id}`)}
-                className="group relative bg-white/80 dark:bg-gray-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm hover:shadow-[0_0_40px_-15px_rgba(16,185,129,0.4)] transition-all duration-300 cursor-pointer border border-white/60 dark:border-gray-800 hover:border-green-200 dark:hover:border-green-900/50 overflow-hidden"
-              >
-                {/* subtle accent glow on hover */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-400/0 group-hover:bg-emerald-400/10 dark:group-hover:bg-emerald-500/10 rounded-full blur-2xl transition-all duration-500"></div>
+            {interviews.map((item, index) => {
+              const isCompleted = item.status === "Completed";
 
-                <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-md shadow-green-900/20 group-hover:scale-105 transition-transform">
-                      <BsBriefcase size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {item.role}
-                      </h3>
-                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                        <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm">
-                          <BsChatDots size={13} />
-                          {item.experience}
-                        </span>
-                        <span className="text-gray-300 dark:text-gray-700">
-                          •
-                        </span>
-                        <span className="text-gray-500 dark:text-gray-400 text-sm">
-                          {item.mode}
-                        </span>
-                        <span className="text-gray-300 dark:text-gray-700">
-                          •
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500 text-sm">
-                          <BsCalendar3 size={12} />
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </span>
+              return (
+                <motion.div
+                  key={item._id || index}
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, delay: index * 0.06 }}
+                  whileHover={isCompleted ? { y: -4, scale: 1.01 } : {}}
+                  onClick={() => handleCardClick(item)}
+                  title={
+                    isCompleted
+                      ? undefined
+                      : "This interview wasn't finished, so no report is available."
+                  }
+                  className={`group relative bg-white/80 dark:bg-gray-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm transition-all duration-300 border border-white/60 dark:border-gray-800 overflow-hidden ${
+                    isCompleted
+                      ? "cursor-pointer hover:shadow-[0_0_40px_-15px_rgba(16,185,129,0.4)] hover:border-green-200 dark:hover:border-green-900/50"
+                      : "cursor-not-allowed opacity-75"
+                  }`}
+                >
+                  {/* subtle accent glow on hover */}
+                  {isCompleted && (
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-400/0 group-hover:bg-emerald-400/10 dark:group-hover:bg-emerald-500/10 rounded-full blur-2xl transition-all duration-500"></div>
+                  )}
+
+                  <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 shrink-0 rounded-2xl bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-md shadow-green-900/20 group-hover:scale-105 transition-transform">
+                        <BsBriefcase size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {item.role}
+                        </h3>
+                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                          <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm">
+                            <BsChatDots size={13} />
+                            {item.experience}
+                          </span>
+                          <span className="text-gray-300 dark:text-gray-700">
+                            •
+                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 text-sm">
+                            {item.mode}
+                          </span>
+                          <span className="text-gray-300 dark:text-gray-700">
+                            •
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500 text-sm">
+                            <BsCalendar3 size={12} />
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-6 md:gap-8 pl-16 md:pl-0">
-                    <div className="text-right">
-                      <p className="text-2xl font-bold bg-linear-to-r from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                        {item.finalScore || 0}
-                        <span className="text-sm text-gray-400 dark:text-gray-500 font-medium">
-                          /10
-                        </span>
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        Overall Score
-                      </p>
+                    <div className="flex items-center gap-6 md:gap-8 pl-16 md:pl-0">
+                      {isCompleted && (
+                        <div className="text-right">
+                          <p className="text-2xl font-bold bg-linear-to-r from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                            {item.finalScore || 0}
+                            <span className="text-sm text-gray-400 dark:text-gray-500 font-medium">
+                              /10
+                            </span>
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            Overall Score
+                          </p>
+                        </div>
+                      )}
+
+                      <span
+                        className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                          isCompleted
+                            ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400"
+                            : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
                     </div>
-
-                    <span
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-                        item.status === "Completed"
-                          ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400"
-                          : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
