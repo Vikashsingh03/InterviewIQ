@@ -77,7 +77,89 @@ export const analyzeResume = async (req, res) => {
   }
 };
 
-// ---------------- generates ONLY the opening question ----------------
+const buildTopicPool = ({ projects = [], skills = [] } = {}) => {
+  const topics = [];
+
+  projects.forEach((p) => {
+    topics.push(`project: ${p}`);
+  });
+
+  if (skills.length) {
+    topics.push(`skills: ${skills.join(", ")}`);
+  }
+
+  topics.push("activity-or-certification (find in resume text if present)");
+
+  return topics;
+};
+
+const computeQuestionBudget = (topicPool, mode) => {
+  const topicCount = topicPool.length;
+  const codingBuffer = mode === "Technical" ? 1 : 0;
+
+  const maxQuestions = Math.min(12, Math.max(6, topicCount + codingBuffer + 3));
+  const minQuestions = Math.min(maxQuestions - 1, Math.max(4, topicCount));
+
+  return { minQuestions, maxQuestions };
+};
+
+const CODING_QUESTION_BANK = [
+  "How would you find duplicate rows in a large SQL table without hurting performance?",
+  "Can you explain how you'd reverse a singly linked list, and why that approach works?",
+  "How would you go about optimizing a database query that's running slowly in production?",
+  "What's the real difference between an INNER JOIN and a LEFT JOIN, and when would you use each?",
+  "How would you detect and fix a memory leak in a long-running Node.js server?",
+  "How would you design a database schema to avoid duplicate or inconsistent data across tables?",
+  "Can you explain the time complexity trade-off between using a hash map versus a sorted array for lookups?",
+];
+
+const FILLER_WORD_REGEX =
+  /\b(um+|uh+|erm+|like|you know|i mean|basically|actually|so yeah|kind of|sort of)\b/gi;
+
+const computeSpeakingMetrics = (answerText, durationSeconds) => {
+  const cleanText = (answerText || "").trim();
+  const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
+
+  const safeDuration = Math.max(durationSeconds || 0, 1);
+  const wordsPerMinute = Math.round((wordCount / safeDuration) * 60);
+
+  const fillerMatches = cleanText.match(FILLER_WORD_REGEX) || [];
+  const fillerWordCount = fillerMatches.length;
+  const fillerRatio = wordCount
+    ? Number((fillerWordCount / wordCount).toFixed(3))
+    : 0;
+
+  let deliveryScore = 10;
+
+  if (wordCount >= 5) {
+    if (wordsPerMinute < 90) {
+      deliveryScore -= Math.min(4, (90 - wordsPerMinute) / 15);
+    } else if (wordsPerMinute > 190) {
+      deliveryScore -= Math.min(4, (wordsPerMinute - 190) / 15);
+    }
+  }
+
+  deliveryScore -= Math.min(4, fillerRatio * 25);
+
+  if (wordCount < 10) {
+    deliveryScore = Math.min(deliveryScore, 5);
+  }
+
+  deliveryScore = Math.max(
+    0,
+    Math.min(10, Math.round(deliveryScore * 10) / 10),
+  );
+
+  return {
+    wordsPerMinute,
+    wordCount,
+    durationSeconds: Math.round(safeDuration),
+    fillerWordCount,
+    fillerRatio,
+    deliveryScore,
+  };
+};
+
 export const generateQuestion = async (req, res) => {
   try {
     let { role, experience, mode, resumeText, projects, skills } = req.body;
@@ -129,9 +211,6 @@ export const generateQuestion = async (req, res) => {
       });
     }
 
-    // The opening question always plays the role of a real interviewer's
-    // opener: "tell me about yourself", lightly anchored to the resume so
-    // it doesn't feel like a generic template question.
     const messages = [
       {
         role: "system",
@@ -143,10 +222,8 @@ export const generateQuestion = async (req, res) => {
 
                 Your ONLY job here is to generate the OPENING question, and it must be an
                 "introduce yourself" style question — asking the candidate to walk you through
-                their background, experience, and what they've worked on. If the resume mentions
-                specific projects or skills, you may lightly reference ONE of them to make it feel
-                personal (e.g. "...and I see you've worked with ${safeSkills[0] || "your listed skills"} — feel free to touch on that too"),
-                but do not turn it into a technical question yet. This is purely a warm-up.
+                their background, experience, and what they've worked on. Keep it broad and
+                welcoming — do NOT ask about a specific project or skill yet, that comes later.
 
                 strict rules:
                 - The question must contain 20 to 35 words.
@@ -156,7 +233,7 @@ export const generateQuestion = async (req, res) => {
                 - Do NOT add extra text before or after.
                 - Output ONLY the question text, nothing else.
 
-                Base it on the candidate's role, experience, interviewMode, projects, skills, and resume details.
+                Base it on the candidate's role, experience, and interviewMode.
                 `,
       },
       {
@@ -184,6 +261,15 @@ export const generateQuestion = async (req, res) => {
     user.credits -= 50;
     await user.save();
 
+    const topicPool = buildTopicPool({
+      projects: safeProjects,
+      skills: safeSkills,
+    });
+    const { minQuestions, maxQuestions } = computeQuestionBudget(
+      topicPool,
+      mode,
+    );
+
     const interview = await interviewModel.create({
       userId: user._id,
       role,
@@ -192,13 +278,15 @@ export const generateQuestion = async (req, res) => {
       resumeText: safeResume,
       projects: safeProjects,
       skills: safeSkills,
-      minQuestions: 4,
-      maxQuestions: 8,
+      minQuestions,
+      maxQuestions,
+      coveredTopics: ["introduction"],
       questions: [
         {
           question: firstQuestion,
           difficulty: "easy",
           timeLimit: 90,
+          topicHint: "introduction",
         },
       ],
     });
@@ -216,20 +304,52 @@ export const generateQuestion = async (req, res) => {
   }
 };
 
-// ---------------- helper: AI decides continue-or-stop + next question ----------------
+const buildFallbackQuestion = (topicLabel, mode) => {
+  if (topicLabel.startsWith("project: ")) {
+    const name = topicLabel.replace("project: ", "");
+    return mode === "Technical"
+      ? `Let's switch gears — could you walk me through the ${name} project, the tech stack you used, and the toughest part of building it?`
+      : `Let's talk about ${name} — what was your specific role, and what would you do differently if you built it again?`;
+  }
+
+  if (topicLabel.startsWith("skills: ")) {
+    return mode === "Technical"
+      ? `Switching topics — looking at the skills on your resume, which one are you strongest in and how have you actually applied it?`
+      : `Switching topics — which skill on your resume are you most confident about, and why?`;
+  }
+
+  if (topicLabel.startsWith("activity-or-certification")) {
+    return "Before we move on, is there any activity, certification, or achievement on your resume you'd like to highlight?";
+  }
+
+  return "Looking back at everything we've discussed, which project or skill are you personally most proud of, and why?";
+};
+
+const topicDisplayName = (topicLabel) => {
+  if (topicLabel.startsWith("project: ")) {
+    return `the project titled "${topicLabel.replace("project: ", "")}" — you MUST name it explicitly in your question`;
+  }
+  if (topicLabel.startsWith("skills: ")) {
+    return `their listed technical skills (${topicLabel.replace("skills: ", "")})`;
+  }
+  if (topicLabel.startsWith("activity-or-certification")) {
+    return "any activity, certification, extracurricular involvement, or achievement mentioned in their resume text";
+  }
+  return topicLabel;
+};
+
 const decideNextStep = async (interview) => {
   const askedCount = interview.questions.length;
 
   const history = interview.questions
     .map(
       (q, i) =>
-        `Q${i + 1} (${q.difficulty}): ${q.question}\nCandidate's Answer: ${
-          q.answer || "No answer given"
-        }\nScore: ${q.score ?? 0}/10 (confidence: ${q.confidence ?? 0}, communication: ${q.communication ?? 0}, correctness: ${q.correctness ?? 0})`,
+        `Q${i + 1} [topic: ${q.topicHint || "general"}] (${q.difficulty}): ${q.question}\nCandidate's Answer: ${
+          q.skipped ? "Skipped by candidate" : q.answer || "No answer given"
+        }\nScore: ${q.score ?? 0}/10`,
     )
     .join("\n\n");
 
-  // hard safety limits, AI cannot override these
   const mustContinue = askedCount < interview.minQuestions;
   const mustStop = askedCount >= interview.maxQuestions;
 
@@ -237,77 +357,145 @@ const decideNextStep = async (interview) => {
     return { continueInterview: false, nextQuestion: null };
   }
 
-  const projects = interview.projects?.length
-    ? interview.projects.join(", ")
-    : "None listed";
-  const skills = interview.skills?.length
-    ? interview.skills.join(", ")
-    : "None listed";
-  const resumeSummary = interview.resumeText?.trim() || "None provided";
+  const lastQuestion = interview.questions[askedCount - 1];
+  const lastTopic = lastQuestion?.topicHint || "general";
+  const lastScore = lastQuestion?.score ?? 0;
+  const wasSkipped = !!lastQuestion?.skipped;
+  const topicUseCount = interview.questions.filter(
+    (q) => q.topicHint === lastTopic,
+  ).length;
+  const isRealTopic =
+    lastTopic !== "general" &&
+    lastTopic !== "introduction" &&
+    lastTopic !== "coding-question";
+
+  const topicPool = buildTopicPool({
+    projects: interview.projects,
+    skills: interview.skills,
+  });
+  const uncoveredOrdered = topicPool.filter(
+    (t) => !interview.coveredTopics?.includes(t),
+  );
+
+  const canAskCodingQuestion =
+    interview.mode === "Technical" && !interview.askedCodingQuestion;
+  const remainingSlots = interview.maxQuestions - askedCount;
+
+  if (canAskCodingQuestion && remainingSlots <= 1) {
+    const askedTexts = interview.questions.map((q) => q.question);
+    const unusedBank = CODING_QUESTION_BANK.filter(
+      (q) => !askedTexts.includes(q),
+    );
+    const pool = unusedBank.length ? unusedBank : CODING_QUESTION_BANK;
+    const question = pool[Math.floor(Math.random() * pool.length)];
+
+    return {
+      continueInterview: true,
+      nextQuestion: {
+        question,
+        difficulty: "medium",
+        timeLimit: 90,
+        topicHint: "coding-question",
+      },
+    };
+  }
+
+  // skipped answers never trigger a same-topic follow-up — a skip means
+  // "move on", not "this was weak, dig deeper"
+  const eligibleFollowUp =
+    !wasSkipped &&
+    isRealTopic &&
+    topicUseCount === 1 &&
+    lastScore > 0 &&
+    lastScore < 6;
+
+  let action;
+  let targetTopic = null;
+
+  if (eligibleFollowUp) {
+    action = "followup";
+    targetTopic = lastTopic;
+  } else if (uncoveredOrdered.length > 0) {
+    action = "nextTopic";
+    targetTopic = uncoveredOrdered[0];
+  } else if (canAskCodingQuestion) {
+    action = "coding";
+  } else if (mustContinue) {
+    action = "general";
+  } else {
+    action = "end";
+  }
+
+  if (action === "end") {
+    return { continueInterview: false, nextQuestion: null };
+  }
+
+  if (action === "coding") {
+    const askedTexts = interview.questions.map((q) => q.question);
+    const unusedBank = CODING_QUESTION_BANK.filter(
+      (q) => !askedTexts.includes(q),
+    );
+    const pool = unusedBank.length ? unusedBank : CODING_QUESTION_BANK;
+    const question = pool[Math.floor(Math.random() * pool.length)];
+
+    return {
+      continueInterview: true,
+      nextQuestion: {
+        question,
+        difficulty: "medium",
+        timeLimit: 90,
+        topicHint: "coding-question",
+      },
+    };
+  }
 
   const modeGuidance =
     interview.mode === "Technical"
-      ? `Lean toward technical depth: implementation details, architecture choices,
-         trade-offs, debugging stories, and how they'd solve related problems today.
-         When they mention a project or skill, drill into HOW they built it, not just what it does.`
-      : `Lean toward behavioral and situational depth: how they handled conflict,
-         pressure, teamwork, ownership, and decision-making. Use the STAR angle
-         (Situation, Task, Action, Result) implicitly — ask about a specific
-         moment, not a general opinion.`;
+      ? `This is a TECHNICAL interview — lean toward implementation details, tech stack
+         choices, and how they solved a real problem.`
+      : `This is an HR/behavioral interview — lean toward their role, ownership, decisions,
+         and how they handled pressure or teamwork (STAR-style).`;
+
+  const instructionLine =
+    action === "followup"
+      ? `The candidate's last answer (topic: "${lastTopic}") scored low (${lastScore}/10) and felt
+         thin or vague. Ask ONE follow-up question that pushes for something concrete — a specific
+         example, a number, or exactly what THEY personally did — staying on this SAME topic.
+         Do not introduce a new subject.`
+      : action === "general"
+        ? `All resume topics are already covered, but the interview hasn't hit its minimum length
+           yet. Ask one thoughtful, natural reflective question that doesn't repeat anything
+           already asked (e.g. about a broader lesson learned, or how they'd approach a new
+           challenge in this role).`
+        : `You must ask about exactly this topic next: ${topicDisplayName(targetTopic)}.
+           Make the question feel like a natural next line from an interviewer who read their
+           resume closely — reference the last answer briefly for flow if it fits naturally,
+           but the SUBJECT of the question must be the topic given above, nothing else.`;
 
   const messages = [
     {
       role: "system",
       content: `
-      You are a real, experienced human interviewer conducting a live ${interview.mode} interview.
-      You are warm but sharp — you actually listen to what the candidate says and
-      react to it, the way a good interviewer builds each question out of the last answer.
+      You are a real, experienced interviewer conducting a live ${interview.mode} interview.
+      The interview has a fixed plan for what to cover next — that decision has already been
+      made for you. Your ONLY job is to phrase ONE natural-sounding question for it.
 
-      Candidate's resume context (use this to stay grounded in their real background):
-      - Projects: ${projects}
-      - Skills: ${skills}
-      - Resume summary: ${resumeSummary}
-
-      You will see the full conversation so far: questions asked, the candidate's
-      answers, and their scores.
-
-      Decide ONE of two things:
-      1. If you now have a clear, well-rounded picture of the candidate's skills,
-         experience, communication, and problem-solving ability — end the interview.
-      2. Otherwise, ask ONE more question that feels like a natural next line from
-         a real interviewer — not a random new topic.
-
-      How to choose the next question, in priority order:
-      a) If the candidate's LAST answer mentioned something specific (a project, a
-         technology, a decision, a challenge) that deserves a deeper follow-up,
-         dig into THAT specific thing by name. Quote or reference what they said.
-      b) Otherwise, if the resume/projects/skills list has something relevant and
-         unexplored so far, bring that in naturally (e.g. "You mentioned X on your
-         resume — walk me through that.").
-      c) Only fall back to a generic question if neither of the above applies.
+      ${instructionLine}
 
       ${modeGuidance}
 
-      ${mustContinue ? "IMPORTANT: You must continue and ask another question — the interview has not reached the minimum length yet." : ""}
-
-      Consider: has the candidate covered technical depth, real project experience,
-      problem-solving, and communication clearly? If most answers were strong and
-      topics feel sufficiently covered, prefer ending.
+      Rules:
+      - 15 to 30 words, one natural sentence (one comma-joined clause allowed).
+      - Vary your conversational lead-in style across the interview — don't reuse the same
+        opening phrase every time (mix short direct questions with reflective lead-ins).
+      - Do not repeat a question already asked.
+      - Choose a difficulty ("easy", "medium", or "hard") appropriate to the question.
 
       Return ONLY valid JSON in this exact format, nothing else:
       {
-        "continue": true or false,
-        "question": "next question text if continue is true, else empty string",
+        "question": "the question text",
         "difficulty": "easy" or "medium" or "hard"
       }
-
-      Question rules if continuing:
-      - 15 to 30 words, single complete sentence (one comma-joined clause allowed).
-      - Sound conversational — a short natural lead-in is fine (e.g. "That's interesting —",
-        "Good, so building on that,", "Alright,") before the actual question.
-      - Do not repeat a question already asked.
-      - Reference something concrete from their answer or resume whenever possible —
-        do not ask a generic, could-apply-to-anyone question if a specific angle exists.
       `,
     },
     {
@@ -316,7 +504,6 @@ const decideNextStep = async (interview) => {
       Role: ${interview.role}
       Experience: ${interview.experience}
       Interview Mode: ${interview.mode}
-      Questions asked so far: ${askedCount}
 
       Conversation so far:
       ${history}
@@ -331,19 +518,35 @@ const decideNextStep = async (interview) => {
     .replace(/\s*```$/, "")
     .trim();
 
+  const timeLimitByDifficulty = { easy: 60, medium: 90, hard: 120 };
+  const finalTopicHint = targetTopic || "general";
+
   let parsed;
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    // fallback if AI response isn't clean JSON — just end gracefully
-    return { continueInterview: false, nextQuestion: null };
+    return {
+      continueInterview: true,
+      nextQuestion: {
+        question: buildFallbackQuestion(finalTopicHint, interview.mode),
+        difficulty: "medium",
+        timeLimit: 90,
+        topicHint: finalTopicHint,
+      },
+    };
   }
 
-  if (!parsed.continue || !parsed.question) {
-    return { continueInterview: false, nextQuestion: null };
+  if (!parsed.question || !parsed.question.trim()) {
+    return {
+      continueInterview: true,
+      nextQuestion: {
+        question: buildFallbackQuestion(finalTopicHint, interview.mode),
+        difficulty: "medium",
+        timeLimit: 90,
+        topicHint: finalTopicHint,
+      },
+    };
   }
-
-  const timeLimitByDifficulty = { easy: 60, medium: 90, hard: 120 };
 
   return {
     continueInterview: true,
@@ -351,13 +554,33 @@ const decideNextStep = async (interview) => {
       question: parsed.question.trim(),
       difficulty: parsed.difficulty || "medium",
       timeLimit: timeLimitByDifficulty[parsed.difficulty] || 90,
+      topicHint: finalTopicHint,
     },
   };
 };
 
+const recordTopic = (interview, topicHint) => {
+  if (!topicHint || topicHint === "general") return;
+
+  if (topicHint === "coding-question") {
+    interview.askedCodingQuestion = true;
+  }
+
+  if (!interview.coveredTopics.includes(topicHint)) {
+    interview.coveredTopics.push(topicHint);
+  }
+};
+
 export const submitAnswer = async (req, res) => {
   try {
-    const { interviewId, questionIndex, answer, timeTaken } = req.body;
+    const {
+      interviewId,
+      questionIndex,
+      answer,
+      timeTaken,
+      durationSeconds,
+      skipped, // NEW
+    } = req.body;
 
     if (!interviewId || questionIndex === undefined || questionIndex === null) {
       return res.status(400).json({
@@ -383,6 +606,32 @@ export const submitAnswer = async (req, res) => {
       return res.status(400).json({ message: "Invalid question index" });
     }
 
+    // ---- NEW case: candidate explicitly skipped this question ----
+    if (skipped) {
+      question.score = 0;
+      question.feedback = "Skipped by the candidate.";
+      question.answer = "";
+      question.skipped = true;
+
+      await interview.save();
+
+      const { continueInterview, nextQuestion } =
+        await decideNextStep(interview);
+
+      if (continueInterview) {
+        recordTopic(interview, nextQuestion.topicHint);
+        interview.questions.push(nextQuestion);
+        await interview.save();
+      }
+
+      return res.json({
+        feedback: "No problem, let's move on to the next question.",
+        isLast: !continueInterview,
+        nextQuestion: continueInterview ? nextQuestion : null,
+        speakingMetrics: null,
+      });
+    }
+
     // ---- case: no answer given ----
     if (!answer) {
       question.score = 0;
@@ -395,6 +644,7 @@ export const submitAnswer = async (req, res) => {
         await decideNextStep(interview);
 
       if (continueInterview) {
+        recordTopic(interview, nextQuestion.topicHint);
         interview.questions.push(nextQuestion);
         await interview.save();
       }
@@ -418,6 +668,7 @@ export const submitAnswer = async (req, res) => {
         await decideNextStep(interview);
 
       if (continueInterview) {
+        recordTopic(interview, nextQuestion.topicHint);
         interview.questions.push(nextQuestion);
         await interview.save();
       }
@@ -447,8 +698,11 @@ export const submitAnswer = async (req, res) => {
             Rules:
             - Be realistic and unbiased.
             - Do not give random high scores.
-            - If the answer is weak, score low.
-            - If the answer is strong and detailed, score high.
+            - If the answer is weak, generic, or vague — score it low (below 6).
+            - If the answer is strong, specific, and detailed — score it high.
+            - A vague answer that avoids specifics (no example, no numbers, no personal
+              ownership — "we did this", "it was managed") should score noticeably lower
+              than one with concrete details, even if both sound confident.
             - Consider clarity, structure, and relevance.
 
             Calculate:
@@ -494,13 +748,16 @@ export const submitAnswer = async (req, res) => {
     try {
       parsed = JSON.parse(cleanedEval);
     } catch {
-      // AI gave malformed JSON — don't crash, fall back to a neutral score
       question.answer = answer;
       question.confidence = 0;
       question.communication = 0;
       question.correctness = 0;
       question.score = 0;
       question.feedback = "Could not evaluate this answer automatically.";
+      question.speakingMetrics = computeSpeakingMetrics(
+        answer,
+        durationSeconds,
+      );
 
       await interview.save();
 
@@ -508,6 +765,7 @@ export const submitAnswer = async (req, res) => {
         await decideNextStep(interview);
 
       if (continueInterview) {
+        recordTopic(interview, nextQuestion.topicHint);
         interview.questions.push(nextQuestion);
         await interview.save();
       }
@@ -516,6 +774,7 @@ export const submitAnswer = async (req, res) => {
         feedback: question.feedback,
         isLast: !continueInterview,
         nextQuestion: continueInterview ? nextQuestion : null,
+        speakingMetrics: question.speakingMetrics,
       });
     }
 
@@ -525,13 +784,14 @@ export const submitAnswer = async (req, res) => {
     question.correctness = parsed.correctness;
     question.score = parsed.finalScore;
     question.feedback = parsed.feedback;
+    question.speakingMetrics = computeSpeakingMetrics(answer, durationSeconds);
 
     await interview.save();
 
-    // ---- AI decides: ask another question, or wrap up? ----
     const { continueInterview, nextQuestion } = await decideNextStep(interview);
 
     if (continueInterview) {
+      recordTopic(interview, nextQuestion.topicHint);
       interview.questions.push(nextQuestion);
       await interview.save();
     }
@@ -540,6 +800,7 @@ export const submitAnswer = async (req, res) => {
       feedback: parsed.feedback,
       isLast: !continueInterview,
       nextQuestion: continueInterview ? nextQuestion : null,
+      speakingMetrics: question.speakingMetrics,
     });
   } catch (error) {
     return res.status(500).json({
@@ -564,18 +825,27 @@ export const finishInterview = async (req, res) => {
       });
     }
 
-    const totalQuestions = interview.questions.length;
+    // skipped questions don't count toward scoring — they represent
+    // topics the candidate opted out of, not weak answers
+    const scorableQuestions = interview.questions.filter((q) => !q.skipped);
+    const totalQuestions = scorableQuestions.length;
 
     let totalScore = 0;
     let totalConfidence = 0;
     let totalCommunication = 0;
     let totalCorrectness = 0;
+    let totalDeliveryScore = 0;
+    let totalWpm = 0;
+    let totalFillerWords = 0;
 
-    interview.questions.forEach((q) => {
+    scorableQuestions.forEach((q) => {
       totalScore += q.score || 0;
       totalConfidence += q.confidence || 0;
       totalCommunication += q.communication || 0;
       totalCorrectness += q.correctness || 0;
+      totalDeliveryScore += q.speakingMetrics?.deliveryScore || 0;
+      totalWpm += q.speakingMetrics?.wordsPerMinute || 0;
+      totalFillerWords += q.speakingMetrics?.fillerWordCount || 0;
     });
 
     const finalScore = totalQuestions ? totalScore / totalQuestions : 0;
@@ -586,6 +856,10 @@ export const finishInterview = async (req, res) => {
     const avgCorrectness = totalQuestions
       ? totalCorrectness / totalQuestions
       : 0;
+    const avgDeliveryScore = totalQuestions
+      ? totalDeliveryScore / totalQuestions
+      : 0;
+    const avgWpm = totalQuestions ? totalWpm / totalQuestions : 0;
 
     interview.finalScore = finalScore;
     interview.status = "Completed";
@@ -597,6 +871,9 @@ export const finishInterview = async (req, res) => {
       confidence: Number(avgConfidence.toFixed(1)),
       communication: Number(avgCommunication.toFixed(1)),
       correctness: Number(avgCorrectness.toFixed(1)),
+      avgDeliveryScore: Number(avgDeliveryScore.toFixed(1)),
+      avgWordsPerMinute: Math.round(avgWpm),
+      totalFillerWords,
       questionWiseScore: interview.questions.map((q) => ({
         question: q.question,
         score: q.score || 0,
@@ -604,6 +881,8 @@ export const finishInterview = async (req, res) => {
         confidence: q.confidence || 0,
         communication: q.communication || 0,
         correctness: q.correctness || 0,
+        skipped: q.skipped || false,
+        speakingMetrics: q.speakingMetrics || null,
       })),
     });
   } catch (error) {
@@ -636,16 +915,23 @@ export const getInterviewReport = async (req, res) => {
       return res.status(404).json({ message: "Interview not found" });
     }
 
-    const totalQuestions = interview.questions.length;
+    const scorableQuestions = interview.questions.filter((q) => !q.skipped);
+    const totalQuestions = scorableQuestions.length;
 
     let totalConfidence = 0;
     let totalCommunication = 0;
     let totalCorrectness = 0;
+    let totalDeliveryScore = 0;
+    let totalWpm = 0;
+    let totalFillerWords = 0;
 
-    interview.questions.forEach((q) => {
+    scorableQuestions.forEach((q) => {
       totalConfidence += q.confidence || 0;
       totalCommunication += q.communication || 0;
       totalCorrectness += q.correctness || 0;
+      totalDeliveryScore += q.speakingMetrics?.deliveryScore || 0;
+      totalWpm += q.speakingMetrics?.wordsPerMinute || 0;
+      totalFillerWords += q.speakingMetrics?.fillerWordCount || 0;
     });
 
     const avgConfidence = totalQuestions ? totalConfidence / totalQuestions : 0;
@@ -655,6 +941,10 @@ export const getInterviewReport = async (req, res) => {
     const avgCorrectness = totalQuestions
       ? totalCorrectness / totalQuestions
       : 0;
+    const avgDeliveryScore = totalQuestions
+      ? totalDeliveryScore / totalQuestions
+      : 0;
+    const avgWpm = totalQuestions ? totalWpm / totalQuestions : 0;
 
     interview.status = "Completed";
 
@@ -663,6 +953,9 @@ export const getInterviewReport = async (req, res) => {
       confidence: Number(avgConfidence.toFixed(1)),
       communication: Number(avgCommunication.toFixed(1)),
       correctness: Number(avgCorrectness.toFixed(1)),
+      avgDeliveryScore: Number(avgDeliveryScore.toFixed(1)),
+      avgWordsPerMinute: Math.round(avgWpm),
+      totalFillerWords,
       questionWiseScore: interview.questions,
     });
   } catch (error) {

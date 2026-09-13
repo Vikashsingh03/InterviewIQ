@@ -10,6 +10,18 @@ const questionSchema = new mongoose.Schema({
   confidence: { type: Number, default: 0 },
   communication: { type: Number, default: 0 },
   correctness: { type: Number, default: 0 },
+  topicHint: { type: String, default: "general" },
+  // NEW: marks a question the candidate chose to skip — excluded from
+  // scoring averages so it doesn't unfairly drag down the final score
+  skipped: { type: Boolean, default: false },
+  speakingMetrics: {
+    wordsPerMinute: { type: Number, default: 0 },
+    wordCount: { type: Number, default: 0 },
+    durationSeconds: { type: Number, default: 0 },
+    fillerWordCount: { type: Number, default: 0 },
+    fillerRatio: { type: Number, default: 0 },
+    deliveryScore: { type: Number, default: 0 },
+  },
 });
 
 const interviewSchema = new mongoose.Schema(
@@ -35,8 +47,6 @@ const interviewSchema = new mongoose.Schema(
     resumeText: {
       type: String,
     },
-    // previously dropped after the first question was generated — now
-    // persisted so every follow-up question can stay resume-aware too
     projects: {
       type: [String],
       default: [],
@@ -44,6 +54,15 @@ const interviewSchema = new mongoose.Schema(
     skills: {
       type: [String],
       default: [],
+    },
+
+    coveredTopics: {
+      type: [String],
+      default: [],
+    },
+    askedCodingQuestion: {
+      type: Boolean,
+      default: false,
     },
     questions: [questionSchema],
     minQuestions: { type: Number, default: 4 },

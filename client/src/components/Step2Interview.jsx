@@ -6,13 +6,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 import axios from "axios";
 import { ServerUrl } from "../App";
-import { BsArrowRight, BsStars } from "react-icons/bs";
+import { BsStars, BsSpeedometer2, BsSkipForward } from "react-icons/bs";
 import { IoWarningOutline } from "react-icons/io5";
 
 function Step2Interview({ interviewData, onFinish }) {
   const { interviewId, userName } = interviewData;
 
-  // questions now grows dynamically as the interview progresses
   const [questions, setQuestions] = useState(interviewData.questions || []);
   const [isLastQuestion, setIsLastQuestion] = useState(false);
   const [isIntroPhase, setIsIntroPhase] = useState(true);
@@ -28,14 +27,15 @@ function Step2Interview({ interviewData, onFinish }) {
   const [timeLeft, setTimeLeft] = useState(questions[0]?.timeLimit || 60);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPreparingNext, setIsPreparingNext] = useState(false);
   const [voiceGender, setVoiceGender] = useState("female");
   const [subtitle, setSubtitle] = useState("");
+  const [lastDeliveryMetrics, setLastDeliveryMetrics] = useState(null);
 
-  // request-level error shown to the user (submit / finish failures)
   const [errorMessage, setErrorMessage] = useState("");
 
   const videoRef = useRef(null);
+  const answerWindowStartRef = useRef(null);
+
   const currentQuestion = questions[currentIndex];
 
   useEffect(() => {
@@ -79,8 +79,6 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const videoSource = voiceGender === "male" ? maleVideo : femaleVideo;
 
-  // ----------------speak function-----------------------
-
   const speakText = (text) => {
     return new Promise((resolve) => {
       if (!window.speechSynthesis || !selectedVoice) {
@@ -109,10 +107,6 @@ function Step2Interview({ interviewData, onFinish }) {
         videoRef.current?.pause();
         videoRef.current.currentTime = 0;
         setIsAIPlaying(false);
-
-        if (isMicOn) {
-          startMic();
-        }
 
         setTimeout(() => {
           setSubtitle("");
@@ -147,6 +141,10 @@ function Step2Interview({ interviewData, onFinish }) {
           await speakText("Alright, this might be a bit challenging");
         }
         await speakText(currentQuestion.question);
+
+        // candidate's answer window starts NOW
+        answerWindowStartRef.current = Date.now();
+
         if (isMicOn) {
           startMic();
         }
@@ -198,7 +196,6 @@ function Step2Interview({ interviewData, onFinish }) {
       setAnswer((prev) => prev + " " + transcript);
     };
 
-    // fires on permission denial, no-mic-found, or any other recognition failure
     recognition.onerror = (event) => {
       if (
         event.error === "not-allowed" ||
@@ -209,7 +206,7 @@ function Step2Interview({ interviewData, onFinish }) {
         );
         setIsMicOn(false);
       } else if (event.error === "no-speech") {
-        // benign — user just paused, no need to alarm them
+        // benign
       } else {
         setMicError(
           "Mic isn't working right now. You can type your answer instead.",
@@ -227,7 +224,7 @@ function Step2Interview({ interviewData, onFinish }) {
         recognitionRef.current.start();
         setMicError("");
       } catch {
-        // usually thrown when recognition is already running — safe to ignore
+        // already running — safe to ignore
       }
     }
   };
@@ -247,71 +244,7 @@ function Step2Interview({ interviewData, onFinish }) {
     setIsMicOn(!isMicOn);
   };
 
-  const submitAnswer = async () => {
-    if (isSubmitting) return;
-    if (!currentQuestion) return;
-
-    stopMic();
-    setIsSubmitting(true);
-    setIsPreparingNext(true);
-    setErrorMessage("");
-
-    try {
-      const result = await axios.post(
-        ServerUrl + "/api/interview/submit-answer",
-        {
-          interviewId,
-          questionIndex: currentIndex,
-          answer,
-          timeTaken: currentQuestion.timeLimit - timeLeft,
-        },
-        { withCredentials: true },
-      );
-
-      const { feedback: fb, isLast, nextQuestion } = result.data;
-
-      // append the AI-decided next question to local state, if any
-      if (!isLast && nextQuestion) {
-        setQuestions((prev) => [...prev, nextQuestion]);
-      }
-      setIsLastQuestion(!!isLast);
-
-      setFeedback(fb);
-      speakText(fb);
-    } catch (error) {
-      console.log(error);
-      setErrorMessage(
-        error?.response?.data?.message ||
-          "Something went wrong while submitting your answer. Please try again.",
-      );
-    } finally {
-      setIsSubmitting(false);
-      setIsPreparingNext(false);
-    }
-  };
-
-  const handleNext = async () => {
-    setAnswer("");
-    setFeedback("");
-
-    if (isLastQuestion) {
-      finishInterview();
-      return;
-    }
-
-    await speakText("Alright, let's move the next question.");
-
-    setCurrentIndex((prev) => prev + 1);
-    setTimeout(() => {
-      if (isMicOn) startMic();
-    }, 500);
-  };
-
   const finishInterview = async () => {
-    stopMic();
-    setIsMicOn(false);
-    setErrorMessage("");
-
     try {
       const result = await axios.post(
         ServerUrl + "/api/interview/finish",
@@ -326,6 +259,128 @@ function Step2Interview({ interviewData, onFinish }) {
         error?.response?.data?.message ||
           "Couldn't finish the interview. Please try again.",
       );
+    }
+  };
+
+  // ---- core flow: submit -> evaluate -> speak feedback -> auto-advance ----
+  const submitAnswer = async () => {
+    if (isSubmitting) return;
+    if (!currentQuestion) return;
+    if (isIntroPhase || isAIPlaying) return;
+
+    stopMic();
+    setIsSubmitting(true);
+    setErrorMessage("");
+    setFeedback("");
+
+    const durationSeconds = answerWindowStartRef.current
+      ? Math.max(
+          1,
+          Math.round((Date.now() - answerWindowStartRef.current) / 1000),
+        )
+      : currentQuestion.timeLimit - timeLeft;
+
+    try {
+      const result = await axios.post(
+        ServerUrl + "/api/interview/submit-answer",
+        {
+          interviewId,
+          questionIndex: currentIndex,
+          answer,
+          timeTaken: currentQuestion.timeLimit - timeLeft,
+          durationSeconds,
+        },
+        { withCredentials: true },
+      );
+
+      const {
+        feedback: fb,
+        isLast,
+        nextQuestion,
+        speakingMetrics,
+      } = result.data;
+
+      if (!isLast && nextQuestion) {
+        setQuestions((prev) => [...prev, nextQuestion]);
+      }
+      setIsLastQuestion(!!isLast);
+      setLastDeliveryMetrics(speakingMetrics || null);
+      setFeedback(fb);
+
+      // speak the feedback addressed to the candidate, then auto-advance —
+      // no manual "Next Question" click needed
+      await speakText(`Thank you ${userName}. ${fb}`);
+
+      if (isLast) {
+        await finishInterview();
+        return;
+      }
+
+      setAnswer("");
+      setFeedback("");
+      setCurrentIndex((prev) => prev + 1);
+    } catch (error) {
+      console.log(error);
+      setErrorMessage(
+        error?.response?.data?.message ||
+          "Something went wrong while submitting your answer. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ---- skip: move to next question without answering the current one ----
+  const skipQuestion = async () => {
+    if (isSubmitting) return;
+    if (!currentQuestion) return;
+    if (isIntroPhase || isAIPlaying) return;
+
+    stopMic();
+    setIsSubmitting(true);
+    setErrorMessage("");
+    setFeedback("");
+
+    try {
+      const result = await axios.post(
+        ServerUrl + "/api/interview/submit-answer",
+        {
+          interviewId,
+          questionIndex: currentIndex,
+          answer: "",
+          timeTaken: 0,
+          skipped: true,
+        },
+        { withCredentials: true },
+      );
+
+      const { feedback: fb, isLast, nextQuestion } = result.data;
+
+      if (!isLast && nextQuestion) {
+        setQuestions((prev) => [...prev, nextQuestion]);
+      }
+      setIsLastQuestion(!!isLast);
+      setLastDeliveryMetrics(null);
+      setFeedback(fb || "No problem, let's move on.");
+
+      await speakText(fb || "No problem, let's move on to the next question.");
+
+      if (isLast) {
+        await finishInterview();
+        return;
+      }
+
+      setAnswer("");
+      setFeedback("");
+      setCurrentIndex((prev) => prev + 1);
+    } catch (error) {
+      console.log(error);
+      setErrorMessage(
+        error?.response?.data?.message ||
+          "Couldn't skip this question. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -348,6 +403,15 @@ function Step2Interview({ interviewData, onFinish }) {
     };
   }, []);
 
+  const deliveryLabel = (score) => {
+    if (score >= 8) return "Excellent delivery";
+    if (score >= 6) return "Good delivery";
+    if (score >= 4) return "Needs polish";
+    return "Work on pacing & fillers";
+  };
+
+  const controlsDisabled = isSubmitting || isIntroPhase || isAIPlaying;
+
   return (
     <div className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-teal-100 dark:from-gray-950 dark:via-gray-950 dark:to-gray-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
       <div className="w-full max-w-350 min-h-[80vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl dark:shadow-black/40 border border-gray-200 dark:border-gray-800 flex flex-col lg:flex-row overflow-hidden">
@@ -365,8 +429,6 @@ function Step2Interview({ interviewData, onFinish }) {
             />
           </div>
 
-          {/* {subtitle} */}
-
           {subtitle && (
             <div className="w-full max-w-md bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
               <p className="text-gray-700 dark:text-gray-200 text-sm sm:text-base font-medium text-center leading-relaxed">
@@ -375,7 +437,6 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           )}
 
-          {/* mic permission / support warning */}
           {micError && (
             <div className="w-full max-w-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3 shadow-sm flex items-start gap-2">
               <IoWarningOutline
@@ -388,7 +449,6 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           )}
 
-          {/* timer area */}
           <div className="w-full max-w-md bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-5 shadow-md">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -412,7 +472,6 @@ function Step2Interview({ interviewData, onFinish }) {
 
             <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
 
-            {/* dynamic length: show question number + adaptive hint instead of a fixed total */}
             <div className="text-center">
               <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                 Question {currentIndex + 1}
@@ -425,6 +484,48 @@ function Step2Interview({ interviewData, onFinish }) {
                 <span>AI adapts questions based on your answers</span>
               </div>
             </div>
+
+            <AnimatePresence>
+              {lastDeliveryMetrics && (
+                <>
+                  <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <BsSpeedometer2
+                        className="text-emerald-600 dark:text-emerald-400"
+                        size={14}
+                      />
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        {deliveryLabel(lastDeliveryMetrics.deliveryScore)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div>
+                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                          {lastDeliveryMetrics.wordsPerMinute}
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                          words/min
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                          {lastDeliveryMetrics.fillerWordCount}
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                          filler words
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -435,7 +536,6 @@ function Step2Interview({ interviewData, onFinish }) {
             AI Smart Interview
           </h2>
 
-          {/* request-level error banner (submit / finish failures) */}
           {errorMessage && (
             <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 flex items-start justify-between gap-3">
               <div className="flex items-start gap-2">
@@ -476,15 +576,17 @@ function Step2Interview({ interviewData, onFinish }) {
             placeholder="Type your answer here..."
             onChange={(e) => setAnswer(e.target.value)}
             value={answer}
-            className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-base sm:text-lg resize-none outline-none focus:ring-2 focus:ring-emerald-500 transition"
+            disabled={controlsDisabled}
+            className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-base sm:text-lg resize-none outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-60"
           />
 
           {!feedback ? (
-            <div className="flex items-center gap-4 mt-6">
+            <div className="flex items-center gap-3 mt-6">
               <motion.button
                 onClick={toggleMic}
                 whileTap={{ scale: 0.9 }}
-                className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg"
+                disabled={controlsDisabled}
+                className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg disabled:opacity-60"
               >
                 {isMicOn ? (
                   <FaMicrophone size={20} />
@@ -495,11 +597,11 @@ function Step2Interview({ interviewData, onFinish }) {
 
               <motion.button
                 onClick={submitAnswer}
-                disabled={isSubmitting}
+                disabled={controlsDisabled}
                 whileTap={{ scale: 0.9 }}
                 className="flex-1 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-semibold py-3 sm:py-4 rounded-2xl shadow-lg hover:opacity-90 transition disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                {isPreparingNext ? (
+                {isSubmitting ? (
                   <>
                     <motion.span
                       animate={{ rotate: 360 }}
@@ -516,6 +618,17 @@ function Step2Interview({ interviewData, onFinish }) {
                   "Submit Answer"
                 )}
               </motion.button>
+
+              <motion.button
+                onClick={skipQuestion}
+                disabled={controlsDisabled}
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.03 }}
+                className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-60"
+              >
+                <BsSkipForward size={16} />
+                <span className="hidden sm:inline">Skip</span>
+              </motion.button>
             </div>
           ) : (
             <motion.div
@@ -527,13 +640,16 @@ function Step2Interview({ interviewData, onFinish }) {
                 {feedback}
               </p>
 
-              <button
-                onClick={handleNext}
-                className="w-full bg-linear-to-r from-emerald-600 to-teal-500 text-white py-3 rounded-xl shadow-md hover:opacity-90 flex items-center justify-center gap-1 transition"
-              >
-                {isLastQuestion ? "Finish Interview" : "Next Question"}{" "}
-                <BsArrowRight size={18} />
-              </button>
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm">
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className="w-3.5 h-3.5 border-2 border-emerald-300 dark:border-emerald-700 border-t-emerald-600 dark:border-t-emerald-400 rounded-full"
+                />
+                {isLastQuestion
+                  ? "Wrapping up your report..."
+                  : "Moving to the next question..."}
+              </div>
             </motion.div>
           )}
         </div>
