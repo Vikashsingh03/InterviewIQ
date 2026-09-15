@@ -356,6 +356,19 @@ function Step3Report({ report }) {
                       {q.score ?? 0}/10
                     </div>
                   </div>
+
+                  {q.type === "coding" && q.answer && (
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                        Submitted code
+                        {q.language ? ` (${q.language})` : ""}
+                      </p>
+                      <pre className="bg-gray-900 text-gray-100 text-xs sm:text-sm p-4 rounded-lg overflow-x-auto whitespace-pre-wrap">
+                        <code>{q.answer}</code>
+                      </pre>
+                    </div>
+                  )}
+
                   <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/40 p-4 rounded-lg">
                     <p className="text-xs text-green-600 dark:text-green-400 font-semibold mb-1">
                       AI feedback

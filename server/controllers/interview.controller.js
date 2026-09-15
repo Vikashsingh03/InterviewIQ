@@ -3,6 +3,8 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { askAi } from "../services/openRouter.service.js";
 import userModel from "../models/user.model.js";
 import interviewModel from "../models/interview.model.js";
+import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
+import { runTestCases } from "../services/codeExecution.service.js";
 
 export const analyzeResume = async (req, res) => {
   try {
@@ -103,16 +105,6 @@ const computeQuestionBudget = (topicPool, mode) => {
   return { minQuestions, maxQuestions };
 };
 
-const CODING_QUESTION_BANK = [
-  "How would you find duplicate rows in a large SQL table without hurting performance?",
-  "Can you explain how you'd reverse a singly linked list, and why that approach works?",
-  "How would you go about optimizing a database query that's running slowly in production?",
-  "What's the real difference between an INNER JOIN and a LEFT JOIN, and when would you use each?",
-  "How would you detect and fix a memory leak in a long-running Node.js server?",
-  "How would you design a database schema to avoid duplicate or inconsistent data across tables?",
-  "Can you explain the time complexity trade-off between using a hash map versus a sorted array for lookups?",
-];
-
 const FILLER_WORD_REGEX =
   /\b(um+|uh+|erm+|like|you know|i mean|basically|actually|so yeah|kind of|sort of)\b/gi;
 
@@ -159,6 +151,40 @@ const computeSpeakingMetrics = (answerText, durationSeconds) => {
     deliveryScore,
   };
 };
+
+// ---------------- DSA coding-question selection ----------------
+const pickCodingQuestion = (interview) => {
+  const alreadyUsedIds = interview.questions
+    .filter((q) => q.type === "coding" && q.dsaQuestionId)
+    .map((q) => q.dsaQuestionId);
+
+  const available = DSA_QUESTION_BANK.filter(
+    (q) => !alreadyUsedIds.includes(q.id),
+  );
+  const pool = available.length ? available : DSA_QUESTION_BANK;
+
+  const preferMedium = Math.random() < 0.6;
+  const preferredPool = pool.filter(
+    (q) => q.difficulty === (preferMedium ? "medium" : "easy"),
+  );
+  const finalPool = preferredPool.length ? preferredPool : pool;
+
+  return finalPool[Math.floor(Math.random() * finalPool.length)];
+};
+
+const buildCodingQuestion = (dsaQuestion) => ({
+  question: `Alright, let's move to a quick coding round — solve "${dsaQuestion.title}". You can write your solution in JavaScript, Python, C++, or Java, whichever you're most comfortable with.`,
+  difficulty: dsaQuestion.difficulty,
+  timeLimit: 600,
+  topicHint: "coding-question",
+  type: "coding",
+  dsaQuestionId: dsaQuestion.id,
+  title: dsaQuestion.title,
+  description: dsaQuestion.description,
+  topic: dsaQuestion.topic,
+  starterCode: dsaQuestion.starterCode,
+  sampleTestCases: dsaQuestion.testCases.slice(0, 2),
+});
 
 export const generateQuestion = async (req, res) => {
   try {
@@ -382,26 +408,13 @@ const decideNextStep = async (interview) => {
   const remainingSlots = interview.maxQuestions - askedCount;
 
   if (canAskCodingQuestion && remainingSlots <= 1) {
-    const askedTexts = interview.questions.map((q) => q.question);
-    const unusedBank = CODING_QUESTION_BANK.filter(
-      (q) => !askedTexts.includes(q),
-    );
-    const pool = unusedBank.length ? unusedBank : CODING_QUESTION_BANK;
-    const question = pool[Math.floor(Math.random() * pool.length)];
-
+    const dsaQuestion = pickCodingQuestion(interview);
     return {
       continueInterview: true,
-      nextQuestion: {
-        question,
-        difficulty: "medium",
-        timeLimit: 90,
-        topicHint: "coding-question",
-      },
+      nextQuestion: buildCodingQuestion(dsaQuestion),
     };
   }
 
-  // skipped answers never trigger a same-topic follow-up — a skip means
-  // "move on", not "this was weak, dig deeper"
   const eligibleFollowUp =
     !wasSkipped &&
     isRealTopic &&
@@ -431,21 +444,10 @@ const decideNextStep = async (interview) => {
   }
 
   if (action === "coding") {
-    const askedTexts = interview.questions.map((q) => q.question);
-    const unusedBank = CODING_QUESTION_BANK.filter(
-      (q) => !askedTexts.includes(q),
-    );
-    const pool = unusedBank.length ? unusedBank : CODING_QUESTION_BANK;
-    const question = pool[Math.floor(Math.random() * pool.length)];
-
+    const dsaQuestion = pickCodingQuestion(interview);
     return {
       continueInterview: true,
-      nextQuestion: {
-        question,
-        difficulty: "medium",
-        timeLimit: 90,
-        topicHint: "coding-question",
-      },
+      nextQuestion: buildCodingQuestion(dsaQuestion),
     };
   }
 
@@ -571,6 +573,56 @@ const recordTopic = (interview, topicHint) => {
   }
 };
 
+export const runCode = async (req, res) => {
+  try {
+    const { interviewId, questionIndex, code, language } = req.body;
+
+    if (!interviewId || questionIndex === undefined || !code || !language) {
+      return res.status(400).json({
+        message: "interviewId, questionIndex, code and language are required.",
+      });
+    }
+
+    const interview = await interviewModel.findById(interviewId);
+    if (!interview) {
+      return res.status(404).json({ message: "Interview not found" });
+    }
+
+    const question = interview.questions[questionIndex];
+    if (!question || question.type !== "coding" || !question.dsaQuestionId) {
+      return res.status(400).json({ message: "This is not a coding question." });
+    }
+
+    const dsaQuestion = DSA_QUESTION_BANK.find(
+      (q) => q.id === question.dsaQuestionId,
+    );
+    if (!dsaQuestion) {
+      return res.status(404).json({ message: "Question data not found." });
+    }
+
+    const sampleCases = dsaQuestion.testCases.slice(0, 2);
+    const runResult = await runTestCases({
+      language,
+      code,
+      testCases: sampleCases,
+    });
+
+    if (!runResult.supported) {
+      return res.status(200).json({
+        results: [],
+        supported: false,
+        message: runResult.message,
+      });
+    }
+
+    return res.status(200).json({ results: runResult.results, supported: true });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Failed to run code: ${error.message}`,
+    });
+  }
+};
+
 export const submitAnswer = async (req, res) => {
   try {
     const {
@@ -579,7 +631,8 @@ export const submitAnswer = async (req, res) => {
       answer,
       timeTaken,
       durationSeconds,
-      skipped, // NEW
+      skipped,
+      language,
     } = req.body;
 
     if (!interviewId || questionIndex === undefined || questionIndex === null) {
@@ -606,7 +659,8 @@ export const submitAnswer = async (req, res) => {
       return res.status(400).json({ message: "Invalid question index" });
     }
 
-    // ---- NEW case: candidate explicitly skipped this question ----
+    const isCodingQuestion = question.type === "coding";
+
     if (skipped) {
       question.score = 0;
       question.feedback = "Skipped by the candidate.";
@@ -632,10 +686,11 @@ export const submitAnswer = async (req, res) => {
       });
     }
 
-    // ---- case: no answer given ----
     if (!answer) {
       question.score = 0;
-      question.feedback = "You did not submit an answer.";
+      question.feedback = isCodingQuestion
+        ? "You did not submit any code."
+        : "You did not submit an answer.";
       question.answer = "";
 
       await interview.save();
@@ -656,11 +711,13 @@ export const submitAnswer = async (req, res) => {
       });
     }
 
-    // ---- case: time exceeded ----
     if (timeTaken > question.timeLimit) {
       question.score = 0;
-      question.feedback = "Time limit exceeded. Answer not evaluated.";
+      question.feedback = isCodingQuestion
+        ? "Time limit exceeded. Code not evaluated."
+        : "Time limit exceeded. Answer not evaluated.";
       question.answer = answer;
+      if (isCodingQuestion) question.language = language || null;
 
       await interview.save();
 
@@ -680,7 +737,219 @@ export const submitAnswer = async (req, res) => {
       });
     }
 
-    // ---- normal evaluation ----
+    if (isCodingQuestion) {
+      const dsaQuestion = DSA_QUESTION_BANK.find(
+        (q) => q.id === question.dsaQuestionId,
+      );
+
+      if (!dsaQuestion) {
+        question.answer = answer;
+        question.language = language || null;
+        question.score = 0;
+        question.feedback = "Could not grade this question — question data missing.";
+        await interview.save();
+
+        const { continueInterview, nextQuestion } =
+          await decideNextStep(interview);
+        if (continueInterview) {
+          recordTopic(interview, nextQuestion.topicHint);
+          interview.questions.push(nextQuestion);
+          await interview.save();
+        }
+
+        return res.status(200).json({
+          feedback: question.feedback,
+          isLast: !continueInterview,
+          nextQuestion: continueInterview ? nextQuestion : null,
+          speakingMetrics: null,
+        });
+      }
+
+      const runResult = await runTestCases({
+        language,
+        code: answer,
+        testCases: dsaQuestion.testCases,
+      });
+
+      if (!runResult.supported) {
+        const fallbackReviewMessages = [
+          {
+            role: "system",
+            content: `
+                You are a senior engineer reviewing code during a live interview. Automated
+                test execution isn't available for this language, so judge correctness,
+                communication, and confidence yourself, as carefully as you can from reading
+                the code.
+
+                Score these (0 to 10): confidence, communication, correctness.
+                finalScore = average, rounded to nearest whole number.
+
+                Feedback: 10-20 words, natural code-review tone.
+
+                Return ONLY JSON:
+                { "confidence": number, "communication": number, "correctness": number, "finalScore": number, "feedback": "..." }
+                `,
+          },
+          {
+            role: "user",
+            content: `Problem: ${dsaQuestion.title} — ${dsaQuestion.description}\nLanguage: ${language}\nCode:\n${answer}`,
+          },
+        ];
+
+        let fallbackParsed = null;
+        try {
+          const fbResponse = await askAi(fallbackReviewMessages);
+          const cleanedFb = fbResponse
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```$/, "")
+            .trim();
+          fallbackParsed = JSON.parse(cleanedFb);
+        } catch {
+          fallbackParsed = {
+            confidence: 5,
+            communication: 5,
+            correctness: 5,
+            finalScore: 5,
+            feedback: runResult.message || "Automated grading unavailable for this language.",
+          };
+        }
+
+        question.answer = answer;
+        question.language = language || null;
+        question.confidence = fallbackParsed.confidence;
+        question.communication = fallbackParsed.communication;
+        question.correctness = fallbackParsed.correctness;
+        question.score = fallbackParsed.finalScore;
+        question.feedback = fallbackParsed.feedback;
+
+        await interview.save();
+
+        const { continueInterview, nextQuestion } =
+          await decideNextStep(interview);
+        if (continueInterview) {
+          recordTopic(interview, nextQuestion.topicHint);
+          interview.questions.push(nextQuestion);
+          await interview.save();
+        }
+
+        return res.status(200).json({
+          feedback: question.feedback,
+          isLast: !continueInterview,
+          nextQuestion: continueInterview ? nextQuestion : null,
+          speakingMetrics: null,
+        });
+      }
+
+      const testResults = runResult.results;
+      const testsPassedCount = testResults.filter((r) => r.passed).length;
+      const testsTotalCount = testResults.length;
+
+      const correctness = testsTotalCount
+        ? Math.round((testsPassedCount / testsTotalCount) * 10)
+        : 0;
+
+      const reviewMessages = [
+        {
+          role: "system",
+          content: `
+              You are a senior software engineer doing a quick code review during a live interview.
+              You are given a candidate's code for a DSA problem, and you already know how many
+              of the hidden test cases it passed (that number is fixed and NOT yours to judge).
+
+              Score ONLY these two things (0 to 10):
+              1. communication – Is the code readable and reasonably well-structured (naming,
+                 organization, clarity)?
+              2. confidence – Does the approach look efficient and robust (reasonable time/space
+                 complexity, handles edge cases, not a lucky hack)?
+
+              Do NOT judge correctness — that has already been measured by running the code.
+
+              Feedback Rules:
+              - 10 to 20 words, natural code-review tone.
+              - Mention one concrete thing about the approach or code quality.
+              - Do NOT mention test pass/fail counts — that's added separately.
+
+              Return ONLY valid JSON:
+              {
+                "confidence": number,
+                "communication": number,
+                "feedback": "short code-review comment"
+              }
+              `,
+        },
+        {
+          role: "user",
+          content: `
+              Problem: ${dsaQuestion.title} — ${dsaQuestion.description}
+              Language: ${language || "not specified"}
+              Tests passed: ${testsPassedCount}/${testsTotalCount}
+
+              Candidate's code:
+              \`\`\`${language || ""}
+              ${answer}
+              \`\`\`
+              `,
+        },
+      ];
+
+      let reviewParsed = null;
+      try {
+        const reviewResponse = await askAi(reviewMessages);
+        const cleanedReview = reviewResponse
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/, "")
+          .trim();
+        reviewParsed = JSON.parse(cleanedReview);
+      } catch {
+        reviewParsed = {
+          confidence: correctness,
+          communication: correctness,
+          feedback:
+            testsPassedCount === testsTotalCount
+              ? "All test cases passed."
+              : `${testsPassedCount} of ${testsTotalCount} test cases passed.`,
+        };
+      }
+
+      const confidence = reviewParsed.confidence ?? correctness;
+      const communication = reviewParsed.communication ?? correctness;
+      const finalScore = Math.round(
+        (correctness + confidence + communication) / 3,
+      );
+
+      question.answer = answer;
+      question.language = language || null;
+      question.confidence = confidence;
+      question.communication = communication;
+      question.correctness = correctness;
+      question.score = finalScore;
+      question.testResults = testResults;
+      question.testsPassedCount = testsPassedCount;
+      question.testsTotalCount = testsTotalCount;
+      question.feedback = `${testsPassedCount}/${testsTotalCount} test cases passed. ${reviewParsed.feedback || ""}`.trim();
+
+      await interview.save();
+
+      const { continueInterview, nextQuestion } =
+        await decideNextStep(interview);
+
+      if (continueInterview) {
+        recordTopic(interview, nextQuestion.topicHint);
+        interview.questions.push(nextQuestion);
+        await interview.save();
+      }
+
+      return res.status(200).json({
+        feedback: question.feedback,
+        isLast: !continueInterview,
+        nextQuestion: continueInterview ? nextQuestion : null,
+        speakingMetrics: null,
+        testResults,
+        testsPassedCount,
+        testsTotalCount,
+      });
+    }
+
     const messages = [
       {
         role: "system",
@@ -825,10 +1094,13 @@ export const finishInterview = async (req, res) => {
       });
     }
 
-    // skipped questions don't count toward scoring — they represent
-    // topics the candidate opted out of, not weak answers
     const scorableQuestions = interview.questions.filter((q) => !q.skipped);
     const totalQuestions = scorableQuestions.length;
+
+    const verbalQuestions = scorableQuestions.filter(
+      (q) => q.type !== "coding",
+    );
+    const totalVerbalQuestions = verbalQuestions.length;
 
     let totalScore = 0;
     let totalConfidence = 0;
@@ -843,6 +1115,9 @@ export const finishInterview = async (req, res) => {
       totalConfidence += q.confidence || 0;
       totalCommunication += q.communication || 0;
       totalCorrectness += q.correctness || 0;
+    });
+
+    verbalQuestions.forEach((q) => {
       totalDeliveryScore += q.speakingMetrics?.deliveryScore || 0;
       totalWpm += q.speakingMetrics?.wordsPerMinute || 0;
       totalFillerWords += q.speakingMetrics?.fillerWordCount || 0;
@@ -856,10 +1131,10 @@ export const finishInterview = async (req, res) => {
     const avgCorrectness = totalQuestions
       ? totalCorrectness / totalQuestions
       : 0;
-    const avgDeliveryScore = totalQuestions
-      ? totalDeliveryScore / totalQuestions
+    const avgDeliveryScore = totalVerbalQuestions
+      ? totalDeliveryScore / totalVerbalQuestions
       : 0;
-    const avgWpm = totalQuestions ? totalWpm / totalQuestions : 0;
+    const avgWpm = totalVerbalQuestions ? totalWpm / totalVerbalQuestions : 0;
 
     interview.finalScore = finalScore;
     interview.status = "Completed";
@@ -882,7 +1157,13 @@ export const finishInterview = async (req, res) => {
         communication: q.communication || 0,
         correctness: q.correctness || 0,
         skipped: q.skipped || false,
-        speakingMetrics: q.speakingMetrics || null,
+        type: q.type || "verbal",
+        language: q.language || null,
+        answer: q.answer || "",
+        testsPassedCount: q.testsPassedCount || 0,
+        testsTotalCount: q.testsTotalCount || 0,
+        testResults: q.testResults || null,
+        speakingMetrics: q.type === "coding" ? null : q.speakingMetrics || null,
       })),
     });
   } catch (error) {
@@ -918,6 +1199,11 @@ export const getInterviewReport = async (req, res) => {
     const scorableQuestions = interview.questions.filter((q) => !q.skipped);
     const totalQuestions = scorableQuestions.length;
 
+    const verbalQuestions = scorableQuestions.filter(
+      (q) => q.type !== "coding",
+    );
+    const totalVerbalQuestions = verbalQuestions.length;
+
     let totalConfidence = 0;
     let totalCommunication = 0;
     let totalCorrectness = 0;
@@ -929,6 +1215,9 @@ export const getInterviewReport = async (req, res) => {
       totalConfidence += q.confidence || 0;
       totalCommunication += q.communication || 0;
       totalCorrectness += q.correctness || 0;
+    });
+
+    verbalQuestions.forEach((q) => {
       totalDeliveryScore += q.speakingMetrics?.deliveryScore || 0;
       totalWpm += q.speakingMetrics?.wordsPerMinute || 0;
       totalFillerWords += q.speakingMetrics?.fillerWordCount || 0;
@@ -941,10 +1230,10 @@ export const getInterviewReport = async (req, res) => {
     const avgCorrectness = totalQuestions
       ? totalCorrectness / totalQuestions
       : 0;
-    const avgDeliveryScore = totalQuestions
-      ? totalDeliveryScore / totalQuestions
+    const avgDeliveryScore = totalVerbalQuestions
+      ? totalDeliveryScore / totalVerbalQuestions
       : 0;
-    const avgWpm = totalQuestions ? totalWpm / totalQuestions : 0;
+    const avgWpm = totalVerbalQuestions ? totalWpm / totalVerbalQuestions : 0;
 
     interview.status = "Completed";
 

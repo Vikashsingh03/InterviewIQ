@@ -6,8 +6,27 @@ import { motion, AnimatePresence } from "motion/react";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 import axios from "axios";
 import { ServerUrl } from "../App";
-import { BsStars, BsSpeedometer2, BsSkipForward } from "react-icons/bs";
+import {
+  BsStars,
+  BsSpeedometer2,
+  BsSkipForward,
+  BsCode,
+  BsPlayFill,
+  BsCheckCircleFill,
+  BsXCircleFill,
+} from "react-icons/bs";
 import { IoWarningOutline } from "react-icons/io5";
+import Editor from "@monaco-editor/react";
+
+// must exactly match what the backend (codeExecution.service.js +
+// dsaQuestions.js starterCode) actually supports — adding a language here
+// without backend support will silently fail on submit
+const CODE_LANGUAGES = [
+  { value: "javascript", label: "JavaScript" },
+  { value: "python", label: "Python" },
+  { value: "cpp", label: "C++" },
+  { value: "java", label: "Java" },
+];
 
 function Step2Interview({ interviewData, onFinish }) {
   const { interviewId, userName } = interviewData;
@@ -30,6 +49,12 @@ function Step2Interview({ interviewData, onFinish }) {
   const [voiceGender, setVoiceGender] = useState("female");
   const [subtitle, setSubtitle] = useState("");
   const [lastDeliveryMetrics, setLastDeliveryMetrics] = useState(null);
+  const [codeLanguage, setCodeLanguage] = useState("javascript");
+
+  // ---- coding-round-specific state ----
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResults, setRunResults] = useState(null); // sample test run (Run button)
+  const [submitTestResults, setSubmitTestResults] = useState(null); // full grading result
 
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -37,6 +62,7 @@ function Step2Interview({ interviewData, onFinish }) {
   const answerWindowStartRef = useRef(null);
 
   const currentQuestion = questions[currentIndex];
+  const isCodingQuestion = currentQuestion?.type === "coding";
 
   useEffect(() => {
     const loadVoices = () => {
@@ -145,7 +171,7 @@ function Step2Interview({ interviewData, onFinish }) {
         // candidate's answer window starts NOW
         answerWindowStartRef.current = Date.now();
 
-        if (isMicOn) {
+        if (isMicOn && currentQuestion.type !== "coding") {
           startMic();
         }
       }
@@ -176,6 +202,36 @@ function Step2Interview({ interviewData, onFinish }) {
       setTimeLeft(currentQuestion.timeLimit || 60);
     }
   }, [currentIndex]);
+
+  // seed the editor with the question's OWN starter code (stdin parsing
+  // boilerplate matched to its test cases) — never a generic snippet
+  useEffect(() => {
+    if (isCodingQuestion && currentQuestion?.starterCode) {
+      const langToUse = currentQuestion.starterCode[codeLanguage]
+        ? codeLanguage
+        : "javascript";
+      setCodeLanguage(langToUse);
+      setAnswer(currentQuestion.starterCode[langToUse] || "");
+    }
+    setRunResults(null);
+    setSubmitTestResults(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, isCodingQuestion]);
+
+  // switching language mid-question swaps in that language's starter code
+  // — only if the candidate hasn't diverged from a starter snippet yet
+  const handleLanguageChange = (newLang) => {
+    if (!currentQuestion?.starterCode) return;
+
+    const currentStarters = Object.values(currentQuestion.starterCode);
+    const isStillStarter = currentStarters.includes(answer);
+
+    setCodeLanguage(newLang);
+    if (isStillStarter) {
+      setAnswer(currentQuestion.starterCode[newLang] || "");
+    }
+    setRunResults(null);
+  };
 
   useEffect(() => {
     if (!("webkitSpeechRecognition" in window)) {
@@ -262,6 +318,39 @@ function Step2Interview({ interviewData, onFinish }) {
     }
   };
 
+  // ---- "Run" button: check code against sample test cases only ----
+  const runCode = async () => {
+    if (isRunning || isSubmitting) return;
+    if (!isCodingQuestion) return;
+
+    setIsRunning(true);
+    setErrorMessage("");
+    setRunResults(null);
+
+    try {
+      const result = await axios.post(
+        ServerUrl + "/api/interview/run-code",
+        {
+          interviewId,
+          questionIndex: currentIndex,
+          code: answer,
+          language: codeLanguage,
+        },
+        { withCredentials: true },
+      );
+
+      setRunResults(result.data.results || []);
+    } catch (error) {
+      console.log(error);
+      setErrorMessage(
+        error?.response?.data?.message ||
+          "Couldn't run your code right now. Please try again.",
+      );
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   // ---- core flow: submit -> evaluate -> speak feedback -> auto-advance ----
   const submitAnswer = async () => {
     if (isSubmitting) return;
@@ -289,6 +378,7 @@ function Step2Interview({ interviewData, onFinish }) {
           answer,
           timeTaken: currentQuestion.timeLimit - timeLeft,
           durationSeconds,
+          ...(isCodingQuestion ? { language: codeLanguage } : {}),
         },
         { withCredentials: true },
       );
@@ -298,7 +388,18 @@ function Step2Interview({ interviewData, onFinish }) {
         isLast,
         nextQuestion,
         speakingMetrics,
+        testResults,
+        testsPassedCount,
+        testsTotalCount,
       } = result.data;
+
+      if (isCodingQuestion) {
+        setSubmitTestResults({
+          results: testResults || [],
+          passed: testsPassedCount ?? 0,
+          total: testsTotalCount ?? 0,
+        });
+      }
 
       if (!isLast && nextQuestion) {
         setQuestions((prev) => [...prev, nextQuestion]);
@@ -318,6 +419,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
       setAnswer("");
       setFeedback("");
+      setSubmitTestResults(null);
       setCurrentIndex((prev) => prev + 1);
     } catch (error) {
       console.log(error);
@@ -372,6 +474,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
       setAnswer("");
       setFeedback("");
+      setSubmitTestResults(null);
       setCurrentIndex((prev) => prev + 1);
     } catch (error) {
       console.log(error);
@@ -437,7 +540,7 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           )}
 
-          {micError && (
+          {micError && !isCodingQuestion && (
             <div className="w-full max-w-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3 shadow-sm flex items-start gap-2">
               <IoWarningOutline
                 size={16}
@@ -486,7 +589,7 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
 
             <AnimatePresence>
-              {lastDeliveryMetrics && (
+              {lastDeliveryMetrics && !isCodingQuestion && (
                 <>
                   <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
                   <motion.div
@@ -526,6 +629,21 @@ function Step2Interview({ interviewData, onFinish }) {
                 </>
               )}
             </AnimatePresence>
+
+            {/* live pass/fail summary after submitting a coding answer */}
+            {isCodingQuestion && submitTestResults && (
+              <>
+                <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/40 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {submitTestResults.passed}/{submitTestResults.total}
+                  </p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                    test cases passed
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -565,35 +683,162 @@ function Step2Interview({ interviewData, onFinish }) {
                     {currentQuestion.difficulty}
                   </span>
                 )}
+                {isCodingQuestion && (
+                  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold uppercase tracking-wide">
+                    <BsCode size={10} /> Coding Round
+                  </span>
+                )}
               </p>
               <div className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 leading-relaxed">
                 {currentQuestion?.question}
               </div>
+
+              {/* full problem statement + sample test cases, shown separately
+                  from the spoken intro line above */}
+              {isCodingQuestion && currentQuestion?.description && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                    {currentQuestion.description}
+                  </p>
+
+                  {currentQuestion.sampleTestCases?.length > 0 && (
+                    <div className="space-y-2">
+                      {currentQuestion.sampleTestCases.map((tc, i) => (
+                        <div
+                          key={i}
+                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-xs font-mono"
+                        >
+                          <p className="text-gray-400 dark:text-gray-500 mb-1">
+                            Example {i + 1}
+                          </p>
+                          <p className="text-gray-700 dark:text-gray-300">
+                            Input:{" "}
+                            <span className="whitespace-pre-wrap">
+                              {tc.input}
+                            </span>
+                          </p>
+                          <p className="text-gray-700 dark:text-gray-300">
+                            Output: {tc.expectedOutput}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          <textarea
-            placeholder="Type your answer here..."
-            onChange={(e) => setAnswer(e.target.value)}
-            value={answer}
-            disabled={controlsDisabled}
-            className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-base sm:text-lg resize-none outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-60"
-          />
+{isCodingQuestion ? (
+  <div className="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+    <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-950 px-3 py-2">
+      <span className="text-xs text-gray-300">Code Editor</span>
+      <select
+        value={codeLanguage}
+        onChange={(e) => handleLanguageChange(e.target.value)}
+        disabled={controlsDisabled}
+        className="bg-gray-700 text-gray-100 text-xs rounded-md px-2 py-1 outline-none disabled:opacity-60"
+      >
+        {CODE_LANGUAGES.map((l) => (
+          <option key={l.value} value={l.value}>
+            {l.label}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* fixed pixel height, not flex-1/100% — this is what stops the page
+        from jumping/scrolling on every keystroke as Monaco recalculates */}
+    <div style={{ height: "380px" }}>
+      <Editor
+        height="380px"
+        language={codeLanguage === "cpp" ? "cpp" : codeLanguage}
+        value={answer}
+        onChange={(value) => setAnswer(value ?? "")}
+        theme="vs-dark"
+        options={{
+          fontSize: 14,
+          minimap: { enabled: false },
+          readOnly: controlsDisabled,
+          scrollBeyondLastLine: false,
+          wordWrap: "on",
+          automaticLayout: true,
+        }}
+      />
+    </div>
+
+    {(isRunning || runResults) && (
+      <div className="bg-gray-900 border-t border-gray-700 p-3 max-h-40 overflow-y-auto">
+        {isRunning ? (
+          <p className="text-xs text-gray-400">Running your code...</p>
+        ) : (
+          <div className="space-y-2">
+            {runResults.map((r, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                {r.passed ? (
+                  <BsCheckCircleFill className="text-emerald-400 mt-0.5 shrink-0" size={12} />
+                ) : (
+                  <BsXCircleFill className="text-red-400 mt-0.5 shrink-0" size={12} />
+                )}
+                <div className="font-mono text-gray-300">
+                  <span>Test {i + 1}: {r.passed ? "Passed" : "Failed"}</span>
+                  {!r.passed && (
+                    <div className="text-gray-500 mt-0.5">
+                      {r.error ? (
+                        <span className="text-red-300">{r.error}</span>
+                      ) : (
+                        <>Expected: {r.expectedOutput} | Got: {r.actualOutput}</>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+) : (
+  <textarea
+    placeholder="Type your answer here..."
+    onChange={(e) => setAnswer(e.target.value)}
+    value={answer}
+    disabled={controlsDisabled}
+    className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-base sm:text-lg resize-none outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-60"
+  />
+)}
 
           {!feedback ? (
             <div className="flex items-center gap-3 mt-6">
-              <motion.button
-                onClick={toggleMic}
-                whileTap={{ scale: 0.9 }}
-                disabled={controlsDisabled}
-                className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg disabled:opacity-60"
-              >
-                {isMicOn ? (
-                  <FaMicrophone size={20} />
-                ) : (
-                  <FaMicrophoneSlash size={20} />
-                )}
-              </motion.button>
+              {!isCodingQuestion && (
+                <motion.button
+                  onClick={toggleMic}
+                  whileTap={{ scale: 0.9 }}
+                  disabled={controlsDisabled}
+                  className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg disabled:opacity-60"
+                >
+                  {isMicOn ? (
+                    <FaMicrophone size={20} />
+                  ) : (
+                    <FaMicrophoneSlash size={20} />
+                  )}
+                </motion.button>
+              )}
+
+              {isCodingQuestion && (
+                <motion.button
+                  onClick={runCode}
+                  disabled={controlsDisabled || isRunning}
+                  whileTap={{ scale: 0.95 }}
+                  className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition disabled:opacity-60"
+                >
+                  <BsPlayFill size={16} />
+                  <span className="hidden sm:inline">
+                    {isRunning ? "Running..." : "Run"}
+                  </span>
+                </motion.button>
+              )}
 
               <motion.button
                 onClick={submitAnswer}
@@ -612,8 +857,12 @@ function Step2Interview({ interviewData, onFinish }) {
                       }}
                       className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full"
                     />
-                    AI is evaluating your answer...
+                    {isCodingQuestion
+                      ? "Running tests & reviewing..."
+                      : "AI is evaluating your answer..."}
                   </>
+                ) : isCodingQuestion ? (
+                  "Submit Code"
                 ) : (
                   "Submit Answer"
                 )}
