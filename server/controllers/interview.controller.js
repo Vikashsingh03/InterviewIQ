@@ -5,6 +5,8 @@ import userModel from "../models/user.model.js";
 import interviewModel from "../models/interview.model.js";
 import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
 import { runTestCases } from "../services/codeExecution.service.js";
+// NEW: curated per-company interview-style guidance used to steer question generation
+import { getCompanyStyleGuidance } from "../data/companyStyles.js";
 
 export const analyzeResume = async (req, res) => {
   try {
@@ -188,11 +190,14 @@ const buildCodingQuestion = (dsaQuestion) => ({
 
 export const generateQuestion = async (req, res) => {
   try {
-    let { role, experience, mode, resumeText, projects, skills } = req.body;
+    // NEW: `company` is optional — when present it steers the interview's tone/style
+    let { role, experience, mode, company, resumeText, projects, skills } =
+      req.body;
 
     role = role?.trim();
     experience = experience?.trim();
     mode = mode?.trim();
+    company = company?.trim() || null;
 
     if (!role || !experience || !mode) {
       return res.status(400).json({
@@ -222,10 +227,17 @@ export const generateQuestion = async (req, res) => {
 
     const safeResume = resumeText?.trim() || "None";
 
+    // NEW: resolves to curated guidance for known companies, or a
+    // "use your own knowledge of this company" instruction otherwise.
+    // Returns null when no company was provided, in which case nothing
+    // company-related is injected into the prompt at all.
+    const companyGuidance = getCompanyStyleGuidance(company);
+
     const userPrompt = `
         Role : ${role},
         Experience : ${experience},
         InterviewMode : ${mode},
+        TargetCompany : ${company || "Not specified"},
         Projects : ${projectText},
         skills : ${skillsText},
         Resume : ${safeResume}
@@ -250,7 +262,18 @@ export const generateQuestion = async (req, res) => {
                 "introduce yourself" style question — asking the candidate to walk you through
                 their background, experience, and what they've worked on. Keep it broad and
                 welcoming — do NOT ask about a specific project or skill yet, that comes later.
-
+${
+  companyGuidance
+    ? `
+                COMPANY CONTEXT:
+                ${companyGuidance}
+                Let this shape the TONE and framing of your opening question (how formal,
+                how values-driven, how technical the interview feels).
+                Do NOT mention the company name in the question itself — the candidate already
+                knows where they're interviewing, and naming it makes the question sound scripted.
+`
+    : ""
+}
                 strict rules:
                 - The question must contain 20 to 35 words.
                 - It must be a single complete sentence (you may use one comma-joined clause).
@@ -301,6 +324,7 @@ export const generateQuestion = async (req, res) => {
       role,
       experience,
       mode,
+      company,
       resumeText: safeResume,
       projects: safeProjects,
       skills: safeSkills,
@@ -321,6 +345,8 @@ export const generateQuestion = async (req, res) => {
       interviewId: interview._id,
       creditsLeft: user.credits,
       userName: user.name,
+      role: interview.role,
+      company: interview.company,
       questions: interview.questions,
     });
   } catch (error) {
@@ -458,6 +484,20 @@ const decideNextStep = async (interview) => {
       : `This is an HR/behavioral interview — lean toward their role, ownership, decisions,
          and how they handled pressure or teamwork (STAR-style).`;
 
+  // NEW: keeps the company's interviewing tone consistent across every
+  // follow-up, not just the opening question
+  const companyGuidance = getCompanyStyleGuidance(interview.company);
+
+  const companyBlock = companyGuidance
+    ? `
+      COMPANY CONTEXT:
+      ${companyGuidance}
+      Let this shape HOW you probe (depth, framework, what you consider a strong answer).
+      It must NOT change the SUBJECT of the question — the topic decided above still wins.
+      Never mention the company name in the question itself.
+      `
+    : "";
+
   const instructionLine =
     action === "followup"
       ? `The candidate's last answer (topic: "${lastTopic}") scored low (${lastScore}/10) and felt
@@ -485,7 +525,7 @@ const decideNextStep = async (interview) => {
       ${instructionLine}
 
       ${modeGuidance}
-
+      ${companyBlock}
       Rules:
       - 15 to 30 words, one natural sentence (one comma-joined clause allowed).
       - Vary your conversational lead-in style across the interview — don't reuse the same
@@ -506,6 +546,7 @@ const decideNextStep = async (interview) => {
       Role: ${interview.role}
       Experience: ${interview.experience}
       Interview Mode: ${interview.mode}
+      Target Company: ${interview.company || "Not specified"}
 
       Conversation so far:
       ${history}
@@ -1142,6 +1183,9 @@ export const finishInterview = async (req, res) => {
     await interview.save();
 
     return res.status(200).json({
+      // NEW: report header shows "Software Engineer @ Google" when company is set
+      role: interview.role,
+      company: interview.company || null,
       finalScore: Number(finalScore.toFixed(1)),
       confidence: Number(avgConfidence.toFixed(1)),
       communication: Number(avgCommunication.toFixed(1)),
@@ -1178,7 +1222,8 @@ export const getMyInterviews = async (req, res) => {
     const interviews = await interviewModel
       .find({ userId: req.userId })
       .sort({ createdAt: -1 })
-      .select("role experience mode finalScore status createdAt");
+      // NEW: `company` included so the history list can show the target company
+      .select("role company experience mode finalScore status createdAt");
 
     return res.status(200).json(interviews);
   } catch (error) {
@@ -1238,6 +1283,11 @@ export const getInterviewReport = async (req, res) => {
     interview.status = "Completed";
 
     return res.status(200).json({
+      // NEW: same header fields as finishInterview so Step3Report works
+      // identically whether it's opened right after the interview or later
+      // from the history page
+      role: interview.role,
+      company: interview.company || null,
       finalScore: interview.finalScore,
       confidence: Number(avgConfidence.toFixed(1)),
       communication: Number(avgCommunication.toFixed(1)),

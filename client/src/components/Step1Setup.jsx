@@ -6,6 +6,7 @@ import {
   FaFileUpload,
   FaMicrophoneAlt,
   FaChartLine,
+  FaBuilding,
 } from "react-icons/fa";
 import { IoWarningOutline } from "react-icons/io5";
 import axios from "axios";
@@ -13,12 +14,30 @@ import { ServerUrl } from "../App";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../redux/userSlice";
 
+// shown as datalist suggestions — the field also accepts any free-typed
+// company name, the backend just won't have a curated style guide for it
+const SUGGESTED_COMPANIES = [
+  "Google",
+  "Amazon",
+  "Microsoft",
+  "Meta",
+  "Apple",
+  "Netflix",
+  "Flipkart",
+  "TCS",
+  "Infosys",
+  "Wipro",
+  "Accenture",
+  "Startup",
+];
+
 function Step1Setup({ onstart }) {
   const { userData } = useSelector((state) => state.user);
   const dispatch = useDispatch();
   const [role, setRole] = useState("");
   const [experience, setExperience] = useState("");
   const [mode, setMode] = useState("Technical");
+  const [company, setCompany] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -72,7 +91,7 @@ function Step1Setup({ onstart }) {
     try {
       const result = await axios.post(
         ServerUrl + "/api/interview/generate-questions",
-        { role, experience, mode, resumeText, projects, skills },
+        { role, experience, mode, company, resumeText, projects, skills },
         { withCredentials: true },
       );
 
@@ -200,6 +219,27 @@ function Step1Setup({ onstart }) {
               <option value="Technical"> Technical Interview</option>
               <option value="HR">HR Interview</option>
             </select>
+
+            <div className="relative">
+              <FaBuilding className="absolute top-4 left-4 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                list="company-suggestions"
+                placeholder="Target Company (optional, e.g. Google)"
+                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition"
+                onChange={(e) => setCompany(e.target.value)}
+                value={company}
+              />
+              <datalist id="company-suggestions">
+                {SUGGESTED_COMPANIES.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500 pl-1">
+                AI will tailor question style to that company's known
+                interview culture.
+              </p>
+            </div>
 
             {!analysisDone && (
               <motion.div

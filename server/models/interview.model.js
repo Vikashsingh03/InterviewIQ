@@ -55,6 +55,12 @@ const interviewSchema = new mongoose.Schema(
             enum: ["HR", "Technical"],
             required: true,
         },
+        // NEW: optional target company (e.g. "Google", "Amazon") — when set,
+        // steers question generation toward that company's known interview style
+        company: {
+            type: String,
+            default: null,
+        },
         resumeText: {
             type: String,
         },

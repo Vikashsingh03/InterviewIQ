@@ -516,11 +516,51 @@ function Step2Interview({ interviewData, onFinish }) {
   const controlsDisabled = isSubmitting || isIntroPhase || isAIPlaying;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-teal-100 dark:from-gray-950 dark:via-gray-950 dark:to-gray-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
-      <div className="w-full max-w-350 min-h-[80vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl dark:shadow-black/40 border border-gray-200 dark:border-gray-800 flex flex-col lg:flex-row overflow-hidden">
-        {/* video section */}
-        <div className="w-full lg:w-[35%] bg-white dark:bg-gray-900 flex flex-col items-center p-6 space-y-6 border-r border-gray-200 dark:border-gray-800">
-          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl">
+    <div className="min-h-screen bg-[#FAFAF9] dark:bg-[#0B0D10] flex items-center justify-center p-4 sm:p-6 transition-colors duration-300 font-[Manrope]">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+        .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
+        .viewfinder-corner { position: absolute; width: 22px; height: 22px; }
+        .viewfinder-corner::before, .viewfinder-corner::after { content: ''; position: absolute; background: #E8A94C; }
+        .corner-tl { top: -1px; left: -1px; }
+        .corner-tl::before { width: 2px; height: 100%; }
+        .corner-tl::after { height: 2px; width: 100%; }
+        .corner-tr { top: -1px; right: -1px; }
+        .corner-tr::before { width: 2px; height: 100%; right: 0; position: absolute; }
+        .corner-tr::after { height: 2px; width: 100%; }
+        .corner-bl { bottom: -1px; left: -1px; }
+        .corner-bl::before { width: 2px; height: 100%; }
+        .corner-bl::after { height: 2px; width: 100%; bottom: 0; position: absolute; }
+        .corner-br { bottom: -1px; right: -1px; }
+        .corner-br::before { width: 2px; height: 100%; right: 0; position: absolute; }
+        .corner-br::after { height: 2px; width: 100%; bottom: 0; position: absolute; }
+        @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .live-dot { animation: livePulse 1.6s ease-in-out infinite; }
+      `}</style>
+
+      <div className="w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#111318] rounded-[28px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] border border-[#EAEAE7] dark:border-[#22262E] flex flex-col lg:flex-row overflow-hidden">
+        {/* ============ LEFT: broadcast monitor panel ============ */}
+        <div className="w-full lg:w-[36%] bg-[#0F1115] flex flex-col p-6 sm:p-7 space-y-5 border-r border-[#22262E]">
+          {/* status strip */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
+              <span className="font-mono-studio text-[11px] tracking-wide text-[#E8A94C]">
+                {isAIPlaying ? "ON AIR" : "STANDBY"}
+              </span>
+            </div>
+            <span className="font-mono-studio text-[11px] text-[#5C6472]">
+              CAM 01 · {voiceGender === "male" ? "M" : "F"}
+            </span>
+          </div>
+
+          {/* viewfinder-framed video */}
+          <div className="relative rounded-2xl overflow-hidden bg-black">
+            <div className="viewfinder-corner corner-tl" />
+            <div className="viewfinder-corner corner-tr" />
+            <div className="viewfinder-corner corner-bl" />
+            <div className="viewfinder-corner corner-br" />
             <video
               src={videoSource}
               key={videoSource}
@@ -533,57 +573,46 @@ function Step2Interview({ interviewData, onFinish }) {
           </div>
 
           {subtitle && (
-            <div className="w-full max-w-md bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm">
-              <p className="text-gray-700 dark:text-gray-200 text-sm sm:text-base font-medium text-center leading-relaxed">
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-[#171A20] border border-[#262B34] rounded-xl px-4 py-3"
+            >
+              <p className="text-[#D8DCE3] text-sm leading-relaxed">
                 {subtitle}
               </p>
-            </div>
+            </motion.div>
           )}
 
           {micError && !isCodingQuestion && (
-            <div className="w-full max-w-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3 shadow-sm flex items-start gap-2">
+            <div className="bg-[#241C10] border border-[#4A3418] rounded-xl p-3 flex items-start gap-2">
               <IoWarningOutline
                 size={16}
-                className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0"
+                className="text-[#E8A94C] mt-0.5 shrink-0"
               />
-              <p className="text-amber-700 dark:text-amber-400 text-xs sm:text-sm leading-relaxed">
+              <p className="text-[#E8B96A] text-xs leading-relaxed">
                 {micError}
               </p>
             </div>
           )}
 
-          <div className="w-full max-w-md bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-5 shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Interview Status
-              </span>
-              {isAIPlaying && (
-                <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                  AI Speaking
-                </span>
-              )}
-            </div>
-
-            <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
-
-            <div className="flex justify-center items-center">
+          {/* countdown / status readout */}
+          <div className="bg-[#15181D] border border-[#262B34] rounded-2xl p-5 space-y-4">
+            <div className="flex justify-center">
               <Timer
                 timeLeft={timeLeft}
                 totalTime={currentQuestion?.timeLimit}
               />
             </div>
 
-            <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
+            <div className="h-px bg-[#22262E]" />
 
             <div className="text-center">
-              <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                Question {currentIndex + 1}
-              </span>
-              <div className="flex items-center justify-center gap-1.5 mt-2 text-xs text-gray-400 dark:text-gray-500">
-                <BsStars
-                  size={12}
-                  className="text-emerald-500 dark:text-emerald-400"
-                />
+              <p className="font-serif-display text-3xl text-[#EDEEF0]">
+                {String(currentIndex + 1).padStart(2, "0")}
+              </p>
+              <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-[#5C6472]">
+                <BsStars size={11} className="text-[#5EC8D8]" />
                 <span>AI adapts questions based on your answers</span>
               </div>
             </div>
@@ -591,36 +620,31 @@ function Step2Interview({ interviewData, onFinish }) {
             <AnimatePresence>
               {lastDeliveryMetrics && !isCodingQuestion && (
                 <>
-                  <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
+                  <div className="h-px bg-[#22262E]" />
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 rounded-xl p-4"
+                    className="bg-[#111827]/40 border border-[#5EC8D8]/25 rounded-xl p-4"
                   >
                     <div className="flex items-center gap-2 mb-3">
-                      <BsSpeedometer2
-                        className="text-emerald-600 dark:text-emerald-400"
-                        size={14}
-                      />
-                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                      <BsSpeedometer2 className="text-[#5EC8D8]" size={13} />
+                      <span className="font-mono-studio text-[11px] tracking-wide text-[#5EC8D8]">
                         {deliveryLabel(lastDeliveryMetrics.deliveryScore)}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-center">
                       <div>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                        <p className="font-mono-studio text-lg text-[#EDEEF0]">
                           {lastDeliveryMetrics.wordsPerMinute}
                         </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                          words/min
-                        </p>
+                        <p className="text-[10px] text-[#5C6472]">words/min</p>
                       </div>
                       <div>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                        <p className="font-mono-studio text-lg text-[#EDEEF0]">
                           {lastDeliveryMetrics.fillerWordCount}
                         </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                        <p className="text-[10px] text-[#5C6472]">
                           filler words
                         </p>
                       </div>
@@ -630,15 +654,14 @@ function Step2Interview({ interviewData, onFinish }) {
               )}
             </AnimatePresence>
 
-            {/* live pass/fail summary after submitting a coding answer */}
             {isCodingQuestion && submitTestResults && (
               <>
-                <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
-                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/40 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                <div className="h-px bg-[#22262E]" />
+                <div className="bg-[#111827]/40 border border-[#5EC8D8]/25 rounded-xl p-4 text-center">
+                  <p className="font-mono-studio text-2xl text-[#5EC8D8]">
                     {submitTestResults.passed}/{submitTestResults.total}
                   </p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                  <p className="text-[10px] text-[#5C6472] mt-1">
                     test cases passed
                   </p>
                 </div>
@@ -647,12 +670,16 @@ function Step2Interview({ interviewData, onFinish }) {
           </div>
         </div>
 
-        {/* text section */}
-
-        <div className="flex-1 flex flex-col p-4 sm:p-6 md:p-8 relative">
-          <h2 className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-6">
-            AI Smart Interview
-          </h2>
+        {/* ============ RIGHT: the desk ============ */}
+        <div className="flex-1 flex flex-col p-5 sm:p-8 md:p-10 relative bg-[#FAFAF9] dark:bg-[#111318]">
+          <div className="flex items-baseline justify-between mb-6">
+            <h2 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0]">
+              AI Smart Interview
+            </h2>
+            <span className="font-mono-studio text-xs text-[#8B92A0]">
+              {String(currentIndex + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}
+            </span>
+          </div>
 
           {errorMessage && (
             <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 flex items-start justify-between gap-3">
@@ -675,29 +702,26 @@ function Step2Interview({ interviewData, onFinish }) {
           )}
 
           {!isIntroPhase && (
-            <div className="relative mb-2 bg-gray-50 dark:bg-gray-800/60 p-4 sm:p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mb-2">
-                Question {currentIndex + 1}
+            <div className="mb-3 pb-6 border-b border-[#E5E4E0] dark:border-[#22262E]">
+              <div className="flex items-center gap-2 mb-3">
                 {currentQuestion?.difficulty && (
-                  <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="font-mono-studio px-2 py-0.5 rounded-md bg-[#F0F0EE] dark:bg-[#1B1E24] text-[#6B7280] dark:text-[#8B92A0] text-[10px] tracking-wide">
                     {currentQuestion.difficulty}
                   </span>
                 )}
                 {isCodingQuestion && (
-                  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold uppercase tracking-wide">
+                  <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#5EC8D8]/10 text-[#3B9CAA] dark:text-[#5EC8D8] text-[10px] tracking-wide">
                     <BsCode size={10} /> Coding Round
                   </span>
                 )}
-              </p>
-              <div className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 leading-relaxed">
+              </div>
+              <div className="font-serif-display text-xl sm:text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-snug">
                 {currentQuestion?.question}
               </div>
 
-              {/* full problem statement + sample test cases, shown separately
-                  from the spoken intro line above */}
               {isCodingQuestion && currentQuestion?.description && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+                <div className="mt-5 space-y-3">
+                  <p className="text-sm text-[#5C6472] dark:text-[#9AA1AC] whitespace-pre-line leading-relaxed">
                     {currentQuestion.description}
                   </p>
 
@@ -706,18 +730,18 @@ function Step2Interview({ interviewData, onFinish }) {
                       {currentQuestion.sampleTestCases.map((tc, i) => (
                         <div
                           key={i}
-                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-xs font-mono"
+                          className="bg-[#F5F5F3] dark:bg-[#0B0D10] border border-[#E5E4E0] dark:border-[#22262E] rounded-lg p-3 font-mono-studio text-xs"
                         >
-                          <p className="text-gray-400 dark:text-gray-500 mb-1">
+                          <p className="text-[#9AA1AC] mb-1">
                             Example {i + 1}
                           </p>
-                          <p className="text-gray-700 dark:text-gray-300">
+                          <p className="text-[#3D4148] dark:text-[#C7CBD1]">
                             Input:{" "}
                             <span className="whitespace-pre-wrap">
                               {tc.input}
                             </span>
                           </p>
-                          <p className="text-gray-700 dark:text-gray-300">
+                          <p className="text-[#3D4148] dark:text-[#C7CBD1]">
                             Output: {tc.expectedOutput}
                           </p>
                         </div>
@@ -729,99 +753,119 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           )}
 
-{isCodingQuestion ? (
-  <div className="flex flex-col rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-    <div className="flex items-center justify-between bg-gray-800 dark:bg-gray-950 px-3 py-2">
-      <span className="text-xs text-gray-300">Code Editor</span>
-      <select
-        value={codeLanguage}
-        onChange={(e) => handleLanguageChange(e.target.value)}
-        disabled={controlsDisabled}
-        className="bg-gray-700 text-gray-100 text-xs rounded-md px-2 py-1 outline-none disabled:opacity-60"
-      >
-        {CODE_LANGUAGES.map((l) => (
-          <option key={l.value} value={l.value}>
-            {l.label}
-          </option>
-        ))}
-      </select>
-    </div>
+          {isCodingQuestion ? (
+            <div className="flex flex-col rounded-2xl border border-[#22262E] overflow-hidden mt-3">
+              <div className="flex items-center justify-between bg-[#0F1115] px-4 py-2.5">
+                <span className="font-mono-studio text-[11px] text-[#8B92A0] tracking-wide">
+                  Code Editor
+                </span>
+                <select
+                  value={codeLanguage}
+                  onChange={(e) => handleLanguageChange(e.target.value)}
+                  disabled={controlsDisabled}
+                  className="font-mono-studio bg-[#1B1E24] text-[#D8DCE3] text-xs rounded-md px-2 py-1 outline-none disabled:opacity-60 border border-[#262B34]"
+                >
+                  {CODE_LANGUAGES.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-    {/* fixed pixel height, not flex-1/100% — this is what stops the page
-        from jumping/scrolling on every keystroke as Monaco recalculates */}
-    <div style={{ height: "380px" }}>
-      <Editor
-        height="380px"
-        language={codeLanguage === "cpp" ? "cpp" : codeLanguage}
-        value={answer}
-        onChange={(value) => setAnswer(value ?? "")}
-        theme="vs-dark"
-        options={{
-          fontSize: 14,
-          minimap: { enabled: false },
-          readOnly: controlsDisabled,
-          scrollBeyondLastLine: false,
-          wordWrap: "on",
-          automaticLayout: true,
-        }}
-      />
-    </div>
+              <div style={{ height: "380px" }}>
+                <Editor
+                  height="380px"
+                  language={codeLanguage === "cpp" ? "cpp" : codeLanguage}
+                  value={answer}
+                  onChange={(value) => setAnswer(value ?? "")}
+                  theme="vs-dark"
+                  options={{
+                    fontSize: 14,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    minimap: { enabled: false },
+                    readOnly: controlsDisabled,
+                    scrollBeyondLastLine: false,
+                    wordWrap: "on",
+                    automaticLayout: true,
+                  }}
+                />
+              </div>
 
-    {(isRunning || runResults) && (
-      <div className="bg-gray-900 border-t border-gray-700 p-3 max-h-40 overflow-y-auto">
-        {isRunning ? (
-          <p className="text-xs text-gray-400">Running your code...</p>
-        ) : (
-          <div className="space-y-2">
-            {runResults.map((r, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs">
-                {r.passed ? (
-                  <BsCheckCircleFill className="text-emerald-400 mt-0.5 shrink-0" size={12} />
-                ) : (
-                  <BsXCircleFill className="text-red-400 mt-0.5 shrink-0" size={12} />
-                )}
-                <div className="font-mono text-gray-300">
-                  <span>Test {i + 1}: {r.passed ? "Passed" : "Failed"}</span>
-                  {!r.passed && (
-                    <div className="text-gray-500 mt-0.5">
-                      {r.error ? (
-                        <span className="text-red-300">{r.error}</span>
-                      ) : (
-                        <>Expected: {r.expectedOutput} | Got: {r.actualOutput}</>
-                      )}
+              {(isRunning || runResults) && (
+                <div className="bg-[#0F1115] border-t border-[#22262E] p-3 max-h-40 overflow-y-auto">
+                  {isRunning ? (
+                    <p className="font-mono-studio text-xs text-[#8B92A0]">
+                      Running your code...
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {runResults.map((r, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs">
+                          {r.passed ? (
+                            <BsCheckCircleFill
+                              className="text-[#4ADE80] mt-0.5 shrink-0"
+                              size={12}
+                            />
+                          ) : (
+                            <BsXCircleFill
+                              className="text-[#F87171] mt-0.5 shrink-0"
+                              size={12}
+                            />
+                          )}
+                          <div className="font-mono-studio text-[#C7CBD1]">
+                            <span>
+                              Test {i + 1}: {r.passed ? "Passed" : "Failed"}
+                            </span>
+                            {!r.passed && (
+                              <div className="text-[#6B7280] mt-0.5">
+                                {r.error ? (
+                                  <span className="text-[#F0918D]">
+                                    {r.error}
+                                  </span>
+                                ) : (
+                                  <>
+                                    Expected: {r.expectedOutput} | Got:{" "}
+                                    {r.actualOutput}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-) : (
-  <textarea
-    placeholder="Type your answer here..."
-    onChange={(e) => setAnswer(e.target.value)}
-    value={answer}
-    disabled={controlsDisabled}
-    className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-base sm:text-lg resize-none outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-60"
-  />
-)}
+              )}
+            </div>
+          ) : (
+            <textarea
+              placeholder="Type your answer here..."
+              onChange={(e) => setAnswer(e.target.value)}
+              value={answer}
+              disabled={controlsDisabled}
+              className="flex-1 mt-3 bg-[#F5F5F3] dark:bg-[#0F1115] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#22262E] text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#5C6472] text-base leading-relaxed resize-none outline-none focus:border-[#E8A94C]/60 focus:ring-2 focus:ring-[#E8A94C]/15 transition disabled:opacity-60"
+            />
+          )}
 
           {!feedback ? (
             <div className="flex items-center gap-3 mt-6">
               {!isCodingQuestion && (
                 <motion.button
                   onClick={toggleMic}
-                  whileTap={{ scale: 0.9 }}
+                  whileTap={{ scale: 0.92 }}
                   disabled={controlsDisabled}
-                  className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg disabled:opacity-60"
+                  className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full shadow-lg disabled:opacity-60 transition ${
+                    isMicOn
+                      ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0B0D10]"
+                      : "bg-[#F0F0EE] dark:bg-[#1B1E24] text-[#8B92A0] border border-[#E5E4E0] dark:border-[#262B34]"
+                  }`}
                 >
                   {isMicOn ? (
-                    <FaMicrophone size={20} />
+                    <FaMicrophone size={19} />
                   ) : (
-                    <FaMicrophoneSlash size={20} />
+                    <FaMicrophoneSlash size={19} />
                   )}
                 </motion.button>
               )}
@@ -830,8 +874,8 @@ function Step2Interview({ interviewData, onFinish }) {
                 <motion.button
                   onClick={runCode}
                   disabled={controlsDisabled || isRunning}
-                  whileTap={{ scale: 0.95 }}
-                  className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition disabled:opacity-60"
+                  whileTap={{ scale: 0.96 }}
+                  className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-[#5EC8D8]/40 text-[#3B9CAA] dark:text-[#5EC8D8] font-medium hover:bg-[#5EC8D8]/5 transition disabled:opacity-60"
                 >
                   <BsPlayFill size={16} />
                   <span className="hidden sm:inline">
@@ -843,8 +887,8 @@ function Step2Interview({ interviewData, onFinish }) {
               <motion.button
                 onClick={submitAnswer}
                 disabled={controlsDisabled}
-                whileTap={{ scale: 0.9 }}
-                className="flex-1 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-semibold py-3 sm:py-4 rounded-2xl shadow-lg hover:opacity-90 transition disabled:opacity-70 flex items-center justify-center gap-2"
+                whileTap={{ scale: 0.97 }}
+                className="flex-1 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0B0D10] font-semibold py-3 sm:py-4 rounded-2xl shadow-lg hover:opacity-90 transition disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -855,7 +899,7 @@ function Step2Interview({ interviewData, onFinish }) {
                         duration: 1,
                         ease: "linear",
                       }}
-                      className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full"
+                      className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full"
                     />
                     {isCodingQuestion
                       ? "Running tests & reviewing..."
@@ -871,9 +915,8 @@ function Step2Interview({ interviewData, onFinish }) {
               <motion.button
                 onClick={skipQuestion}
                 disabled={controlsDisabled}
-                whileTap={{ scale: 0.9 }}
-                whileHover={{ scale: 1.03 }}
-                className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-60"
+                whileTap={{ scale: 0.92 }}
+                className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-[#E5E4E0] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] font-medium hover:bg-[#F5F5F3] dark:hover:bg-[#1B1E24] transition disabled:opacity-60"
               >
                 <BsSkipForward size={16} />
                 <span className="hidden sm:inline">Skip</span>
@@ -883,17 +926,17 @@ function Step2Interview({ interviewData, onFinish }) {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-6 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 p-5 rounded-2xl shadow-sm"
+              className="mt-6 bg-[#F5F5F3] dark:bg-[#15181D] border border-[#E8A94C]/30 p-5 rounded-2xl"
             >
-              <p className="text-emerald-700 dark:text-emerald-400 font-medium mb-4">
+              <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium mb-4 leading-relaxed">
                 {feedback}
               </p>
 
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm">
+              <div className="flex items-center gap-2 font-mono-studio text-[#B98A3F] dark:text-[#E8A94C] text-xs tracking-wide">
                 <motion.span
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                  className="w-3.5 h-3.5 border-2 border-emerald-300 dark:border-emerald-700 border-t-emerald-600 dark:border-t-emerald-400 rounded-full"
+                  className="w-3.5 h-3.5 border-2 border-[#E8A94C]/30 border-t-[#E8A94C] rounded-full"
                 />
                 {isLastQuestion
                   ? "Wrapping up your report..."

@@ -34,6 +34,8 @@ function Step3Report({ report }) {
     communication = 0,
     correctness = 0,
     questionWiseScore = [],
+    role,
+    company,
   } = report;
 
   const questionScoreData = questionWiseScore.map((score, index) => ({
@@ -203,6 +205,13 @@ function Step3Report({ report }) {
 
             <p className="text-gray-500 dark:text-gray-400 mt-2">
               Ai-powered performance insights
+              {role && (
+                <>
+                  {" "}
+                  — {role}
+                  {company ? ` @ ${company}` : ""}
+                </>
+              )}
             </p>
           </div>
         </div>
