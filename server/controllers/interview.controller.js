@@ -1303,3 +1303,27 @@ export const getInterviewReport = async (req, res) => {
       .json({ message: `failed to find currentUser Interview ${error}` });
   }
 };
+
+export const deleteInterview = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // only delete if it belongs to the logged-in user — prevents one
+    // candidate from deleting someone else's interview by guessing an id
+    const interview = await interviewModel.findOneAndDelete({
+      _id: id,
+      userId: req.userId,
+    });
+
+    if (!interview) {
+      return res.status(404).json({
+        message: "Interview not found or you don't have permission to delete it.",
+      });
+    }
+
+    return res.status(200).json({ message: "Interview deleted successfully." });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Couldn't delete the interview. Please try again." });
+  }
+};

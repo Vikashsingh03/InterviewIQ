@@ -14,8 +14,9 @@ import {
   BsPlayFill,
   BsCheckCircleFill,
   BsXCircleFill,
+  BsChevronDown,
 } from "react-icons/bs";
-import { IoWarningOutline } from "react-icons/io5";
+import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
 import Editor from "@monaco-editor/react";
 
 // must exactly match what the backend (codeExecution.service.js +
@@ -516,47 +517,71 @@ function Step2Interview({ interviewData, onFinish }) {
   const controlsDisabled = isSubmitting || isIntroPhase || isAIPlaying;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF9] dark:bg-[#0B0D10] flex items-center justify-center p-4 sm:p-6 transition-colors duration-300 font-[Manrope]">
+    <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        .studio-root, .studio-root * { font-family: 'Manrope', sans-serif; }
         .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
         .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
-        .viewfinder-corner { position: absolute; width: 22px; height: 22px; }
-        .viewfinder-corner::before, .viewfinder-corner::after { content: ''; position: absolute; background: #E8A94C; }
-        .corner-tl { top: -1px; left: -1px; }
-        .corner-tl::before { width: 2px; height: 100%; }
-        .corner-tl::after { height: 2px; width: 100%; }
-        .corner-tr { top: -1px; right: -1px; }
-        .corner-tr::before { width: 2px; height: 100%; right: 0; position: absolute; }
-        .corner-tr::after { height: 2px; width: 100%; }
-        .corner-bl { bottom: -1px; left: -1px; }
-        .corner-bl::before { width: 2px; height: 100%; }
-        .corner-bl::after { height: 2px; width: 100%; bottom: 0; position: absolute; }
-        .corner-br { bottom: -1px; right: -1px; }
-        .corner-br::before { width: 2px; height: 100%; right: 0; position: absolute; }
-        .corner-br::after { height: 2px; width: 100%; bottom: 0; position: absolute; }
-        @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .live-dot { animation: livePulse 1.6s ease-in-out infinite; }
+
+        .film-grain {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.035;
+          mix-blend-mode: overlay;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .viewfinder-corner { position: absolute; width: 20px; height: 20px; z-index: 2; }
+        .viewfinder-corner::before, .viewfinder-corner::after { content: ''; position: absolute; background: #E8A94C; box-shadow: 0 0 6px rgba(232,169,76,0.6); }
+        .corner-tl { top: 10px; left: 10px; }
+        .corner-tl::before { width: 2px; height: 100%; top: 0; left: 0; }
+        .corner-tl::after { height: 2px; width: 100%; top: 0; left: 0; }
+        .corner-tr { top: 10px; right: 10px; }
+        .corner-tr::before { width: 2px; height: 100%; top: 0; right: 0; }
+        .corner-tr::after { height: 2px; width: 100%; top: 0; right: 0; }
+        .corner-bl { bottom: 10px; left: 10px; }
+        .corner-bl::before { width: 2px; height: 100%; bottom: 0; left: 0; }
+        .corner-bl::after { height: 2px; width: 100%; bottom: 0; left: 0; }
+        .corner-br { bottom: 10px; right: 10px; }
+        .corner-br::before { width: 2px; height: 100%; bottom: 0; right: 0; }
+        .corner-br::after { height: 2px; width: 100%; bottom: 0; right: 0; }
+
+        @keyframes livePulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,169,76,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(232,169,76,0); } }
+        .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
+
+        .studio-select {
+          -webkit-appearance: none;
+          appearance: none;
+        }
+
+        .lang-select-wrap:hover .lang-caret { color: #E8A94C; }
       `}</style>
 
-      <div className="w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#111318] rounded-[28px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] border border-[#EAEAE7] dark:border-[#22262E] flex flex-col lg:flex-row overflow-hidden">
+      <div className="film-grain" />
+
+      <div className="studio-root w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] flex flex-col lg:flex-row overflow-hidden relative">
         {/* ============ LEFT: broadcast monitor panel ============ */}
-        <div className="w-full lg:w-[36%] bg-[#0F1115] flex flex-col p-6 sm:p-7 space-y-5 border-r border-[#22262E]">
+        <div className="w-full lg:w-[36%] bg-[#0C0E11] flex flex-col p-6 sm:p-7 space-y-5 border-r border-[#1E2229] relative">
           {/* status strip */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
-              <span className="font-mono-studio text-[11px] tracking-wide text-[#E8A94C]">
+              <span
+                className={`w-2 h-2 rounded-full bg-[#E8A94C] ${isAIPlaying ? "live-dot" : ""}`}
+              />
+              <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#E8A94C]">
                 {isAIPlaying ? "ON AIR" : "STANDBY"}
               </span>
             </div>
-            <span className="font-mono-studio text-[11px] text-[#5C6472]">
+            <span className="font-mono-studio text-[11px] text-[#565D68]">
               CAM 01 · {voiceGender === "male" ? "M" : "F"}
             </span>
           </div>
 
           {/* viewfinder-framed video */}
-          <div className="relative rounded-2xl overflow-hidden bg-black">
+          <div className="relative rounded-2xl overflow-hidden bg-black ring-1 ring-black/40">
             <div className="viewfinder-corner corner-tl" />
             <div className="viewfinder-corner corner-tr" />
             <div className="viewfinder-corner corner-bl" />
@@ -572,20 +597,25 @@ function Step2Interview({ interviewData, onFinish }) {
             />
           </div>
 
-          {subtitle && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-[#171A20] border border-[#262B34] rounded-xl px-4 py-3"
-            >
-              <p className="text-[#D8DCE3] text-sm leading-relaxed">
-                {subtitle}
-              </p>
-            </motion.div>
-          )}
+          <AnimatePresence mode="wait">
+            {subtitle && (
+              <motion.div
+                key={subtitle}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.25 }}
+                className="bg-[#15181D] border border-[#232830] rounded-xl px-4 py-3"
+              >
+                <p className="text-[#D8DCE3] text-sm leading-relaxed">
+                  {subtitle}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {micError && !isCodingQuestion && (
-            <div className="bg-[#241C10] border border-[#4A3418] rounded-xl p-3 flex items-start gap-2">
+            <div className="bg-[#211A0F] border border-[#493318] rounded-xl p-3 flex items-start gap-2">
               <IoWarningOutline
                 size={16}
                 className="text-[#E8A94C] mt-0.5 shrink-0"
@@ -597,7 +627,7 @@ function Step2Interview({ interviewData, onFinish }) {
           )}
 
           {/* countdown / status readout */}
-          <div className="bg-[#15181D] border border-[#262B34] rounded-2xl p-5 space-y-4">
+          <div className="bg-[#131519] border border-[#232830] rounded-2xl p-5 space-y-4">
             <div className="flex justify-center">
               <Timer
                 timeLeft={timeLeft}
@@ -605,13 +635,13 @@ function Step2Interview({ interviewData, onFinish }) {
               />
             </div>
 
-            <div className="h-px bg-[#22262E]" />
+            <div className="h-px bg-linear-to-r from-transparent via-[#232830] to-transparent" />
 
             <div className="text-center">
-              <p className="font-serif-display text-3xl text-[#EDEEF0]">
+              <p className="font-serif-display text-4xl text-[#EDEEF0] tracking-tight">
                 {String(currentIndex + 1).padStart(2, "0")}
               </p>
-              <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-[#5C6472]">
+              <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-[#565D68]">
                 <BsStars size={11} className="text-[#5EC8D8]" />
                 <span>AI adapts questions based on your answers</span>
               </div>
@@ -620,12 +650,12 @@ function Step2Interview({ interviewData, onFinish }) {
             <AnimatePresence>
               {lastDeliveryMetrics && !isCodingQuestion && (
                 <>
-                  <div className="h-px bg-[#22262E]" />
+                  <div className="h-px bg-linear-to-r from-transparent via-[#232830] to-transparent" />
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="bg-[#111827]/40 border border-[#5EC8D8]/25 rounded-xl p-4"
+                    className="bg-[#5EC8D8]/6 border border-[#5EC8D8]/25 rounded-xl p-4"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <BsSpeedometer2 className="text-[#5EC8D8]" size={13} />
@@ -638,13 +668,13 @@ function Step2Interview({ interviewData, onFinish }) {
                         <p className="font-mono-studio text-lg text-[#EDEEF0]">
                           {lastDeliveryMetrics.wordsPerMinute}
                         </p>
-                        <p className="text-[10px] text-[#5C6472]">words/min</p>
+                        <p className="text-[10px] text-[#565D68]">words/min</p>
                       </div>
                       <div>
                         <p className="font-mono-studio text-lg text-[#EDEEF0]">
                           {lastDeliveryMetrics.fillerWordCount}
                         </p>
-                        <p className="text-[10px] text-[#5C6472]">
+                        <p className="text-[10px] text-[#565D68]">
                           filler words
                         </p>
                       </div>
@@ -656,12 +686,12 @@ function Step2Interview({ interviewData, onFinish }) {
 
             {isCodingQuestion && submitTestResults && (
               <>
-                <div className="h-px bg-[#22262E]" />
-                <div className="bg-[#111827]/40 border border-[#5EC8D8]/25 rounded-xl p-4 text-center">
+                <div className="h-px bg-linear-to-r from-transparent via-[#232830] to-transparent" />
+                <div className="bg-[#5EC8D8]/6 border border-[#5EC8D8]/25 rounded-xl p-4 text-center">
                   <p className="font-mono-studio text-2xl text-[#5EC8D8]">
                     {submitTestResults.passed}/{submitTestResults.total}
                   </p>
-                  <p className="text-[10px] text-[#5C6472] mt-1">
+                  <p className="text-[10px] text-[#565D68] mt-1">
                     test cases passed
                   </p>
                 </div>
@@ -671,12 +701,15 @@ function Step2Interview({ interviewData, onFinish }) {
         </div>
 
         {/* ============ RIGHT: the desk ============ */}
-        <div className="flex-1 flex flex-col p-5 sm:p-8 md:p-10 relative bg-[#FAFAF9] dark:bg-[#111318]">
+        <div className="flex-1 flex flex-col p-5 sm:p-8 md:p-10 relative bg-[#F7F6F3] dark:bg-[#0F1115]">
           <div className="flex items-baseline justify-between mb-6">
-            <h2 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0]">
-              AI Smart Interview
-            </h2>
-            <span className="font-mono-studio text-xs text-[#8B92A0]">
+            <div className="flex items-center gap-2.5">
+              <IoSparklesSharp className="text-[#E8A94C]" size={18} />
+              <h2 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+                AI Smart Interview
+              </h2>
+            </div>
+            <span className="font-mono-studio text-xs text-[#8B92A0] tracking-wide">
               {String(currentIndex + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}
             </span>
           </div>
@@ -701,76 +734,90 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           )}
 
-          {!isIntroPhase && (
-            <div className="mb-3 pb-6 border-b border-[#E5E4E0] dark:border-[#22262E]">
-              <div className="flex items-center gap-2 mb-3">
-                {currentQuestion?.difficulty && (
-                  <span className="font-mono-studio px-2 py-0.5 rounded-md bg-[#F0F0EE] dark:bg-[#1B1E24] text-[#6B7280] dark:text-[#8B92A0] text-[10px] tracking-wide">
-                    {currentQuestion.difficulty}
-                  </span>
-                )}
-                {isCodingQuestion && (
-                  <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#5EC8D8]/10 text-[#3B9CAA] dark:text-[#5EC8D8] text-[10px] tracking-wide">
-                    <BsCode size={10} /> Coding Round
-                  </span>
-                )}
-              </div>
-              <div className="font-serif-display text-xl sm:text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-snug">
-                {currentQuestion?.question}
-              </div>
-
-              {isCodingQuestion && currentQuestion?.description && (
-                <div className="mt-5 space-y-3">
-                  <p className="text-sm text-[#5C6472] dark:text-[#9AA1AC] whitespace-pre-line leading-relaxed">
-                    {currentQuestion.description}
-                  </p>
-
-                  {currentQuestion.sampleTestCases?.length > 0 && (
-                    <div className="space-y-2">
-                      {currentQuestion.sampleTestCases.map((tc, i) => (
-                        <div
-                          key={i}
-                          className="bg-[#F5F5F3] dark:bg-[#0B0D10] border border-[#E5E4E0] dark:border-[#22262E] rounded-lg p-3 font-mono-studio text-xs"
-                        >
-                          <p className="text-[#9AA1AC] mb-1">
-                            Example {i + 1}
-                          </p>
-                          <p className="text-[#3D4148] dark:text-[#C7CBD1]">
-                            Input:{" "}
-                            <span className="whitespace-pre-wrap">
-                              {tc.input}
-                            </span>
-                          </p>
-                          <p className="text-[#3D4148] dark:text-[#C7CBD1]">
-                            Output: {tc.expectedOutput}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+          <AnimatePresence mode="wait">
+            {!isIntroPhase && (
+              <motion.div
+                key={currentIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="mb-3 pb-6 border-b border-[#E5E4E0] dark:border-[#1E2229]"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  {currentQuestion?.difficulty && (
+                    <span className="font-mono-studio px-2 py-0.5 rounded-md bg-[#EFEEEA] dark:bg-[#181B20] text-[#6B7280] dark:text-[#8B92A0] text-[10px] tracking-wide">
+                      {currentQuestion.difficulty}
+                    </span>
+                  )}
+                  {isCodingQuestion && (
+                    <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] text-[10px] tracking-wide">
+                      <BsCode size={10} /> Coding Round
+                    </span>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+                <div className="font-serif-display text-xl sm:text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-snug tracking-tight">
+                  {currentQuestion?.question}
+                </div>
+
+                {isCodingQuestion && currentQuestion?.description && (
+                  <div className="mt-5 space-y-3">
+                    <p className="text-sm text-[#5C6472] dark:text-[#9AA1AC] whitespace-pre-line leading-relaxed">
+                      {currentQuestion.description}
+                    </p>
+
+                    {currentQuestion.sampleTestCases?.length > 0 && (
+                      <div className="space-y-2">
+                        {currentQuestion.sampleTestCases.map((tc, i) => (
+                          <div
+                            key={i}
+                            className="bg-[#EFEEEA] dark:bg-[#0A0B0D] border border-[#E2E1DC] dark:border-[#1E2229] rounded-lg p-3 font-mono-studio text-xs"
+                          >
+                            <p className="text-[#9AA1AC] mb-1">
+                              Example {i + 1}
+                            </p>
+                            <p className="text-[#3D4148] dark:text-[#C7CBD1]">
+                              Input:{" "}
+                              <span className="whitespace-pre-wrap">
+                                {tc.input}
+                              </span>
+                            </p>
+                            <p className="text-[#3D4148] dark:text-[#C7CBD1]">
+                              Output: {tc.expectedOutput}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {isCodingQuestion ? (
-            <div className="flex flex-col rounded-2xl border border-[#22262E] overflow-hidden mt-3">
-              <div className="flex items-center justify-between bg-[#0F1115] px-4 py-2.5">
+            <div className="flex flex-col rounded-2xl border border-[#1E2229] overflow-hidden mt-3 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.25)]">
+              <div className="flex items-center justify-between bg-[#0C0E11] px-4 py-2.5">
                 <span className="font-mono-studio text-[11px] text-[#8B92A0] tracking-wide">
                   Code Editor
                 </span>
-                <select
-                  value={codeLanguage}
-                  onChange={(e) => handleLanguageChange(e.target.value)}
-                  disabled={controlsDisabled}
-                  className="font-mono-studio bg-[#1B1E24] text-[#D8DCE3] text-xs rounded-md px-2 py-1 outline-none disabled:opacity-60 border border-[#262B34]"
-                >
-                  {CODE_LANGUAGES.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="lang-select-wrap relative">
+                  <select
+                    value={codeLanguage}
+                    onChange={(e) => handleLanguageChange(e.target.value)}
+                    disabled={controlsDisabled}
+                    className="studio-select font-mono-studio bg-[#181B20] text-[#D8DCE3] text-xs rounded-md pl-2.5 pr-6 py-1.5 outline-none disabled:opacity-60 border border-[#262B34]"
+                  >
+                    {CODE_LANGUAGES.map((l) => (
+                      <option key={l.value} value={l.value}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                  <BsChevronDown
+                    size={9}
+                    className="lang-caret absolute right-2.5 top-1/2 -translate-y-1/2 text-[#565D68] pointer-events-none transition-colors"
+                  />
+                </div>
               </div>
 
               <div style={{ height: "380px" }}>
@@ -793,7 +840,7 @@ function Step2Interview({ interviewData, onFinish }) {
               </div>
 
               {(isRunning || runResults) && (
-                <div className="bg-[#0F1115] border-t border-[#22262E] p-3 max-h-40 overflow-y-auto">
+                <div className="bg-[#0C0E11] border-t border-[#1E2229] p-3 max-h-40 overflow-y-auto">
                   {isRunning ? (
                     <p className="font-mono-studio text-xs text-[#8B92A0]">
                       Running your code...
@@ -845,7 +892,7 @@ function Step2Interview({ interviewData, onFinish }) {
               onChange={(e) => setAnswer(e.target.value)}
               value={answer}
               disabled={controlsDisabled}
-              className="flex-1 mt-3 bg-[#F5F5F3] dark:bg-[#0F1115] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#22262E] text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#5C6472] text-base leading-relaxed resize-none outline-none focus:border-[#E8A94C]/60 focus:ring-2 focus:ring-[#E8A94C]/15 transition disabled:opacity-60"
+              className="flex-1 mt-3 bg-white dark:bg-[#0C0E11] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#1E2229] text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] text-base leading-relaxed resize-none outline-none focus:border-[#E8A94C]/50 focus:ring-4 focus:ring-[#E8A94C]/10 transition-all duration-200 disabled:opacity-60"
             />
           )}
 
@@ -856,10 +903,10 @@ function Step2Interview({ interviewData, onFinish }) {
                   onClick={toggleMic}
                   whileTap={{ scale: 0.92 }}
                   disabled={controlsDisabled}
-                  className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full shadow-lg disabled:opacity-60 transition ${
+                  className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full shadow-lg disabled:opacity-60 transition-all duration-200 ${
                     isMicOn
-                      ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0B0D10]"
-                      : "bg-[#F0F0EE] dark:bg-[#1B1E24] text-[#8B92A0] border border-[#E5E4E0] dark:border-[#262B34]"
+                      ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D]"
+                      : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#8B92A0] border border-[#E5E4E0] dark:border-[#262B34]"
                   }`}
                 >
                   {isMicOn ? (
@@ -875,7 +922,8 @@ function Step2Interview({ interviewData, onFinish }) {
                   onClick={runCode}
                   disabled={controlsDisabled || isRunning}
                   whileTap={{ scale: 0.96 }}
-                  className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-[#5EC8D8]/40 text-[#3B9CAA] dark:text-[#5EC8D8] font-medium hover:bg-[#5EC8D8]/5 transition disabled:opacity-60"
+                  whileHover={{ y: -1 }}
+                  className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-[#5EC8D8]/40 text-[#2E8494] dark:text-[#5EC8D8] font-medium hover:bg-[#5EC8D8]/5 transition-all duration-200 disabled:opacity-60"
                 >
                   <BsPlayFill size={16} />
                   <span className="hidden sm:inline">
@@ -888,7 +936,8 @@ function Step2Interview({ interviewData, onFinish }) {
                 onClick={submitAnswer}
                 disabled={controlsDisabled}
                 whileTap={{ scale: 0.97 }}
-                className="flex-1 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0B0D10] font-semibold py-3 sm:py-4 rounded-2xl shadow-lg hover:opacity-90 transition disabled:opacity-70 flex items-center justify-center gap-2"
+                whileHover={{ y: -1 }}
+                className="flex-1 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] font-semibold py-3 sm:py-4 rounded-2xl shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] hover:shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4)] transition-all duration-200 disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -916,7 +965,8 @@ function Step2Interview({ interviewData, onFinish }) {
                 onClick={skipQuestion}
                 disabled={controlsDisabled}
                 whileTap={{ scale: 0.92 }}
-                className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-[#E5E4E0] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] font-medium hover:bg-[#F5F5F3] dark:hover:bg-[#1B1E24] transition disabled:opacity-60"
+                whileHover={{ y: -1 }}
+                className="shrink-0 flex items-center gap-2 px-4 sm:px-5 py-3 sm:py-4 rounded-2xl border border-[#E5E4E0] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] font-medium hover:bg-white dark:hover:bg-[#181B20] transition-all duration-200 disabled:opacity-60"
               >
                 <BsSkipForward size={16} />
                 <span className="hidden sm:inline">Skip</span>
@@ -924,15 +974,15 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           ) : (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-6 bg-[#F5F5F3] dark:bg-[#15181D] border border-[#E8A94C]/30 p-5 rounded-2xl"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 bg-white dark:bg-[#131519] border border-[#E8A94C]/30 p-5 rounded-2xl shadow-[0_12px_30px_-16px_rgba(232,169,76,0.3)]"
             >
               <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium mb-4 leading-relaxed">
                 {feedback}
               </p>
 
-              <div className="flex items-center gap-2 font-mono-studio text-[#B98A3F] dark:text-[#E8A94C] text-xs tracking-wide">
+              <div className="flex items-center gap-2 font-mono-studio text-[#B27E2E] dark:text-[#E8A94C] text-xs tracking-wide">
                 <motion.span
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
