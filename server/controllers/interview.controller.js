@@ -1121,7 +1121,7 @@ export const submitAnswer = async (req, res) => {
 
 export const finishInterview = async (req, res) => {
   try {
-    const { interviewId } = req.body;
+    const { interviewId, proctoring } = req.body;
 
     if (!interviewId) {
       return res.status(400).json({ message: "interviewId is required." });
@@ -1133,6 +1133,25 @@ export const finishInterview = async (req, res) => {
       return res.status(404).json({
         message: "failed to find the interview",
       });
+    }
+
+    // store the proctoring summary the client accumulated during the
+    // interview — only counts/flags, never raw media
+    if (proctoring && typeof proctoring === "object") {
+      interview.proctoring = {
+        cameraEnabled: Boolean(proctoring.cameraEnabled),
+        cameraDenied: Boolean(proctoring.cameraDenied),
+        screenShared: Boolean(proctoring.screenShared),
+        locationShared: Boolean(proctoring.locationShared),
+        latitude:
+          typeof proctoring.latitude === "number" ? proctoring.latitude : null,
+        longitude:
+          typeof proctoring.longitude === "number"
+            ? proctoring.longitude
+            : null,
+        tabSwitchCount: Number(proctoring.tabSwitchCount) || 0,
+        fullscreenExitCount: Number(proctoring.fullscreenExitCount) || 0,
+      };
     }
 
     const scorableQuestions = interview.questions.filter((q) => !q.skipped);
@@ -1186,6 +1205,7 @@ export const finishInterview = async (req, res) => {
       // NEW: report header shows "Software Engineer @ Google" when company is set
       role: interview.role,
       company: interview.company || null,
+      proctoring: interview.proctoring || null,
       finalScore: Number(finalScore.toFixed(1)),
       confidence: Number(avgConfidence.toFixed(1)),
       communication: Number(avgCommunication.toFixed(1)),
@@ -1288,6 +1308,7 @@ export const getInterviewReport = async (req, res) => {
       // from the history page
       role: interview.role,
       company: interview.company || null,
+      proctoring: interview.proctoring || null,
       finalScore: interview.finalScore,
       confidence: Number(avgConfidence.toFixed(1)),
       communication: Number(avgCommunication.toFixed(1)),

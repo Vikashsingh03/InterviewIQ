@@ -38,6 +38,7 @@ function Step3Report({ report }) {
     questionWiseScore = [],
     role,
     company,
+    proctoring,
   } = report;
 
   const questionScoreData = questionWiseScore.map((score, index) => ({
@@ -319,6 +320,72 @@ function Step3Report({ report }) {
                 ))}
               </div>
             </motion.div>
+
+            {proctoring && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 }}
+                className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl shadow-[0_20px_50px_-24px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.6)] p-6 sm:p-8"
+              >
+                <h3 className="font-mono-studio text-[11px] tracking-wide text-[#8B92A0] mb-6 uppercase">
+                  Proctoring Summary
+                </h3>
+                <div className="space-y-3 text-sm">
+                  {[
+                    {
+                      label: "Camera",
+                      value: proctoring.cameraEnabled
+                        ? "Enabled"
+                        : proctoring.cameraDenied
+                          ? "Denied"
+                          : "Not used",
+                      ok: proctoring.cameraEnabled,
+                    },
+                    {
+                      label: "Screen share",
+                      value: proctoring.screenShared ? "Shared" : "Not shared",
+                      ok: proctoring.screenShared,
+                    },
+                    {
+                      label: "Location",
+                      value: proctoring.locationShared
+                        ? `${proctoring.latitude?.toFixed(2)}, ${proctoring.longitude?.toFixed(2)}`
+                        : "Not shared",
+                      ok: proctoring.locationShared,
+                    },
+                    {
+                      label: "Tab switches",
+                      value: proctoring.tabSwitchCount ?? 0,
+                      ok: (proctoring.tabSwitchCount ?? 0) === 0,
+                    },
+                    {
+                      label: "Fullscreen exits",
+                      value: proctoring.fullscreenExitCount ?? 0,
+                      ok: (proctoring.fullscreenExitCount ?? 0) === 0,
+                    },
+                  ].map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-[#3D4148] dark:text-[#C7CBD1]">
+                        {row.label}
+                      </span>
+                      <span
+                        className={`font-mono-studio text-xs font-semibold ${
+                          row.ok
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-amber-600 dark:text-amber-400"
+                        }`}
+                      >
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </div>
 
           <div className="lg:col-span-2 space-y-6">

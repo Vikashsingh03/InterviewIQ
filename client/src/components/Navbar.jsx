@@ -48,7 +48,7 @@ function Navbar() {
           so page content never hides behind it. */}
       <div
         aria-hidden="true"
-        className="h-[92px] sm:h-[112px] pointer-events-none select-none"
+        className="h-23 sm:h-28 pointer-events-none select-none"
       />
 
       {/* ACTUAL NAVBAR — fixed, fully transparent. The page underneath

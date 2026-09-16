@@ -59,11 +59,148 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const [errorMessage, setErrorMessage] = useState("");
 
+  // ---- proctoring state ----
+  const [proctoringReady, setProctoringReady] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [cameraError, setCameraError] = useState("");
+  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
+  const [screenShareActive, setScreenShareActive] = useState(false);
+  const [locationShared, setLocationShared] = useState(false);
+  const [locationCoords, setLocationCoords] = useState(null);
+  const [locationError, setLocationError] = useState("");
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [fullscreenExitCount, setFullscreenExitCount] = useState(0);
+  const selfVideoRef = useRef(null);
+  const pipVideoRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const wasFullscreenRef = useRef(false);
+
   const videoRef = useRef(null);
   const answerWindowStartRef = useRef(null);
 
   const currentQuestion = questions[currentIndex];
   const isCodingQuestion = currentQuestion?.type === "coding";
+
+  // ---- proctoring: camera ----
+  const requestCamera = async () => {
+    setCameraError("");
+    setIsRequestingCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+      setCameraStream(stream);
+    } catch (err) {
+      console.log(err);
+      setCameraError(
+        "Camera access was denied or isn't available. You can still continue without it.",
+      );
+    } finally {
+      setIsRequestingCamera(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selfVideoRef.current && cameraStream) {
+      selfVideoRef.current.srcObject = cameraStream;
+    }
+    if (pipVideoRef.current && cameraStream) {
+      pipVideoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream, proctoringReady]);
+
+  // ---- proctoring: one-time location (browsers never expose WiFi network
+  // details to web pages — this is just approximate GPS/IP-based coordinates,
+  // shared once, with explicit consent) ----
+  const requestLocation = () => {
+    setLocationError("");
+    if (!navigator.geolocation) {
+      setLocationError("Location isn't supported in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocationShared(true);
+        setLocationCoords({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      () => {
+        setLocationError(
+          "Location access was denied. You can still continue without it.",
+        );
+      },
+    );
+  };
+
+  // ---- proctoring: optional screen share ----
+  const requestScreenShare = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+      screenStreamRef.current = stream;
+      setScreenShareActive(true);
+      stream.getVideoTracks()[0].addEventListener("ended", () => {
+        setScreenShareActive(false);
+      });
+    } catch (err) {
+      console.log(err);
+      // declined — screen share stays optional, no hard error shown
+    }
+  };
+
+  // ---- proctoring: fullscreen enforcement ----
+  const enterFullscreen = () => {
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        wasFullscreenRef.current = true;
+      } else if (wasFullscreenRef.current) {
+        // only counts as an "exit" if we were actually in fullscreen before —
+        // avoids miscounting the very first (non-fullscreen) render
+        setFullscreenExitCount((c) => c + 1);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // ---- proctoring: tab-switch / window-blur detection ----
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setTabSwitchCount((c) => c + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  // stop all media tracks on unmount so the browser's camera/screen-share
+  // indicator turns off even if the candidate closes the tab mid-interview
+  useEffect(() => {
+    return () => {
+      cameraStream?.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const startInterviewFromGate = () => {
+    enterFullscreen();
+    setProctoringReady(true);
+  };
 
   useEffect(() => {
     const loadVoices = () => {
@@ -148,7 +285,7 @@ function Step2Interview({ interviewData, onFinish }) {
   };
 
   useEffect(() => {
-    if (!selectedVoice) {
+    if (!selectedVoice || !proctoringReady) {
       return;
     }
     const runIntro = async () => {
@@ -179,7 +316,7 @@ function Step2Interview({ interviewData, onFinish }) {
     };
 
     runIntro();
-  }, [selectedVoice, isIntroPhase, currentIndex]);
+  }, [selectedVoice, isIntroPhase, currentIndex, proctoringReady]);
 
   useEffect(() => {
     if (isIntroPhase) return;
@@ -303,11 +440,28 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const finishInterview = async () => {
     try {
+      const proctoring = {
+        cameraEnabled: Boolean(cameraStream),
+        cameraDenied: Boolean(cameraError),
+        screenShared: screenShareActive,
+        locationShared,
+        latitude: locationCoords?.latitude ?? null,
+        longitude: locationCoords?.longitude ?? null,
+        tabSwitchCount,
+        fullscreenExitCount,
+      };
+
       const result = await axios.post(
         ServerUrl + "/api/interview/finish",
-        { interviewId },
+        { interviewId, proctoring },
         { withCredentials: true },
       );
+
+      cameraStream?.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
 
       onFinish(result.data);
     } catch (error) {
@@ -516,6 +670,165 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const controlsDisabled = isSubmitting || isIntroPhase || isAIPlaying;
 
+  // ---- proctoring consent gate — shown before the interview starts ----
+  if (!proctoringReady) {
+    return (
+      <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+          .studio-root, .studio-root * { font-family: 'Manrope', sans-serif; }
+          .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+          .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
+          .viewfinder-corner { position: absolute; width: 20px; height: 20px; z-index: 2; }
+          .viewfinder-corner::before, .viewfinder-corner::after { content: ''; position: absolute; background: #E8A94C; box-shadow: 0 0 6px rgba(232,169,76,0.6); }
+          .corner-tl { top: 10px; left: 10px; }
+          .corner-tl::before { width: 2px; height: 100%; top: 0; left: 0; }
+          .corner-tl::after { height: 2px; width: 100%; top: 0; left: 0; }
+          .corner-tr { top: 10px; right: 10px; }
+          .corner-tr::before { width: 2px; height: 100%; top: 0; right: 0; }
+          .corner-tr::after { height: 2px; width: 100%; top: 0; right: 0; }
+          .corner-bl { bottom: 10px; left: 10px; }
+          .corner-bl::before { width: 2px; height: 100%; bottom: 0; left: 0; }
+          .corner-bl::after { height: 2px; width: 100%; bottom: 0; left: 0; }
+          .corner-br { bottom: 10px; right: 10px; }
+          .corner-br::before { width: 2px; height: 100%; bottom: 0; right: 0; }
+          .corner-br::after { height: 2px; width: 100%; bottom: 0; right: 0; }
+          @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+          .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
+        `}</style>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="studio-root w-full max-w-2xl bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden"
+        >
+          <div className="p-7 sm:p-9">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
+              <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#E8A94C]">
+                SETUP · BEFORE WE BEGIN
+              </span>
+            </div>
+            <h2 className="font-serif-display text-2xl sm:text-3xl text-gray-900 dark:text-white mb-2">
+              Let's set the room up
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-[#8B93A1] mb-8 leading-relaxed">
+              Just like a real proctored interview, we'll use your camera and
+              a few browser signals during the session. Everything here is
+              optional except entering fullscreen when you press start.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-5">
+              {/* camera */}
+              <div className="rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] bg-[#FAFAF8] dark:bg-[#0C0E11] p-4">
+                <div className="relative rounded-xl overflow-hidden bg-black aspect-video mb-3 ring-1 ring-black/40">
+                  <div className="viewfinder-corner corner-tl" />
+                  <div className="viewfinder-corner corner-tr" />
+                  <div className="viewfinder-corner corner-bl" />
+                  <div className="viewfinder-corner corner-br" />
+                  {cameraStream ? (
+                    <video
+                      ref={selfVideoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover scale-x-[-1]"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="font-mono-studio text-[10px] text-[#565D68]">
+                        NO SIGNAL
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-1">
+                  Camera
+                </p>
+                {cameraError && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                    {cameraError}
+                  </p>
+                )}
+                <button
+                  onClick={requestCamera}
+                  disabled={isRequestingCamera || !!cameraStream}
+                  className="w-full text-xs font-medium py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 disabled:opacity-60 transition"
+                >
+                  {cameraStream
+                    ? "Camera enabled"
+                    : isRequestingCamera
+                      ? "Requesting..."
+                      : "Enable camera"}
+                </button>
+              </div>
+
+              {/* other permissions */}
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] bg-[#FAFAF8] dark:bg-[#0C0E11] p-4">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-1">
+                    Location
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-[#8B93A1] mb-3">
+                    Approximate coordinates only, shared once — browsers
+                    can't expose your WiFi network name to a webpage.
+                  </p>
+                  {locationError && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                      {locationError}
+                    </p>
+                  )}
+                  <button
+                    onClick={requestLocation}
+                    disabled={locationShared}
+                    className="w-full text-xs font-medium py-2 rounded-lg border border-gray-300 dark:border-[#232830] text-gray-700 dark:text-gray-200 disabled:opacity-60 transition"
+                  >
+                    {locationShared ? "Location shared ✓" : "Share location"}
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] bg-[#FAFAF8] dark:bg-[#0C0E11] p-4">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-1">
+                    Screen share
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-[#8B93A1] mb-3">
+                    Optional — mirrors how technical rounds sometimes ask you
+                    to share your screen.
+                  </p>
+                  <button
+                    onClick={requestScreenShare}
+                    disabled={screenShareActive}
+                    className="w-full text-xs font-medium py-2 rounded-lg border border-gray-300 dark:border-[#232830] text-gray-700 dark:text-gray-200 disabled:opacity-60 transition"
+                  >
+                    {screenShareActive ? "Screen shared ✓" : "Share screen"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 dark:text-[#565D68] mt-6 leading-relaxed">
+              We'll also enter fullscreen and keep a light log of tab
+              switches during the session — shown in your report afterward,
+              just like a real proctored round.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-7">
+              <motion.button
+                onClick={startInterviewFromGate}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold py-3.5 rounded-2xl shadow-lg transition"
+              >
+                Start Interview
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
       <style>{`
@@ -595,6 +908,38 @@ function Step2Interview({ interviewData, onFinish }) {
               preload="auto"
               className="w-full h-auto object-cover"
             />
+
+            {/* candidate self-view PIP — visual only, never uploaded */}
+            {cameraStream && (
+              <div className="absolute bottom-2.5 right-2.5 w-16 sm:w-20 aspect-video rounded-lg overflow-hidden ring-1 ring-white/20 shadow-lg">
+                <video
+                  ref={pipVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover scale-x-[-1]"
+                />
+                <span className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-[#E8A94C] live-dot" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {cameraStream && (
+              <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                CAM ●
+              </span>
+            )}
+            {screenShareActive && (
+              <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                SCREEN ●
+              </span>
+            )}
+            {tabSwitchCount > 0 && (
+              <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                {tabSwitchCount} TAB SWITCH{tabSwitchCount > 1 ? "ES" : ""}
+              </span>
+            )}
           </div>
 
           <AnimatePresence mode="wait">

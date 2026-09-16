@@ -93,6 +93,20 @@ const interviewSchema = new mongoose.Schema(
             enum: ["Incompleted", "Completed"],
             default: "Incompleted",
         },
+        // NEW: proctoring summary captured during the live interview —
+        // built from consented browser APIs only (camera preview, one-time
+        // geolocation, tab-visibility and fullscreen events). We never store
+        // raw video/audio here, only the summary counts/flags.
+        proctoring: {
+            cameraEnabled: { type: Boolean, default: false },
+            cameraDenied: { type: Boolean, default: false },
+            screenShared: { type: Boolean, default: false },
+            locationShared: { type: Boolean, default: false },
+            latitude: { type: Number, default: null },
+            longitude: { type: Number, default: null },
+            tabSwitchCount: { type: Number, default: 0 },
+            fullscreenExitCount: { type: Number, default: 0 },
+        },
     },
     { timestamps: true },
 );
