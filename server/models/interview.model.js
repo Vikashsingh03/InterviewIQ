@@ -106,6 +106,7 @@ const interviewSchema = new mongoose.Schema(
             longitude: { type: Number, default: null },
             tabSwitchCount: { type: Number, default: 0 },
             fullscreenExitCount: { type: Number, default: 0 },
+            terminatedForMisbehavior: { type: Boolean, default: false },
         },
     },
     { timestamps: true },

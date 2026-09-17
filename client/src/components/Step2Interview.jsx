@@ -15,6 +15,7 @@ import {
   BsCheckCircleFill,
   BsXCircleFill,
   BsChevronDown,
+  BsFullscreen,
 } from "react-icons/bs";
 import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
 import Editor from "@monaco-editor/react";
@@ -28,6 +29,9 @@ const CODE_LANGUAGES = [
   { value: "cpp", label: "C++" },
   { value: "java", label: "Java" },
 ];
+
+// leaving fullscreen this many times ends the interview
+const MAX_FULLSCREEN_EXITS = 3;
 
 function Step2Interview({ interviewData, onFinish }) {
   const { interviewId, userName } = interviewData;
@@ -70,16 +74,35 @@ function Step2Interview({ interviewData, onFinish }) {
   const [locationError, setLocationError] = useState("");
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [fullscreenExitCount, setFullscreenExitCount] = useState(0);
+
+  // ---- fullscreen strike system ----
+  // { count, isFinal } — drives the warning modal + the AI's spoken warning
+  const [fullscreenWarning, setFullscreenWarning] = useState(null);
+  const [isTerminated, setIsTerminated] = useState(false);
+
   const selfVideoRef = useRef(null);
   const pipVideoRef = useRef(null);
   const screenStreamRef = useRef(null);
   const wasFullscreenRef = useRef(false);
+
+  // refs mirror state for use inside the native fullscreen listener, which
+  // otherwise closes over stale values
+  const fullscreenExitCountRef = useRef(0);
+  const proctoringReadyRef = useRef(false);
+  const terminatedRef = useRef(false);
+  // true while we're intentionally ending the interview — stops our own
+  // exitFullscreen() call from being counted as a violation
+  const isFinishingRef = useRef(false);
 
   const videoRef = useRef(null);
   const answerWindowStartRef = useRef(null);
 
   const currentQuestion = questions[currentIndex];
   const isCodingQuestion = currentQuestion?.type === "coding";
+
+  useEffect(() => {
+    proctoringReadyRef.current = proctoringReady;
+  }, [proctoringReady]);
 
   // ---- proctoring: camera ----
   const requestCamera = async () => {
@@ -164,12 +187,32 @@ function Step2Interview({ interviewData, onFinish }) {
     const handleFullscreenChange = () => {
       if (document.fullscreenElement) {
         wasFullscreenRef.current = true;
-      } else if (wasFullscreenRef.current) {
-        // only counts as an "exit" if we were actually in fullscreen before —
-        // avoids miscounting the very first (non-fullscreen) render
-        setFullscreenExitCount((c) => c + 1);
+        return;
+      }
+
+      // only counts as an "exit" if we were actually in fullscreen before —
+      // avoids miscounting the very first (non-fullscreen) render
+      if (!wasFullscreenRef.current) return;
+      // our own exitFullscreen() at the end of the interview isn't a violation
+      if (isFinishingRef.current) return;
+      // ignore anything that happens before the interview actually starts
+      if (!proctoringReadyRef.current) return;
+      // already terminated — no more strikes
+      if (terminatedRef.current) return;
+
+      const nextCount = fullscreenExitCountRef.current + 1;
+      fullscreenExitCountRef.current = nextCount;
+      setFullscreenExitCount(nextCount);
+
+      if (nextCount >= MAX_FULLSCREEN_EXITS) {
+        terminatedRef.current = true;
+        setIsTerminated(true);
+        setFullscreenWarning({ count: nextCount, isFinal: true });
+      } else {
+        setFullscreenWarning({ count: nextCount, isFinal: false });
       }
     };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
@@ -269,7 +312,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
       utterance.onend = () => {
         videoRef.current?.pause();
-        videoRef.current.currentTime = 0;
+        if (videoRef.current) videoRef.current.currentTime = 0;
         setIsAIPlaying(false);
 
         setTimeout(() => {
@@ -288,6 +331,8 @@ function Step2Interview({ interviewData, onFinish }) {
     if (!selectedVoice || !proctoringReady) {
       return;
     }
+    if (terminatedRef.current) return;
+
     const runIntro = async () => {
       if (isIntroPhase) {
         await speakText(
@@ -322,6 +367,11 @@ function Step2Interview({ interviewData, onFinish }) {
     if (isIntroPhase) return;
     if (!currentQuestion) return;
     if (isSubmitting) return;
+    // pause the clock while a fullscreen warning is on screen — it isn't
+    // fair to burn the candidate's answer time while they're blocked
+    if (fullscreenWarning) return;
+    if (isTerminated) return;
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 0) {
@@ -333,7 +383,7 @@ function Step2Interview({ interviewData, onFinish }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isIntroPhase, currentIndex, isSubmitting]);
+  }, [isIntroPhase, currentIndex, isSubmitting, fullscreenWarning, isTerminated]);
 
   useEffect(() => {
     if (!isIntroPhase && currentQuestion) {
@@ -438,7 +488,11 @@ function Step2Interview({ interviewData, onFinish }) {
     setIsMicOn(!isMicOn);
   };
 
-  const finishInterview = async () => {
+  const finishInterview = async ({ terminatedForMisbehavior = false } = {}) => {
+    // set before anything else so our own exitFullscreen() below doesn't
+    // register as a violation
+    isFinishingRef.current = true;
+
     try {
       const proctoring = {
         cameraEnabled: Boolean(cameraStream),
@@ -448,7 +502,8 @@ function Step2Interview({ interviewData, onFinish }) {
         latitude: locationCoords?.latitude ?? null,
         longitude: locationCoords?.longitude ?? null,
         tabSwitchCount,
-        fullscreenExitCount,
+        fullscreenExitCount: fullscreenExitCountRef.current,
+        terminatedForMisbehavior,
       };
 
       const result = await axios.post(
@@ -466,10 +521,50 @@ function Step2Interview({ interviewData, onFinish }) {
       onFinish(result.data);
     } catch (error) {
       console.log(error);
+      isFinishingRef.current = false;
       setErrorMessage(
         error?.response?.data?.message ||
           "Couldn't finish the interview. Please try again.",
       );
+    }
+  };
+
+  // ---- fullscreen strike: speak the warning, or end the interview ----
+  useEffect(() => {
+    if (!fullscreenWarning) return;
+
+    let cancelled = false;
+
+    const handle = async () => {
+      stopMic();
+      window.speechSynthesis.cancel();
+
+      if (fullscreenWarning.isFinal) {
+        await speakText(
+          `${userName}, you have left fullscreen mode ${MAX_FULLSCREEN_EXITS} times. I have to end this interview here.`,
+        );
+        if (cancelled) return;
+        await finishInterview({ terminatedForMisbehavior: true });
+      } else {
+        await speakText(
+          `Please stay in fullscreen mode. This is warning ${fullscreenWarning.count} of ${MAX_FULLSCREEN_EXITS}. If you leave fullscreen again, the interview will be ended.`,
+        );
+      }
+    };
+
+    handle();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreenWarning]);
+
+  const dismissWarningAndResume = () => {
+    enterFullscreen();
+    setFullscreenWarning(null);
+    if (isMicOn && !isCodingQuestion) {
+      setTimeout(() => startMic(), 400);
     }
   };
 
@@ -511,6 +606,7 @@ function Step2Interview({ interviewData, onFinish }) {
     if (isSubmitting) return;
     if (!currentQuestion) return;
     if (isIntroPhase || isAIPlaying) return;
+    if (isTerminated || fullscreenWarning) return;
 
     stopMic();
     setIsSubmitting(true);
@@ -563,9 +659,14 @@ function Step2Interview({ interviewData, onFinish }) {
       setLastDeliveryMetrics(speakingMetrics || null);
       setFeedback(fb);
 
+      // if they got terminated mid-evaluation, don't keep going
+      if (terminatedRef.current) return;
+
       // speak the feedback addressed to the candidate, then auto-advance —
       // no manual "Next Question" click needed
       await speakText(`Thank you ${userName}. ${fb}`);
+
+      if (terminatedRef.current) return;
 
       if (isLast) {
         await finishInterview();
@@ -592,6 +693,7 @@ function Step2Interview({ interviewData, onFinish }) {
     if (isSubmitting) return;
     if (!currentQuestion) return;
     if (isIntroPhase || isAIPlaying) return;
+    if (isTerminated || fullscreenWarning) return;
 
     stopMic();
     setIsSubmitting(true);
@@ -620,7 +722,11 @@ function Step2Interview({ interviewData, onFinish }) {
       setLastDeliveryMetrics(null);
       setFeedback(fb || "No problem, let's move on.");
 
+      if (terminatedRef.current) return;
+
       await speakText(fb || "No problem, let's move on to the next question.");
+
+      if (terminatedRef.current) return;
 
       if (isLast) {
         await finishInterview();
@@ -645,10 +751,12 @@ function Step2Interview({ interviewData, onFinish }) {
   useEffect(() => {
     if (isIntroPhase) return;
     if (!currentQuestion) return;
+    if (fullscreenWarning || isTerminated) return;
 
     if (timeLeft === 0 && !isSubmitting && !feedback) {
       submitAnswer();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
   useEffect(() => {
@@ -668,7 +776,8 @@ function Step2Interview({ interviewData, onFinish }) {
     return "Work on pacing & fillers";
   };
 
-  const controlsDisabled = isSubmitting || isIntroPhase || isAIPlaying;
+  const controlsDisabled =
+    isSubmitting || isIntroPhase || isAIPlaying || !!fullscreenWarning || isTerminated;
 
   // ---- proctoring consent gate — shown before the interview starts ----
   if (!proctoringReady) {
@@ -807,11 +916,19 @@ function Step2Interview({ interviewData, onFinish }) {
               </div>
             </div>
 
-            <p className="text-xs text-gray-400 dark:text-[#565D68] mt-6 leading-relaxed">
-              We'll also enter fullscreen and keep a light log of tab
-              switches during the session — shown in your report afterward,
-              just like a real proctored round.
-            </p>
+            <div className="mt-6 rounded-2xl border border-[#E8A94C]/30 bg-[#E8A94C]/5 p-4 flex items-start gap-3">
+              <IoWarningOutline
+                size={17}
+                className="text-[#B27E2E] dark:text-[#E8A94C] mt-0.5 shrink-0"
+              />
+              <p className="text-xs text-[#8A6A2F] dark:text-[#E8B96A] leading-relaxed">
+                The interview runs in fullscreen. If you leave fullscreen,
+                you'll get a warning — after{" "}
+                <strong>{MAX_FULLSCREEN_EXITS} exits</strong> the session is
+                ended automatically and your report will be marked
+                unsuccessful. Tab switches are logged too.
+              </p>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-7">
               <motion.button
@@ -874,6 +991,104 @@ function Step2Interview({ interviewData, onFinish }) {
       `}</style>
 
       <div className="film-grain" />
+
+      {/* ============ fullscreen violation modal ============ */}
+      <AnimatePresence>
+        {fullscreenWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-999 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.25 }}
+              className="studio-root w-full max-w-md bg-white dark:bg-[#0F1115] rounded-3xl border border-[#EAE9E5] dark:border-[#1E2229] shadow-2xl overflow-hidden"
+            >
+              <div
+                className={`h-1.5 ${
+                  fullscreenWarning.isFinal ? "bg-red-500" : "bg-[#E8A94C]"
+                }`}
+              />
+              <div className="p-7">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      fullscreenWarning.isFinal
+                        ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                        : "bg-[#E8A94C]/15 text-[#B27E2E] dark:text-[#E8A94C]"
+                    }`}
+                  >
+                    <IoWarningOutline size={20} />
+                  </div>
+                  <span
+                    className={`font-mono-studio text-[11px] tracking-[0.08em] ${
+                      fullscreenWarning.isFinal
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-[#B27E2E] dark:text-[#E8A94C]"
+                    }`}
+                  >
+                    {fullscreenWarning.isFinal
+                      ? "SESSION TERMINATED"
+                      : `WARNING ${fullscreenWarning.count} OF ${MAX_FULLSCREEN_EXITS}`}
+                  </span>
+                </div>
+
+                <h3 className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] mb-2.5">
+                  {fullscreenWarning.isFinal
+                    ? "Interview ended"
+                    : "You left fullscreen mode"}
+                </h3>
+
+                <p className="text-sm text-[#5C6472] dark:text-[#8B93A1] leading-relaxed mb-6">
+                  {fullscreenWarning.isFinal ? (
+                    <>
+                      You exited fullscreen {MAX_FULLSCREEN_EXITS} times during
+                      this interview. The session has been ended and your report
+                      will be marked as unsuccessful.
+                    </>
+                  ) : (
+                    <>
+                      This interview must stay in fullscreen. Your timer is
+                      paused right now. If you leave fullscreen{" "}
+                      {MAX_FULLSCREEN_EXITS - fullscreenWarning.count} more
+                      time{MAX_FULLSCREEN_EXITS - fullscreenWarning.count > 1 ? "s" : ""}
+                      , the interview will end automatically.
+                    </>
+                  )}
+                </p>
+
+                {fullscreenWarning.isFinal ? (
+                  <div className="flex items-center gap-2 font-mono-studio text-[#8B92A0] text-xs">
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1,
+                        ease: "linear",
+                      }}
+                      className="w-3.5 h-3.5 border-2 border-[#8B92A0]/30 border-t-[#8B92A0] rounded-full"
+                    />
+                    Generating your report...
+                  </div>
+                ) : (
+                  <motion.button
+                    onClick={dismissWarningAndResume}
+                    whileTap={{ scale: 0.97 }}
+                    className="w-full flex items-center justify-center gap-2 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] font-semibold py-3.5 rounded-2xl shadow-lg transition"
+                  >
+                    <BsFullscreen size={14} />
+                    Return to fullscreen & continue
+                  </motion.button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="studio-root w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] flex flex-col lg:flex-row overflow-hidden relative">
         {/* ============ LEFT: broadcast monitor panel ============ */}
@@ -938,6 +1153,11 @@ function Step2Interview({ interviewData, onFinish }) {
             {tabSwitchCount > 0 && (
               <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 {tabSwitchCount} TAB SWITCH{tabSwitchCount > 1 ? "ES" : ""}
+              </span>
+            )}
+            {fullscreenExitCount > 0 && (
+              <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20">
+                FS EXIT {fullscreenExitCount}/{MAX_FULLSCREEN_EXITS}
               </span>
             )}
           </div>

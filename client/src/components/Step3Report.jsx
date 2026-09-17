@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { IoSparklesSharp } from "react-icons/io5";
+import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
 import { BsCode } from "react-icons/bs";
 
 function Step3Report({ report }) {
@@ -41,6 +41,8 @@ function Step3Report({ report }) {
     proctoring,
   } = report;
 
+  const wasTerminated = Boolean(proctoring?.terminatedForMisbehavior);
+
   const questionScoreData = questionWiseScore.map((score, index) => ({
     name: `Q${index + 1}`,
     score: score.score || 0,
@@ -52,9 +54,6 @@ function Step3Report({ report }) {
     { label: "Correctness", value: correctness },
   ];
 
-  // single source of truth for the score tiers — used for the headline
-  // text, the PDF advice section, and the progress-bar color, so all
-  // three always agree on where "excellent" starts.
   let performanceText = "";
   let shortTagline = "";
   let progressColor = "";
@@ -100,6 +99,22 @@ function Step3Report({ report }) {
     doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2);
 
     currentY += 15;
+
+    // ================ MISBEHAVIOR NOTICE (if terminated) ================
+    if (wasTerminated) {
+      doc.setFillColor(254, 226, 226);
+      doc.roundedRect(margin, currentY, contentWidth, 16, 4, 4, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(185, 28, 28);
+      doc.text(
+        "Interview was not successful — ended due to repeated fullscreen exits.",
+        pageWidth / 2,
+        currentY + 10,
+        { align: "center" },
+      );
+      currentY += 24;
+    }
 
     // ================ FINAL SCORE BOX ================
     doc.setFillColor(247, 246, 243);
@@ -252,6 +267,32 @@ function Step3Report({ report }) {
           </button>
         </div>
 
+        {/* ============ misbehavior banner ============ */}
+        {wasTerminated && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 rounded-3xl border border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-6 sm:p-7"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 shrink-0 rounded-2xl bg-red-500/15 flex items-center justify-center">
+                <IoWarningOutline className="text-red-600 dark:text-red-400" size={22} />
+              </div>
+              <div>
+                <h2 className="font-serif-display text-xl sm:text-2xl text-red-700 dark:text-red-300 mb-1.5">
+                  Interview was not successful
+                </h2>
+                <p className="text-sm text-red-700/80 dark:text-red-300/80 leading-relaxed">
+                  This session was ended early because fullscreen mode was
+                  exited {proctoring?.fullscreenExitCount ?? 3} times during the
+                  interview, despite warnings. The scores below reflect only the
+                  questions that were completed before termination.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* ============ grid ============ */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="space-y-6">
@@ -363,6 +404,11 @@ function Step3Report({ report }) {
                       label: "Fullscreen exits",
                       value: proctoring.fullscreenExitCount ?? 0,
                       ok: (proctoring.fullscreenExitCount ?? 0) === 0,
+                    },
+                    {
+                      label: "Session outcome",
+                      value: wasTerminated ? "Terminated" : "Completed",
+                      ok: !wasTerminated,
                     },
                   ].map((row) => (
                     <div

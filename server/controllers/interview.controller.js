@@ -5,7 +5,6 @@ import userModel from "../models/user.model.js";
 import interviewModel from "../models/interview.model.js";
 import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
 import { runTestCases } from "../services/codeExecution.service.js";
-// NEW: curated per-company interview-style guidance used to steer question generation
 import { getCompanyStyleGuidance } from "../data/companyStyles.js";
 
 export const analyzeResume = async (req, res) => {
@@ -227,10 +226,6 @@ export const generateQuestion = async (req, res) => {
 
     const safeResume = resumeText?.trim() || "None";
 
-    // NEW: resolves to curated guidance for known companies, or a
-    // "use your own knowledge of this company" instruction otherwise.
-    // Returns null when no company was provided, in which case nothing
-    // company-related is injected into the prompt at all.
     const companyGuidance = getCompanyStyleGuidance(company);
 
     const userPrompt = `
@@ -484,8 +479,7 @@ const decideNextStep = async (interview) => {
       : `This is an HR/behavioral interview — lean toward their role, ownership, decisions,
          and how they handled pressure or teamwork (STAR-style).`;
 
-  // NEW: keeps the company's interviewing tone consistent across every
-  // follow-up, not just the opening question
+
   const companyGuidance = getCompanyStyleGuidance(interview.company);
 
   const companyBlock = companyGuidance
@@ -1135,8 +1129,6 @@ export const finishInterview = async (req, res) => {
       });
     }
 
-    // store the proctoring summary the client accumulated during the
-    // interview — only counts/flags, never raw media
     if (proctoring && typeof proctoring === "object") {
       interview.proctoring = {
         cameraEnabled: Boolean(proctoring.cameraEnabled),
@@ -1151,6 +1143,7 @@ export const finishInterview = async (req, res) => {
             : null,
         tabSwitchCount: Number(proctoring.tabSwitchCount) || 0,
         fullscreenExitCount: Number(proctoring.fullscreenExitCount) || 0,
+        terminatedForMisbehavior: Boolean(proctoring.terminatedForMisbehavior),
       };
     }
 
@@ -1303,9 +1296,7 @@ export const getInterviewReport = async (req, res) => {
     interview.status = "Completed";
 
     return res.status(200).json({
-      // NEW: same header fields as finishInterview so Step3Report works
-      // identically whether it's opened right after the interview or later
-      // from the history page
+
       role: interview.role,
       company: interview.company || null,
       proctoring: interview.proctoring || null,
@@ -1329,8 +1320,6 @@ export const deleteInterview = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // only delete if it belongs to the logged-in user — prevents one
-    // candidate from deleting someone else's interview by guessing an id
     const interview = await interviewModel.findOneAndDelete({
       _id: id,
       userId: req.userId,
