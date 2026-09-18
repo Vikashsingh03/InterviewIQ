@@ -9,16 +9,21 @@ import {
   BsFire,
   BsSearch,
   BsArrowRight,
+  BsCheckCircleFill,
 } from "react-icons/bs";
+import { FaCalendarDay } from "react-icons/fa";
 import { ServerUrl } from "../App";
-import { FaArrowLeft, FaTrashAlt } from "react-icons/fa";
+import { FaArrowLeft } from "react-icons/fa";
+
 
 const DIFFICULTY_STYLES = {
-  Easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-  Medium:
+  easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+  medium:
     "bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] border-[#E8A94C]/20",
-  Hard: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+  hard: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
 };
+
+const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" };
 
 function StatPill({ label, value }) {
   return (
@@ -66,7 +71,7 @@ function QuestionCard({ q, onClick }) {
               "bg-[#EFEEEA] dark:bg-[#181B20] text-[#6B7280] border-transparent"
             }`}
           >
-            {q.difficulty}
+            {DIFFICULTY_LABEL[q.difficulty] || q.difficulty}
           </span>
         )}
       </div>
@@ -75,10 +80,67 @@ function QuestionCard({ q, onClick }) {
         {q.title}
       </p>
 
-      <div className="flex items-center justify-between mt-1">
+      <div className="flex items-center justify-between mt-1 cursor-pointer">
         <span className="text-xs text-[#8B92A0]">{q.category}</span>
 
         <BsArrowRight size={14} className="text-[#9AA1AC]" />
+      </div>
+    </motion.button>
+  );
+}
+
+function DailyChallengeCard({ daily, onClick }) {
+  if (!daily) return null;
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={onClick}
+      className="w-full text-left relative overflow-hidden bg-[#0F1115] border border-[#232830] rounded-2xl p-5 sm:p-6 mb-6 group transition-all duration-200 hover:border-[#E8A94C]/40"
+    >
+      <div className="absolute -top-14 -right-14 w-40 h-40 bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/10 rounded-full blur-3xl transition-all duration-500 pointer-events-none" />
+
+      <div className="relative flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-4 min-w-0">
+          <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#E8A94C]/10 text-[#E8A94C] flex items-center justify-center">
+            <FaCalendarDay size={16} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="font-mono-studio text-[10px] tracking-wide text-[#E8A94C] uppercase">
+                Daily Challenge
+              </span>
+              <span
+                className={`font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide ${
+                  daily.type === "coding"
+                    ? "bg-[#5EC8D8]/10 text-[#5EC8D8]"
+                    : "bg-[#E8A94C]/10 text-[#E8A94C]"
+                }`}
+              >
+                {daily.type === "coding" ? <BsCode size={9} /> : <BsChatSquareText size={9} />}
+                {daily.type === "coding" ? "Coding" : "HR"}
+              </span>
+            </div>
+            <h3 className="font-serif-display text-lg sm:text-xl text-[#EDEEF0] leading-snug truncate">
+              {daily.title}
+            </h3>
+          </div>
+        </div>
+
+        <div className="shrink-0">
+          {daily.completed ? (
+            <span className="font-mono-studio inline-flex items-center gap-2 text-[#4ADE80] text-xs bg-[#4ADE80]/10 px-4 py-2.5 rounded-xl">
+              <BsCheckCircleFill size={13} />
+              Completed today
+            </span>
+          ) : (
+            <span className="font-mono-studio inline-flex items-center gap-2 bg-[#E8A94C] text-[#1C1F24] text-xs font-semibold px-4 py-2.5 rounded-xl group-hover:gap-3 transition-all duration-200">
+              Start Challenge
+              <BsArrowRight size={13} />
+            </span>
+          )}
+        </div>
       </div>
     </motion.button>
   );
@@ -92,6 +154,7 @@ function PracticeHub() {
   const [coding, setCoding] = useState([]);
   const [hr, setHr] = useState([]);
   const [stats, setStats] = useState(null);
+  const [daily, setDaily] = useState(null);
 
   const [typeFilter, setTypeFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
@@ -103,7 +166,7 @@ function PracticeHub() {
       setErrorMessage("");
 
       try {
-        const [questionsRes, statsRes] = await Promise.all([
+        const [questionsRes, statsRes, dailyRes] = await Promise.all([
           axios.get(ServerUrl + "/api/practice/questions", {
             withCredentials: true,
           }),
@@ -111,11 +174,16 @@ function PracticeHub() {
           axios.get(ServerUrl + "/api/practice/stats", {
             withCredentials: true,
           }),
+
+          axios.get(ServerUrl + "/api/practice/daily", {
+            withCredentials: true,
+          }),
         ]);
 
         setCoding(questionsRes.data.coding || []);
         setHr(questionsRes.data.hr || []);
         setStats(statsRes.data);
+        setDaily(dailyRes.data);
       } catch (error) {
         console.log(error);
 
@@ -285,6 +353,12 @@ function PracticeHub() {
           </div>
         </div>
 
+        {/* ================= DAILY CHALLENGE ================= */}
+        <DailyChallengeCard
+          daily={daily}
+          onClick={() => daily && navigate(`/practice/${daily.type}/${daily.id}`)}
+        />
+
         {/* ================= STATS ================= */}
         {stats && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
@@ -375,7 +449,7 @@ function PracticeHub() {
 
           </div>
 
-          {/* Difficulty */}
+          {/* Difficulty — values match the backend's lowercase casing */}
           <select
             value={difficultyFilter}
             onChange={(e) =>
@@ -395,9 +469,9 @@ function PracticeHub() {
             "
           >
             <option value="all">Any difficulty</option>
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
           </select>
 
         </div>

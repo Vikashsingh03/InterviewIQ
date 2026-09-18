@@ -17,9 +17,6 @@ const InterviewHistory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ---- delete-flow state ----
-  // confirmDeleteId: which card's inline "are you sure?" popover is open
-  // deletingId: which card's delete request is currently in flight
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
@@ -50,9 +47,7 @@ const InterviewHistory = () => {
     getMyInterviews();
   }, []);
 
-  // an "Incompleted" interview never got a final score computed, and opening
-  // its report would force-mark it Completed with a misleading 0/10 — so we
-  // keep these cards non-clickable instead of routing to the report page.
+
   const handleCardClick = (item) => {
     if (item.status !== "Completed") return;
     navigate(`/report/${item._id}`);

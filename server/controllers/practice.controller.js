@@ -383,6 +383,61 @@ export const submitPracticeAnswer = async (req, res) => {
   }
 };
 
+// ---------------- daily challenge ----------------
+
+// Deterministic pick, seeded by today's date — every user sees the SAME
+// question on a given day (classic "daily challenge" pattern), and it
+// naturally rotates through the whole question bank over time.
+const seededPick = (pool, seedStr) => {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash * 31 + seedStr.charCodeAt(i)) >>> 0;
+  }
+  return pool[hash % pool.length];
+};
+
+export const getDailyChallenge = async (req, res) => {
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // alternate coding/HR by day-of-year so it isn't always the same type
+    const dayOfYear = Math.floor(
+      (new Date(todayStr) - new Date(todayStr.slice(0, 4) + "-01-01")) /
+        (1000 * 60 * 60 * 24),
+    );
+    const wantsCoding = dayOfYear % 2 === 0;
+
+    const pool = wantsCoding ? DSA_QUESTION_BANK : PRACTICE_HR_BANK;
+    const picked = seededPick(pool, todayStr);
+    const type = wantsCoding ? "coding" : "hr";
+    const title = wantsCoding ? picked.title : picked.question;
+
+    const alreadyDone = await practiceAttemptModel.exists({
+      userId: req.userId,
+      questionType: type,
+      questionId: picked.id,
+      createdAt: {
+        $gte: new Date(todayStr + "T00:00:00.000Z"),
+        $lte: new Date(todayStr + "T23:59:59.999Z"),
+      },
+    });
+
+    return res.status(200).json({
+      type,
+      id: picked.id,
+      title,
+      category: wantsCoding ? picked.topic : picked.category,
+      difficulty: picked.difficulty,
+      date: todayStr,
+      completed: Boolean(alreadyDone),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Failed to load daily challenge: ${error.message}`,
+    });
+  }
+};
+
 // ---------------- stats ----------------
 
 const computeStreak = (attemptDates) => {
