@@ -38,6 +38,7 @@ function Step3Report({ report }) {
     questionWiseScore = [],
     role,
     company,
+    hasJobDescription,
     proctoring,
   } = report;
 
@@ -255,6 +256,11 @@ function Step3Report({ report }) {
                   </span>
                 )}
               </p>
+              {hasJobDescription && (
+                <span className="inline-block mt-2 font-mono-studio text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  TAILORED TO PASTED JOB DESCRIPTION
+                </span>
+              )}
             </div>
           </div>
 

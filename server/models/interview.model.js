@@ -61,6 +61,14 @@ const interviewSchema = new mongoose.Schema(
             type: String,
             default: null,
         },
+        // NEW: optional raw job-description text pasted by the candidate —
+        // when present, questions are tailored to this specific posting
+        // (its required skills, responsibilities) rather than just the
+        // general role/company
+        jobDescription: {
+            type: String,
+            default: null,
+        },
         resumeText: {
             type: String,
         },

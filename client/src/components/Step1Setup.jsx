@@ -7,6 +7,7 @@ import {
   FaMicrophoneAlt,
   FaChartLine,
   FaBuilding,
+  FaFileAlt,
 } from "react-icons/fa";
 import { IoWarningOutline } from "react-icons/io5";
 import axios from "axios";
@@ -38,6 +39,8 @@ function Step1Setup({ onstart }) {
   const [experience, setExperience] = useState("");
   const [mode, setMode] = useState("Technical");
   const [company, setCompany] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [showJobDescription, setShowJobDescription] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -91,7 +94,16 @@ function Step1Setup({ onstart }) {
     try {
       const result = await axios.post(
         ServerUrl + "/api/interview/generate-questions",
-        { role, experience, mode, company, resumeText, projects, skills },
+        {
+          role,
+          experience,
+          mode,
+          company,
+          jobDescription,
+          resumeText,
+          projects,
+          skills,
+        },
         { withCredentials: true },
       );
 
@@ -239,6 +251,42 @@ function Step1Setup({ onstart }) {
                 AI will tailor question style to that company's known
                 interview culture.
               </p>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowJobDescription((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition"
+              >
+                <FaFileAlt className="text-xs" />
+                {showJobDescription
+                  ? "Hide job description"
+                  : "Paste a job description (optional)"}
+              </button>
+
+              <AnimatePresence>
+                {showJobDescription && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <textarea
+                      rows={5}
+                      placeholder="Paste the actual job posting here — AI will tailor questions to its specific responsibilities and required skills, not just the role title."
+                      className="mt-3 w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition resize-none text-sm"
+                      onChange={(e) => setJobDescription(e.target.value)}
+                      value={jobDescription}
+                      maxLength={4000}
+                    />
+                    <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500 pl-1">
+                      {jobDescription.length}/4000 characters
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {!analysisDone && (

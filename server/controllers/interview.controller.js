@@ -189,14 +189,26 @@ const buildCodingQuestion = (dsaQuestion) => ({
 
 export const generateQuestion = async (req, res) => {
   try {
-    // NEW: `company` is optional — when present it steers the interview's tone/style
-    let { role, experience, mode, company, resumeText, projects, skills } =
-      req.body;
+    // NEW: `company` and `jobDescription` are both optional — jobDescription
+    // lets the candidate paste a real posting so questions target that
+    // specific role's requirements, not just the general job title
+    let {
+      role,
+      experience,
+      mode,
+      company,
+      jobDescription,
+      resumeText,
+      projects,
+      skills,
+    } = req.body;
 
     role = role?.trim();
     experience = experience?.trim();
     mode = mode?.trim();
     company = company?.trim() || null;
+    // cap length so a huge pasted posting can't blow up prompt size/cost
+    jobDescription = jobDescription?.trim().slice(0, 4000) || null;
 
     if (!role || !experience || !mode) {
       return res.status(400).json({
@@ -268,6 +280,17 @@ ${
                 knows where they're interviewing, and naming it makes the question sound scripted.
 `
     : ""
+}${
+  jobDescription
+    ? `
+                JOB DESCRIPTION (the candidate is interviewing for exactly this posting):
+                ${jobDescription}
+
+                Keep this posting's specific responsibilities and required skills in mind for
+                later questions in this interview, but the OPENING question still stays a
+                broad "introduce yourself" question — do not quote or reference the posting yet.
+`
+    : ""
 }
                 strict rules:
                 - The question must contain 20 to 35 words.
@@ -320,6 +343,7 @@ ${
       experience,
       mode,
       company,
+      jobDescription,
       resumeText: safeResume,
       projects: safeProjects,
       skills: safeSkills,
@@ -342,6 +366,7 @@ ${
       userName: user.name,
       role: interview.role,
       company: interview.company,
+      hasJobDescription: Boolean(interview.jobDescription),
       questions: interview.questions,
     });
   } catch (error) {
@@ -492,6 +517,20 @@ const decideNextStep = async (interview) => {
       `
     : "";
 
+  // NEW: keeps every follow-up grounded in the actual posting's
+  // responsibilities/required skills, when the candidate pasted one
+  const jobDescriptionBlock = interview.jobDescription
+    ? `
+      JOB DESCRIPTION (this candidate is interviewing for exactly this posting):
+      ${interview.jobDescription}
+
+      When relevant to the topic you're asking about, favor angles that connect to what
+      this specific posting actually asks for — its responsibilities and required skills —
+      rather than generic questions about the role title alone. Don't quote the posting text
+      verbatim in your question.
+      `
+    : "";
+
   const instructionLine =
     action === "followup"
       ? `The candidate's last answer (topic: "${lastTopic}") scored low (${lastScore}/10) and felt
@@ -520,6 +559,7 @@ const decideNextStep = async (interview) => {
 
       ${modeGuidance}
       ${companyBlock}
+      ${jobDescriptionBlock}
       Rules:
       - 15 to 30 words, one natural sentence (one comma-joined clause allowed).
       - Vary your conversational lead-in style across the interview — don't reuse the same
@@ -1198,6 +1238,7 @@ export const finishInterview = async (req, res) => {
       // NEW: report header shows "Software Engineer @ Google" when company is set
       role: interview.role,
       company: interview.company || null,
+      hasJobDescription: Boolean(interview.jobDescription),
       proctoring: interview.proctoring || null,
       finalScore: Number(finalScore.toFixed(1)),
       confidence: Number(avgConfidence.toFixed(1)),
@@ -1299,6 +1340,7 @@ export const getInterviewReport = async (req, res) => {
 
       role: interview.role,
       company: interview.company || null,
+      hasJobDescription: Boolean(interview.jobDescription),
       proctoring: interview.proctoring || null,
       finalScore: interview.finalScore,
       confidence: Number(avgConfidence.toFixed(1)),
