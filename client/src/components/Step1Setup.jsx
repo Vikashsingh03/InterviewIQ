@@ -12,6 +12,8 @@ import {
   BsBarChart,
   BsBuilding,
   BsCheckCircleFill,
+  BsPeopleFill,
+  BsPersonFill,
 } from "react-icons/bs";
 import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
 import axios from "axios";
@@ -42,6 +44,10 @@ function Step1Setup({ onstart }) {
   const [role, setRole] = useState("");
   const [experience, setExperience] = useState("");
   const [mode, setMode] = useState("Technical");
+  // "solo" = existing single-AI interviewer, "panel" = two alternating
+  // AI interviewers (Mock Panel Mode) — backend defaults to "solo" too,
+  // so leaving this untouched never changes existing behavior
+  const [interviewType, setInterviewType] = useState("solo");
   const [company, setCompany] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [showJobDescription, setShowJobDescription] = useState(false);
@@ -102,6 +108,7 @@ function Step1Setup({ onstart }) {
           role,
           experience,
           mode,
+          interviewType,
           company,
           jobDescription,
           resumeText,
@@ -132,6 +139,21 @@ function Step1Setup({ onstart }) {
   const MODES = [
     { value: "Technical", icon: <BsRobot size={15} />, label: "Technical" },
     { value: "HR", icon: <BsMic size={15} />, label: "HR / Behavioral" },
+  ];
+
+  const INTERVIEW_TYPES = [
+    {
+      value: "solo",
+      icon: <BsPersonFill size={15} />,
+      label: "Solo AI",
+      sub: "One interviewer",
+    },
+    {
+      value: "panel",
+      icon: <BsPeopleFill size={15} />,
+      label: "Panel (2 AI)",
+      sub: "Technical + HR, back to back",
+    },
   ];
 
   return (
@@ -299,6 +321,54 @@ function Step1Setup({ onstart }) {
                   {m.label}
                 </button>
               ))}
+            </div>
+
+            {/* interview type — Solo AI vs Mock Panel Mode */}
+            <div>
+              <p className="text-xs font-medium text-[#5C6472] dark:text-[#9AA1AC] mb-2 pl-1">
+                Interviewer setup
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {INTERVIEW_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setInterviewType(t.value)}
+                    className={`relative flex flex-col items-start gap-1 p-3.5 rounded-2xl border text-left transition-all duration-200 ${
+                      interviewType === t.value
+                        ? "border-[#E8A94C] bg-[#E8A94C]/8"
+                        : "border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] hover:border-[#E8A94C]/30"
+                    }`}
+                  >
+                    <span
+                      className={`flex items-center gap-1.5 text-sm font-semibold ${
+                        interviewType === t.value
+                          ? "text-[#B27E2E] dark:text-[#E8A94C]"
+                          : "text-[#1C1F24] dark:text-[#EDEEF0]"
+                      }`}
+                    >
+                      {t.icon}
+                      {t.label}
+                    </span>
+                    <span className="text-[11px] text-[#8B92A0] leading-snug">
+                      {t.sub}
+                    </span>
+                    {interviewType === t.value && (
+                      <BsCheckCircleFill
+                        className="absolute top-3 right-3 text-[#E8A94C]"
+                        size={13}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+              {interviewType === "panel" && (
+                <p className="mt-2 text-[11px] text-[#9AA1AC] dark:text-[#565D68] pl-1 leading-relaxed">
+                  Two AI interviewers alternate questions — Interviewer A goes
+                  deep on technical depth, Interviewer B focuses on
+                  communication and fit. Uses more credits than Solo AI.
+                </p>
+              )}
             </div>
 
             {/* company */}
@@ -504,7 +574,11 @@ function Step1Setup({ onstart }) {
                   className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full"
                 />
               )}
-              {loading ? "Starting interview..." : "Start Interview"}
+              {loading
+                ? "Starting interview..."
+                : interviewType === "panel"
+                  ? "Start Panel Interview"
+                  : "Start Interview"}
             </motion.button>
           </div>
         </div>

@@ -7,6 +7,37 @@ import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
 import { runTestCases } from "../services/codeExecution.service.js";
 import { getCompanyStyleGuidance } from "../data/companyStyles.js";
 
+// ---------------- panel mode: interviewer personas ----------------
+const INTERVIEWER_PERSONAS = {
+  interviewerA: {
+    label: "Interviewer A",
+    voice: "male",
+    styleGuidance: `You are Interviewer A — sharp, technical, detail-oriented. You dig into
+      correctness, edge cases, and depth of understanding. Your tone is direct and probing,
+      but always professional, never rude.`,
+  },
+  interviewerB: {
+    label: "Interviewer B",
+    voice: "female",
+    styleGuidance: `You are Interviewer B — warm, behavioral-focused, people-oriented. You care
+      about communication, ownership, teamwork, and culture fit. Your tone is friendly and
+      conversational, focused on how the candidate thinks and works with others.`,
+  },
+};
+
+const getPersonaGuidance = (askedBy) =>
+  askedBy && INTERVIEWER_PERSONAS[askedBy]
+    ? INTERVIEWER_PERSONAS[askedBy].styleGuidance
+    : "";
+
+// alternates speaker every question — first panel question is always A
+const nextPanelSpeaker = (interview) => {
+  const lastQuestion = interview.questions[interview.questions.length - 1];
+  return lastQuestion?.askedBy === "interviewerA"
+    ? "interviewerB"
+    : "interviewerA";
+};
+
 export const analyzeResume = async (req, res) => {
   try {
     if (!req.file) {
@@ -173,7 +204,9 @@ const pickCodingQuestion = (interview) => {
   return finalPool[Math.floor(Math.random() * finalPool.length)];
 };
 
-const buildCodingQuestion = (dsaQuestion) => ({
+// `askedBy` is only set in panel mode — solo interviews pass null and the
+// field stays null on the saved question, exactly like before this feature
+const buildCodingQuestion = (dsaQuestion, askedBy = null) => ({
   question: `Alright, let's move to a quick coding round — solve "${dsaQuestion.title}". You can write your solution in JavaScript, Python, C++, or Java, whichever you're most comfortable with.`,
   difficulty: dsaQuestion.difficulty,
   timeLimit: 600,
@@ -185,13 +218,16 @@ const buildCodingQuestion = (dsaQuestion) => ({
   topic: dsaQuestion.topic,
   starterCode: dsaQuestion.starterCode,
   sampleTestCases: dsaQuestion.testCases.slice(0, 2),
+  askedBy,
 });
 
 export const generateQuestion = async (req, res) => {
   try {
     // NEW: `company` and `jobDescription` are both optional — jobDescription
     // lets the candidate paste a real posting so questions target that
-    // specific role's requirements, not just the general job title
+    // specific role's requirements, not just the general job title.
+    // `interviewType` is also optional — "panel" turns on Mock Panel Mode
+    // (two alternating AI interviewers), anything else stays "solo".
     let {
       role,
       experience,
@@ -201,6 +237,7 @@ export const generateQuestion = async (req, res) => {
       resumeText,
       projects,
       skills,
+      interviewType,
     } = req.body;
 
     role = role?.trim();
@@ -209,6 +246,7 @@ export const generateQuestion = async (req, res) => {
     company = company?.trim() || null;
     // cap length so a huge pasted posting can't blow up prompt size/cost
     jobDescription = jobDescription?.trim().slice(0, 4000) || null;
+    interviewType = interviewType === "panel" ? "panel" : "solo";
 
     if (!role || !experience || !mode) {
       return res.status(400).json({
@@ -342,6 +380,7 @@ ${
       role,
       experience,
       mode,
+      interviewType,
       company,
       jobDescription,
       resumeText: safeResume,
@@ -356,6 +395,9 @@ ${
           difficulty: "easy",
           timeLimit: 90,
           topicHint: "introduction",
+          // the opening "introduce yourself" question always comes from
+          // Interviewer A in panel mode — B's turn starts from question 2
+          askedBy: interviewType === "panel" ? "interviewerA" : null,
         },
       ],
     });
@@ -367,6 +409,7 @@ ${
       role: interview.role,
       company: interview.company,
       hasJobDescription: Boolean(interview.jobDescription),
+      interviewType: interview.interviewType,
       questions: interview.questions,
     });
   } catch (error) {
@@ -413,6 +456,11 @@ const topicDisplayName = (topicLabel) => {
 const decideNextStep = async (interview) => {
   const askedCount = interview.questions.length;
 
+  // panel mode: figure out whose turn it is next — used both for the
+  // coding-question early exits below and the normal AI-generated path
+  const isPanel = interview.interviewType === "panel";
+  const nextAskedBy = isPanel ? nextPanelSpeaker(interview) : null;
+
   const history = interview.questions
     .map(
       (q, i) =>
@@ -457,7 +505,10 @@ const decideNextStep = async (interview) => {
     const dsaQuestion = pickCodingQuestion(interview);
     return {
       continueInterview: true,
-      nextQuestion: buildCodingQuestion(dsaQuestion),
+      nextQuestion: buildCodingQuestion(
+        dsaQuestion,
+        isPanel ? "interviewerA" : null,
+      ),
     };
   }
 
@@ -493,7 +544,10 @@ const decideNextStep = async (interview) => {
     const dsaQuestion = pickCodingQuestion(interview);
     return {
       continueInterview: true,
-      nextQuestion: buildCodingQuestion(dsaQuestion),
+      nextQuestion: buildCodingQuestion(
+        dsaQuestion,
+        isPanel ? "interviewerA" : null,
+      ),
     };
   }
 
@@ -514,6 +568,18 @@ const decideNextStep = async (interview) => {
       Let this shape HOW you probe (depth, framework, what you consider a strong answer).
       It must NOT change the SUBJECT of the question — the topic decided above still wins.
       Never mention the company name in the question itself.
+      `
+    : "";
+
+  // panel mode: tells the AI which of the two interviewers is speaking next,
+  // so the phrasing matches that persona's voice — the topic itself is
+  // still decided above and never changes because of this
+  const personaBlock = isPanel
+    ? `
+      YOUR PERSONA:
+      ${getPersonaGuidance(nextAskedBy)}
+      Write the question reflecting this persona's style and focus, while still following the
+      topic instruction below — the persona changes HOW you ask, never WHAT topic is covered.
       `
     : "";
 
@@ -559,6 +625,7 @@ const decideNextStep = async (interview) => {
 
       ${modeGuidance}
       ${companyBlock}
+      ${personaBlock}
       ${jobDescriptionBlock}
       Rules:
       - 15 to 30 words, one natural sentence (one comma-joined clause allowed).
@@ -609,6 +676,7 @@ const decideNextStep = async (interview) => {
         difficulty: "medium",
         timeLimit: 90,
         topicHint: finalTopicHint,
+        askedBy: nextAskedBy,
       },
     };
   }
@@ -621,6 +689,7 @@ const decideNextStep = async (interview) => {
         difficulty: "medium",
         timeLimit: 90,
         topicHint: finalTopicHint,
+        askedBy: nextAskedBy,
       },
     };
   }
@@ -632,6 +701,7 @@ const decideNextStep = async (interview) => {
       difficulty: parsed.difficulty || "medium",
       timeLimit: timeLimitByDifficulty[parsed.difficulty] || 90,
       topicHint: finalTopicHint,
+      askedBy: nextAskedBy,
     },
   };
 };
@@ -1053,6 +1123,11 @@ export const submitAnswer = async (req, res) => {
             finalScore = average of confidence, communication, and correctness (rounded to nearest whole number).
 
             Feedback Rules:
+            ${
+              interview.interviewType === "panel"
+                ? `${getPersonaGuidance(question.askedBy)}\nWrite the "feedback" line in a tone that matches this persona.\n`
+                : ""
+            }
             - Write natural human feedback.
             - 10 to 15 words only.
             - Sound like real interview feedback.
@@ -1153,6 +1228,42 @@ export const submitAnswer = async (req, res) => {
   }
 };
 
+// panel mode: split the per-question scores by which interviewer asked
+// them, so the report can show "Interviewer A: 7.5/10" separately from
+// "Interviewer B: 8/10" instead of just one blended number
+const computePerInterviewerScores = (interview, scorableQuestions) => {
+  if (interview.interviewType !== "panel") return null;
+
+  const byInterviewer = {
+    interviewerA: { total: 0, count: 0 },
+    interviewerB: { total: 0, count: 0 },
+  };
+
+  scorableQuestions.forEach((q) => {
+    if (q.askedBy && byInterviewer[q.askedBy]) {
+      byInterviewer[q.askedBy].total += q.score || 0;
+      byInterviewer[q.askedBy].count += 1;
+    }
+  });
+
+  return {
+    interviewerA: byInterviewer.interviewerA.count
+      ? Number(
+          (
+            byInterviewer.interviewerA.total / byInterviewer.interviewerA.count
+          ).toFixed(1),
+        )
+      : 0,
+    interviewerB: byInterviewer.interviewerB.count
+      ? Number(
+          (
+            byInterviewer.interviewerB.total / byInterviewer.interviewerB.count
+          ).toFixed(1),
+        )
+      : 0,
+  };
+};
+
 export const finishInterview = async (req, res) => {
   try {
     const { interviewId, proctoring } = req.body;
@@ -1229,6 +1340,11 @@ export const finishInterview = async (req, res) => {
       : 0;
     const avgWpm = totalVerbalQuestions ? totalWpm / totalVerbalQuestions : 0;
 
+    const perInterviewerScores = computePerInterviewerScores(
+      interview,
+      scorableQuestions,
+    );
+
     interview.finalScore = finalScore;
     interview.status = "Completed";
 
@@ -1239,6 +1355,8 @@ export const finishInterview = async (req, res) => {
       role: interview.role,
       company: interview.company || null,
       hasJobDescription: Boolean(interview.jobDescription),
+      interviewType: interview.interviewType,
+      perInterviewerScores,
       proctoring: interview.proctoring || null,
       finalScore: Number(finalScore.toFixed(1)),
       confidence: Number(avgConfidence.toFixed(1)),
@@ -1256,6 +1374,7 @@ export const finishInterview = async (req, res) => {
         correctness: q.correctness || 0,
         skipped: q.skipped || false,
         type: q.type || "verbal",
+        askedBy: q.askedBy || null,
         language: q.language || null,
         answer: q.answer || "",
         testsPassedCount: q.testsPassedCount || 0,
@@ -1277,7 +1396,7 @@ export const getMyInterviews = async (req, res) => {
       .find({ userId: req.userId })
       .sort({ createdAt: -1 })
       // NEW: `company` included so the history list can show the target company
-      .select("role company experience mode finalScore status createdAt");
+      .select("role company experience mode interviewType finalScore status createdAt");
 
     return res.status(200).json(interviews);
   } catch (error) {
@@ -1334,6 +1453,11 @@ export const getInterviewReport = async (req, res) => {
       : 0;
     const avgWpm = totalVerbalQuestions ? totalWpm / totalVerbalQuestions : 0;
 
+    const perInterviewerScores = computePerInterviewerScores(
+      interview,
+      scorableQuestions,
+    );
+
     interview.status = "Completed";
 
     return res.status(200).json({
@@ -1341,6 +1465,8 @@ export const getInterviewReport = async (req, res) => {
       role: interview.role,
       company: interview.company || null,
       hasJobDescription: Boolean(interview.jobDescription),
+      interviewType: interview.interviewType,
+      perInterviewerScores,
       proctoring: interview.proctoring || null,
       finalScore: interview.finalScore,
       confidence: Number(avgConfidence.toFixed(1)),

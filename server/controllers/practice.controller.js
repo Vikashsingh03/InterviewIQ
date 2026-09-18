@@ -4,10 +4,7 @@ import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
 import PRACTICE_HR_BANK from "../data/practiceQuestions.js";
 import practiceAttemptModel from "../models/practiceAttempt.model.js";
 
-// ---------------- browse / list ----------------
 
-// Lightweight combined listing for the Practice Hub grid — no test cases,
-// no starter code, just enough metadata to render and filter cards.
 export const getPracticeQuestions = async (req, res) => {
   try {
     const coding = DSA_QUESTION_BANK.map((q) => ({
@@ -76,7 +73,6 @@ export const getPracticeQuestionDetail = async (req, res) => {
   }
 };
 
-// ---------------- run (coding only, sample tests, no scoring) ----------------
 
 export const runPracticeCode = async (req, res) => {
   try {
@@ -171,8 +167,6 @@ export const submitPracticeAnswer = async (req, res) => {
         testCases: dsaQuestion.testCases,
       });
 
-      // language not supported by the execution engine — fall back to an
-      // AI code review, same pattern as the full interview's coding round
       if (!runResult.supported) {
         const fallbackMessages = [
           {
@@ -383,11 +377,7 @@ export const submitPracticeAnswer = async (req, res) => {
   }
 };
 
-// ---------------- daily challenge ----------------
 
-// Deterministic pick, seeded by today's date — every user sees the SAME
-// question on a given day (classic "daily challenge" pattern), and it
-// naturally rotates through the whole question bank over time.
 const seededPick = (pool, seedStr) => {
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
@@ -446,8 +436,6 @@ const computeStreak = (attemptDates) => {
   const cursor = new Date();
   let cursorStr = cursor.toISOString().slice(0, 10);
 
-  // if there's no attempt today yet, the streak isn't broken until midnight
-  // passes without one — so start counting from yesterday instead
   if (!attemptDates.has(cursorStr)) {
     cursor.setUTCDate(cursor.getUTCDate() - 1);
     cursorStr = cursor.toISOString().slice(0, 10);
