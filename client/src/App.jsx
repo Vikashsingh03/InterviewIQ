@@ -10,6 +10,8 @@ import InterviewHistory from "./Pages/InterviewHistory";
 import Pricing from "./Pages/Pricing";
 import InterviewReport from "./Pages/InterviewReport";
 import Analytics from "./Pages/Analytics";
+import PracticeHub from "./Pages/PracticeHub";
+import PracticeQuestion from "./Pages/PracticeQuestion";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const ServerUrl = "http://localhost:8000";
@@ -74,6 +76,22 @@ const App = () => {
         element={
           <ProtectedRoute>
             <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/practice"
+        element={
+          <ProtectedRoute>
+            <PracticeHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/practice/:type/:id"
+        element={
+          <ProtectedRoute>
+            <PracticeQuestion />
           </ProtectedRoute>
         }
       />

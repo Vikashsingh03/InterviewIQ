@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "motion/react";
-import { BsRobot, BsCoin, BsClockHistory, BsGraphUp } from "react-icons/bs";
+import {
+  BsRobot,
+  BsCoin,
+  BsClockHistory,
+  BsGraphUp,
+  BsLightningCharge,
+} from "react-icons/bs";
 import { HiOutlineLogout } from "react-icons/hi";
 import { FaUserAstronaut } from "react-icons/fa";
 import { HiOutlineSun, HiOutlineMoon } from "react-icons/hi";
@@ -191,6 +197,16 @@ function Navbar() {
                       </div>
 
                       <div className="p-2">
+                        <button
+                          onClick={() => {
+                            setShowUserPopup(false);
+                            navigate("/practice");
+                          }}
+                          className="w-full cursor-pointer flex items-center gap-3 text-left text-sm px-3 py-2.5 rounded-xl hover:bg-[#F0EFEA] dark:hover:bg-[#181B20] text-[#3D4148] dark:text-[#C7CBD1] transition"
+                        >
+                          <BsLightningCharge size={15} className="text-[#9AA1AC]" />
+                          Practice Hub
+                        </button>
                         <button
                           onClick={() => {
                             setShowUserPopup(false);
