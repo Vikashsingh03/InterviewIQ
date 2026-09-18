@@ -9,7 +9,8 @@ import {
   getMyInterviews,
   runCode,
   submitAnswer,
-  deleteInterview
+  deleteInterview,
+  getAnalyticsSummary
 } from '../controllers/interview.controller.js';
 
 
@@ -26,6 +27,7 @@ interviewRouter.post("/finish", isAuth, finishInterview)
 
 interviewRouter.get("/get-interviews", isAuth, getMyInterviews)
 interviewRouter.get("/report/:id", isAuth, getInterviewReport)
+interviewRouter.get("/analytics-summary", isAuth, getAnalyticsSummary)
 
 interviewRouter.delete("/delete/:id", isAuth, deleteInterview);
 

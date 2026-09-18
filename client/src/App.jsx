@@ -9,6 +9,7 @@ import InterviewPage from "./Pages/InterviewPage";
 import InterviewHistory from "./Pages/InterviewHistory";
 import Pricing from "./Pages/Pricing";
 import InterviewReport from "./Pages/InterviewReport";
+import Analytics from "./Pages/Analytics";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const ServerUrl = "http://localhost:8000";
@@ -65,6 +66,14 @@ const App = () => {
         element={
           <ProtectedRoute>
             <InterviewReport />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/progress"
+        element={
+          <ProtectedRoute>
+            <Analytics />
           </ProtectedRoute>
         }
       />

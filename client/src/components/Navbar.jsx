@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "motion/react";
-import { BsRobot, BsCoin, BsClockHistory } from "react-icons/bs";
+import { BsRobot, BsCoin, BsClockHistory, BsGraphUp } from "react-icons/bs";
 import { HiOutlineLogout } from "react-icons/hi";
 import { FaUserAstronaut } from "react-icons/fa";
 import { HiOutlineSun, HiOutlineMoon } from "react-icons/hi";
@@ -44,6 +44,14 @@ function Navbar() {
 
   return (
     <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+        .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
+        @keyframes livePulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,169,76,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(232,169,76,0); } }
+        .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
+      `}</style>
+
       {/* SPACER — invisible, reserves the height the fixed navbar takes up
           so page content never hides behind it. */}
       <div
@@ -61,16 +69,16 @@ function Navbar() {
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="w-full max-w-6xl bg-white/75 dark:bg-gray-900/70 backdrop-blur-md rounded-3xl shadow-sm border border-white/60 dark:border-gray-800 px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex justify-between items-center relative transition-colors duration-300"
+            className="w-full max-w-6xl bg-white/75 dark:bg-[#0F1115]/80 backdrop-blur-md rounded-3xl shadow-[0_10px_40px_-16px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_-16px_rgba(0,0,0,0.6)] border border-white/60 dark:border-[#1E2229] px-4 sm:px-6 md:px-8 py-3 sm:py-4 flex justify-between items-center relative transition-colors duration-300"
           >
             <button
               onClick={() => navigate("/")}
               className="flex items-center gap-2 sm:gap-3 cursor-pointer"
             >
-              <div className="bg-linear-to-br from-green-500 to-emerald-600 text-white p-2 rounded-lg shadow-md shadow-green-900/20 shrink-0">
+              <div className="bg-[#1C1F24] dark:bg-[#E8A94C] text-[#E8A94C] dark:text-[#0A0B0D] p-2 rounded-lg shadow-md shadow-black/10 shrink-0">
                 <BsRobot size={18} />
               </div>
-              <h2 className="font-display text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 tracking-tight whitespace-nowrap">
+              <h2 className="font-serif-display text-base sm:text-lg text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight whitespace-nowrap">
                 InterviewIQ.AI
               </h2>
             </button>
@@ -78,7 +86,7 @@ function Navbar() {
             <div className="flex items-center gap-2 sm:gap-3 relative">
               <button
                 onClick={toggleTheme}
-                className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer flex items-center justify-center rounded-full bg-gray-100/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition shrink-0"
+                className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer flex items-center justify-center rounded-full bg-[#F0EFEA]/80 dark:bg-[#181B20] text-[#5C6472] dark:text-[#C7CBD1] hover:bg-[#E5E4E0] dark:hover:bg-[#232830] transition shrink-0"
                 aria-label="Toggle dark mode"
               >
                 {theme === "dark" ? (
@@ -99,9 +107,9 @@ function Navbar() {
                     setShowCreditPopup(!showCreditPopup);
                     setShowUserPopup(false);
                   }}
-                  className="flex items-center cursor-pointer gap-1.5 sm:gap-2 bg-gray-100/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                  className="flex items-center cursor-pointer gap-1.5 sm:gap-2 bg-[#F0EFEA]/80 dark:bg-[#181B20] text-[#1C1F24] dark:text-[#EDEEF0] px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-mono-studio font-medium hover:bg-[#E5E4E0] dark:hover:bg-[#232830] transition"
                 >
-                  <BsCoin className="text-amber-500" size={15} />
+                  <BsCoin className="text-[#E8A94C]" size={15} />
                   {userData?.credits || 0}
                 </button>
 
@@ -109,28 +117,28 @@ function Navbar() {
                   {showCreditPopup && (
                     <motion.div
                       {...popoverMotion}
-                      className="absolute right-0 sm:-right-8 w-64 sm:w-72 mt-3 origin-top-right bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/40 rounded-2xl p-5 z-50 border border-gray-200/70 dark:border-gray-800"
+                      className="absolute right-0 sm:-right-8 w-64 sm:w-72 mt-3 origin-top-right bg-white/95 dark:bg-[#0F1115]/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/50 rounded-2xl p-5 z-50 border border-[#EAE9E5] dark:border-[#1E2229]"
                     >
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md shadow-amber-900/20">
+                        <div className="w-10 h-10 rounded-xl bg-[#E8A94C]/15 flex items-center justify-center text-[#B27E2E] dark:text-[#E8A94C] shadow-md shadow-black/5">
                           <BsCoin size={18} />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                          <p className="font-mono-studio text-[10px] tracking-wide uppercase text-[#8B92A0]">
                             Your balance
                           </p>
-                          <p className="font-display text-xl font-semibold text-gray-900 dark:text-gray-50 leading-none">
+                          <p className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] leading-none">
                             {userData?.credits || 0} credits
                           </p>
                         </div>
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 leading-relaxed">
+                      <p className="text-[#5C6472] dark:text-[#8B92A0] text-sm mb-4 leading-relaxed">
                         Each interview uses a small number of credits. Top up
                         anytime to keep practicing.
                       </p>
                       <button
                         onClick={() => navigate("/pricing")}
-                        className="w-full bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-2.5 px-4 rounded-xl font-medium transition shadow-md shadow-green-900/20"
+                        className="w-full bg-[#1C1F24] dark:bg-[#EDEEF0] hover:opacity-90 text-white dark:text-[#0A0B0D] py-2.5 px-4 rounded-xl font-medium transition shadow-md"
                       >
                         Purchase Credits
                       </button>
@@ -150,7 +158,7 @@ function Navbar() {
                     setShowUserPopup(!showUserPopup);
                     setShowCreditPopup(false);
                   }}
-                  className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer bg-linear-to-br from-gray-800 to-gray-950 dark:from-white dark:to-gray-200 text-white dark:text-gray-900 rounded-full flex items-center justify-center font-semibold shadow-md ring-2 ring-white dark:ring-gray-900 shrink-0"
+                  className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer bg-[#1C1F24] dark:bg-[#EDEEF0] text-[#E8A94C] dark:text-[#0A0B0D] rounded-full flex items-center justify-center font-semibold shadow-md ring-2 ring-white dark:ring-[#0F1115] shrink-0"
                 >
                   {userData ? (
                     userData.name.charAt(0).toUpperCase()
@@ -163,19 +171,19 @@ function Navbar() {
                   {showUserPopup && (
                     <motion.div
                       {...popoverMotion}
-                      className="absolute right-0 mt-3 w-60 sm:w-64 origin-top-right bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/40 border border-gray-200/70 dark:border-gray-800 rounded-2xl overflow-hidden z-50"
+                      className="absolute right-0 mt-3 w-60 sm:w-64 origin-top-right bg-white/95 dark:bg-[#0F1115]/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/50 border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl overflow-hidden z-50"
                     >
-                      <div className="px-5 pt-5 pb-4 bg-linear-to-br from-emerald-50 to-teal-50 dark:from-gray-800/60 dark:to-gray-800/60 border-b border-gray-100 dark:border-gray-800">
+                      <div className="px-5 pt-5 pb-4 bg-[#FAFAF8] dark:bg-[#0C0E11] border-b border-[#EAE9E5] dark:border-[#1E2229]">
                         <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 shrink-0 rounded-full bg-linear-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center font-semibold text-lg shadow-md shadow-emerald-900/20">
+                          <div className="w-11 h-11 shrink-0 rounded-full bg-[#E8A94C]/15 text-[#B27E2E] dark:text-[#E8A94C] flex items-center justify-center font-semibold text-lg">
                             {userData?.name?.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-display font-semibold text-gray-900 dark:text-gray-50 truncate">
+                            <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] truncate">
                               {userData?.name}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                              <BsCoin className="text-amber-500" size={11} />
+                            <p className="font-mono-studio text-[11px] text-[#8B92A0] flex items-center gap-1">
+                              <BsCoin className="text-[#E8A94C]" size={11} />
                               {userData?.credits || 0} credits
                             </p>
                           </div>
@@ -186,11 +194,21 @@ function Navbar() {
                         <button
                           onClick={() => {
                             setShowUserPopup(false);
+                            navigate("/progress");
+                          }}
+                          className="w-full cursor-pointer flex items-center gap-3 text-left text-sm px-3 py-2.5 rounded-xl hover:bg-[#F0EFEA] dark:hover:bg-[#181B20] text-[#3D4148] dark:text-[#C7CBD1] transition"
+                        >
+                          <BsGraphUp size={15} className="text-[#9AA1AC]" />
+                          My Progress
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowUserPopup(false);
                             navigate("/history");
                           }}
-                          className="w-full cursor-pointer flex items-center gap-3 text-left text-sm px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition"
+                          className="w-full cursor-pointer flex items-center gap-3 text-left text-sm px-3 py-2.5 rounded-xl hover:bg-[#F0EFEA] dark:hover:bg-[#181B20] text-[#3D4148] dark:text-[#C7CBD1] transition"
                         >
-                          <BsClockHistory size={15} className="text-gray-400" />
+                          <BsClockHistory size={15} className="text-[#9AA1AC]" />
                           Interview History
                         </button>
                         <button

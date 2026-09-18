@@ -1379,3 +1379,113 @@ export const deleteInterview = async (req, res) => {
     return res.status(500).json({ message: "Couldn't delete the interview. Please try again." });
   }
 };
+
+export const getAnalyticsSummary = async (req, res) => {
+  try {
+    const interviews = await interviewModel
+      .find({ userId: req.userId, status: "Completed" })
+      .sort({ createdAt: 1 })
+      .select("role company mode finalScore createdAt questions proctoring");
+
+    if (!interviews.length) {
+      return res.status(200).json({
+        totalInterviews: 0,
+        averageScore: 0,
+        currentStreak: 0,
+        scoreTrend: [],
+        skillAverages: { confidence: 0, communication: 0, correctness: 0 },
+        weakTopics: [],
+      });
+    }
+
+    const totalInterviews = interviews.length;
+    const averageScore =
+      interviews.reduce((sum, i) => sum + (i.finalScore || 0), 0) /
+      totalInterviews;
+
+    const scoreTrend = interviews.map((i, index) => ({
+      label: `#${index + 1}`,
+      date: i.createdAt,
+      score: Number((i.finalScore || 0).toFixed(1)),
+      role: i.role,
+      company: i.company || null,
+    }));
+
+    let totalConfidence = 0;
+    let totalCommunication = 0;
+    let totalCorrectness = 0;
+    let scoredQuestionCount = 0;
+    const topicScores = {};
+
+    interviews.forEach((interview) => {
+      (interview.questions || []).forEach((q) => {
+        if (q.skipped) return;
+        totalConfidence += q.confidence || 0;
+        totalCommunication += q.communication || 0;
+        totalCorrectness += q.correctness || 0;
+        scoredQuestionCount += 1;
+
+        const topic = q.topicHint || "general";
+        if (topic === "general" || topic === "introduction") return;
+
+        if (!topicScores[topic]) {
+          topicScores[topic] = { total: 0, count: 0 };
+        }
+        topicScores[topic].total += q.score || 0;
+        topicScores[topic].count += 1;
+      });
+    });
+
+    const skillAverages = {
+      confidence: scoredQuestionCount
+        ? Number((totalConfidence / scoredQuestionCount).toFixed(1))
+        : 0,
+      communication: scoredQuestionCount
+        ? Number((totalCommunication / scoredQuestionCount).toFixed(1))
+        : 0,
+      correctness: scoredQuestionCount
+        ? Number((totalCorrectness / scoredQuestionCount).toFixed(1))
+        : 0,
+    };
+
+    const weakTopics = Object.entries(topicScores)
+      .map(([topic, { total, count }]) => ({
+        topic: topic
+          .replace("project: ", "Project: ")
+          .replace("skills: ", "Skills: ")
+          .replace("coding-question", "Coding Round")
+          .replace(
+            "activity-or-certification (find in resume text if present)",
+            "Achievements / Certifications",
+          ),
+        averageScore: Number((total / count).toFixed(1)),
+        count,
+      }))
+      .filter((t) => t.averageScore < 6)
+      .sort((a, b) => a.averageScore - b.averageScore)
+      .slice(0, 5);
+
+    const dayKeys = new Set(
+      interviews.map((i) => new Date(i.createdAt).toDateString()),
+    );
+    let currentStreak = 0;
+    let cursor = new Date();
+    while (dayKeys.has(cursor.toDateString())) {
+      currentStreak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return res.status(200).json({
+      totalInterviews,
+      averageScore: Number(averageScore.toFixed(1)),
+      currentStreak,
+      scoreTrend,
+      skillAverages,
+      weakTopics,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Failed to load analytics summary: ${error}`,
+    });
+  }
+};

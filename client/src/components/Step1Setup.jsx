@@ -4,12 +4,16 @@ import {
   FaUserTie,
   FaBriefcase,
   FaFileUpload,
-  FaMicrophoneAlt,
-  FaChartLine,
-  FaBuilding,
   FaFileAlt,
 } from "react-icons/fa";
-import { IoWarningOutline } from "react-icons/io5";
+import {
+  BsRobot,
+  BsMic,
+  BsBarChart,
+  BsBuilding,
+  BsCheckCircleFill,
+} from "react-icons/bs";
+import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
 import axios from "axios";
 import { ServerUrl } from "../App";
 import { useDispatch, useSelector } from "react-redux";
@@ -125,144 +129,216 @@ function Step1Setup({ onstart }) {
     }
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="min-h-screen flex items-center justify-center bg-[#f3f3f3] dark:bg-gray-950 transition-colors duration-300 px-4 py-10"
-    >
-      <div className="w-full max-w-6xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl dark:shadow-black/40 grid md:grid-cols-2 overflow-hidden border border-transparent dark:border-gray-800">
-        <motion.div
-          initial={{ x: -80, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative bg-linear-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-900 p-12 flex flex-col justify-center overflow-hidden"
-        >
-          {/* subtle glow accent for dark mode */}
-          <div className="pointer-events-none absolute -top-20 -left-20 w-64 h-64 bg-emerald-400/0 dark:bg-emerald-500/10 rounded-full blur-3xl"></div>
-          <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 bg-green-400/0 dark:bg-green-500/10 rounded-full blur-3xl"></div>
+  const MODES = [
+    { value: "Technical", icon: <BsRobot size={15} />, label: "Technical" },
+    { value: "HR", icon: <BsMic size={15} />, label: "HR / Behavioral" },
+  ];
 
-          <h2 className="relative text-4xl font-bold text-gray-800 dark:text-gray-50 mb-6">
-            Start your AI interview
+  return (
+    <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] flex items-center justify-center p-4 sm:p-6 py-12 transition-colors duration-300">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        .studio-root, .studio-root * { font-family: 'Manrope', sans-serif; }
+        .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+        .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
+
+        .film-grain {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.03;
+          mix-blend-mode: overlay;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .viewfinder-corner { position: absolute; width: 18px; height: 18px; z-index: 2; }
+        .viewfinder-corner::before, .viewfinder-corner::after { content: ''; position: absolute; background: #E8A94C; box-shadow: 0 0 6px rgba(232,169,76,0.6); }
+        .corner-tl { top: 9px; left: 9px; }
+        .corner-tl::before { width: 2px; height: 100%; top: 0; left: 0; }
+        .corner-tl::after { height: 2px; width: 100%; top: 0; left: 0; }
+        .corner-tr { top: 9px; right: 9px; }
+        .corner-tr::before { width: 2px; height: 100%; top: 0; right: 0; }
+        .corner-tr::after { height: 2px; width: 100%; top: 0; right: 0; }
+        .corner-bl { bottom: 9px; left: 9px; }
+        .corner-bl::before { width: 2px; height: 100%; bottom: 0; left: 0; }
+        .corner-bl::after { height: 2px; width: 100%; bottom: 0; left: 0; }
+        .corner-br { bottom: 9px; right: 9px; }
+        .corner-br::before { width: 2px; height: 100%; bottom: 0; right: 0; }
+        .corner-br::after { height: 2px; width: 100%; bottom: 0; right: 0; }
+
+        @keyframes livePulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,169,76,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(232,169,76,0); } }
+        .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
+
+        .studio-input {
+          background: transparent;
+        }
+        .studio-input:focus-within {
+          border-color: rgba(232,169,76,0.5) !important;
+          box-shadow: 0 0 0 4px rgba(232,169,76,0.1);
+        }
+      `}</style>
+
+      <div className="film-grain" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="studio-root relative z-10 w-full max-w-350 bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden grid md:grid-cols-2"
+      >
+        {/* ============ LEFT: editorial panel ============ */}
+        <div className="relative bg-[#0C0E11] p-9 sm:p-11 flex flex-col justify-center overflow-hidden">
+          <div className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 bg-[#E8A94C]/10 rounded-full blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 bg-[#5EC8D8]/10 rounded-full blur-3xl" />
+
+          <div className="relative flex items-center gap-2 mb-5">
+            <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
+            <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#E8A94C]">
+              SETUP · NEW SESSION
+            </span>
+          </div>
+
+          <h2 className="relative font-serif-display text-3xl sm:text-4xl text-white leading-tight mb-4">
+            Start your
+            <br />
+            AI interview
           </h2>
 
-          <p className="relative text-gray-700 dark:text-gray-400 mb-10">
-            Practice real interview scenarios powered by AI. Improve
-            communication, technical skills, and confidence.
+          <p className="relative text-sm text-[#9AA1AC] mb-10 leading-relaxed max-w-xs">
+            A live, adaptive mock interview — tailored to your role,
+            resume, and target company. Practiced like the real thing.
           </p>
 
-          <div className="relative space-y-5">
+          <div className="relative space-y-3">
             {[
               {
-                icon: (
-                  <FaUserTie className="text-green-600 dark:text-green-400 text-xl" />
-                ),
-                text: "Choose Role & Experience",
+                icon: <FaUserTie className="text-[#E8A94C]" size={15} />,
+                text: "Role, experience & target company",
               },
               {
-                icon: (
-                  <FaMicrophoneAlt className="text-green-600 dark:text-green-400 text-xl" />
-                ),
-                text: "Smart Voice Interview",
+                icon: <BsMic className="text-[#E8A94C]" size={15} />,
+                text: "Live voice interview with follow-ups",
               },
               {
-                icon: (
-                  <FaChartLine className="text-green-600 dark:text-green-400 text-xl" />
-                ),
-                text: "Performance Analytics",
+                icon: <BsBarChart className="text-[#E8A94C]" size={15} />,
+                text: "Delivery, coding & performance analytics",
               },
             ].map((item, index) => (
               <motion.div
                 key={index}
-                initial={{ x: 30, opacity: 0 }}
+                initial={{ x: 20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.3 + index * 0.15 }}
-                whileHover={{ scale: 1.03 }}
-                className="flex items-center space-x-4 bg-white/90 dark:bg-gray-800/80 backdrop-blur-sm p-4 rounded-xl shadow-sm dark:shadow-none dark:border dark:border-gray-700 cursor-pointer"
+                transition={{ delay: 0.25 + index * 0.12 }}
+                className="flex items-center gap-3 bg-white/5 border border-white/10 backdrop-blur-sm px-4 py-3 rounded-2xl"
               >
-                {item.icon}
-                <span className="text-gray-700 dark:text-gray-200 font-medium">
+                <span className="w-8 h-8 shrink-0 rounded-lg bg-[#E8A94C]/10 flex items-center justify-center">
+                  {item.icon}
+                </span>
+                <span className="text-[#D8DCE3] text-sm font-medium">
                   {item.text}
                 </span>
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ x: 80, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.7 }}
-          className="p-12 bg-white dark:bg-gray-900"
-        >
-          <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-50 mb-8">
-            Interview SetUp
-          </h2>
+        {/* ============ RIGHT: the form desk ============ */}
+        <div className="p-7 sm:p-10 bg-[#F7F6F3] dark:bg-[#0F1115]">
+          <div className="flex items-center gap-2.5 mb-7">
+            <IoSparklesSharp className="text-[#E8A94C]" size={18} />
+            <h2 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+              Interview Setup
+            </h2>
+          </div>
 
-          <div className="space-y-6">
-            <div className="relative">
-              <FaUserTie className="absolute top-4 left-4 text-gray-400 dark:text-gray-500" />
+          <div className="space-y-5">
+            {/* role */}
+            <div className="studio-input relative rounded-2xl border border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] transition-all duration-200">
+              <FaUserTie
+                className="absolute top-4 left-4 text-[#9AA1AC] dark:text-[#565D68]"
+                size={14}
+              />
               <input
                 type="text"
-                placeholder="Enter Role"
-                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition"
+                placeholder="Enter role — e.g. Frontend Developer"
+                className="w-full pl-11 pr-4 py-3.5 bg-transparent text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] outline-none text-sm"
                 onChange={(e) => setRole(e.target.value)}
                 value={role}
               />
             </div>
 
-            <div className="relative">
-              <FaBriefcase className="absolute top-4 left-4 text-gray-400 dark:text-gray-500" />
+            {/* experience */}
+            <div className="studio-input relative rounded-2xl border border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] transition-all duration-200">
+              <FaBriefcase
+                className="absolute top-4 left-4 text-[#9AA1AC] dark:text-[#565D68]"
+                size={14}
+              />
               <input
                 type="text"
-                placeholder="Experience (e.g. 2 years)"
-                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition"
+                placeholder="Experience — e.g. 2 years"
+                className="w-full pl-11 pr-4 py-3.5 bg-transparent text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] outline-none text-sm"
                 onChange={(e) => setExperience(e.target.value)}
                 value={experience}
               />
             </div>
 
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value)}
-              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition"
-            >
-              <option value="Technical"> Technical Interview</option>
-              <option value="HR">HR Interview</option>
-            </select>
+            {/* mode — pill toggle instead of a plain select */}
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#EFEEEA] dark:bg-[#0C0E11] border border-[#E5E4E0] dark:border-[#1E2229]">
+              {MODES.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMode(m.value)}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    mode === m.value
+                      ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] shadow-md"
+                      : "text-[#5C6472] dark:text-[#8B92A0] hover:text-[#1C1F24] dark:hover:text-[#EDEEF0]"
+                  }`}
+                >
+                  {m.icon}
+                  {m.label}
+                </button>
+              ))}
+            </div>
 
-            <div className="relative">
-              <FaBuilding className="absolute top-4 left-4 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                list="company-suggestions"
-                placeholder="Target Company (optional, e.g. Google)"
-                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition"
-                onChange={(e) => setCompany(e.target.value)}
-                value={company}
-              />
-              <datalist id="company-suggestions">
-                {SUGGESTED_COMPANIES.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500 pl-1">
-                AI will tailor question style to that company's known
-                interview culture.
+            {/* company */}
+            <div>
+              <div className="studio-input relative rounded-2xl border border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] transition-all duration-200">
+                <BsBuilding
+                  className="absolute top-4 left-4 text-[#9AA1AC] dark:text-[#565D68]"
+                  size={14}
+                />
+                <input
+                  type="text"
+                  list="company-suggestions"
+                  placeholder="Target company (optional, e.g. Google)"
+                  className="w-full pl-11 pr-4 py-3.5 bg-transparent text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] outline-none text-sm"
+                  onChange={(e) => setCompany(e.target.value)}
+                  value={company}
+                />
+                <datalist id="company-suggestions">
+                  {SUGGESTED_COMPANIES.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+              <p className="mt-1.5 text-[11px] text-[#9AA1AC] dark:text-[#565D68] pl-1">
+                AI tailors question style to that company's known interview
+                culture.
               </p>
             </div>
 
+            {/* job description */}
             <div>
               <button
                 type="button"
                 onClick={() => setShowJobDescription((v) => !v)}
-                className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition"
+                className="flex items-center gap-2 font-mono-studio text-[11px] tracking-wide text-[#B27E2E] dark:text-[#E8A94C] hover:opacity-80 transition"
               >
-                <FaFileAlt className="text-xs" />
+                <FaFileAlt size={11} />
                 {showJobDescription
-                  ? "Hide job description"
-                  : "Paste a job description (optional)"}
+                  ? "HIDE JOB DESCRIPTION"
+                  : "PASTE A JOB DESCRIPTION (OPTIONAL)"}
               </button>
 
               <AnimatePresence>
@@ -273,29 +349,40 @@ function Step1Setup({ onstart }) {
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <textarea
-                      rows={5}
-                      placeholder="Paste the actual job posting here — AI will tailor questions to its specific responsibilities and required skills, not just the role title."
-                      className="mt-3 w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 outline-none transition resize-none text-sm"
-                      onChange={(e) => setJobDescription(e.target.value)}
-                      value={jobDescription}
-                      maxLength={4000}
-                    />
-                    <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500 pl-1">
-                      {jobDescription.length}/4000 characters
+                    <div className="studio-input mt-3 rounded-2xl border border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] transition-all duration-200">
+                      <textarea
+                        rows={5}
+                        placeholder="Paste the actual job posting here — AI will tailor questions to its specific responsibilities and required skills, not just the role title."
+                        className="w-full px-4 py-3.5 bg-transparent text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] outline-none resize-none text-sm leading-relaxed"
+                        onChange={(e) => setJobDescription(e.target.value)}
+                        value={jobDescription}
+                        maxLength={4000}
+                      />
+                    </div>
+                    <p className="mt-1.5 font-mono-studio text-[10px] text-[#9AA1AC] dark:text-[#565D68] pl-1">
+                      {jobDescription.length}/4000 CHARACTERS
                     </p>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
+            {/* resume upload — viewfinder-corner dropzone, matching the
+                camera preview aesthetic from the live interview screen */}
             {!analysisDone && (
               <motion.div
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.01 }}
                 onClick={() => document.getElementById("resumeUpload").click()}
-                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-green-500 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/10 transition"
+                className="relative rounded-2xl border-2 border-dashed border-[#E5E4E0] dark:border-[#262B34] p-7 text-center cursor-pointer hover:border-[#E8A94C]/50 hover:bg-[#E8A94C]/5 transition-all duration-200"
               >
-                <FaFileUpload className="text-4xl mx-auto text-green-600 dark:text-green-400 mb-3" />
+                <div className="viewfinder-corner corner-tl" />
+                <div className="viewfinder-corner corner-tr" />
+                <div className="viewfinder-corner corner-bl" />
+                <div className="viewfinder-corner corner-br" />
+
+                <FaFileUpload
+                  className="text-3xl mx-auto text-[#B27E2E] dark:text-[#E8A94C] mb-3"
+                />
                 <input
                   type="file"
                   id="resumeUpload"
@@ -307,7 +394,7 @@ function Step1Setup({ onstart }) {
                   }}
                 />
 
-                <p className="text-gray-600 dark:text-gray-300 font-medium">
+                <p className="text-[#5C6472] dark:text-[#9AA1AC] font-medium text-sm">
                   {resumeFile
                     ? resumeFile.name
                     : "Click to upload resume (optional)"}
@@ -315,13 +402,14 @@ function Step1Setup({ onstart }) {
 
                 {resumeFile && (
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleUploadResume();
                     }}
                     disabled={analyzing}
-                    className="mt-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition disabled:opacity-70"
+                    className="mt-4 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-5 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-70"
                   >
                     {analyzing ? "Analyzing..." : "Analyze Resume"}
                   </motion.button>
@@ -330,12 +418,12 @@ function Step1Setup({ onstart }) {
             )}
 
             {resumeError && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-3 flex items-start gap-2">
+              <div className="bg-[#E8A94C]/8 border border-[#E8A94C]/25 rounded-xl p-3 flex items-start gap-2">
                 <IoWarningOutline
-                  size={16}
-                  className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0"
+                  size={15}
+                  className="text-[#B27E2E] dark:text-[#E8A94C] mt-0.5 shrink-0"
                 />
-                <p className="text-amber-700 dark:text-amber-400 text-xs sm:text-sm leading-relaxed">
+                <p className="text-[#8A6A2F] dark:text-[#E8B96A] text-xs leading-relaxed">
                   {resumeError}
                 </p>
               </div>
@@ -344,20 +432,24 @@ function Step1Setup({ onstart }) {
             <AnimatePresence>
               {analysisDone && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-4"
+                  exit={{ opacity: 0, y: -8 }}
+                  className="bg-[#FAFAF8] dark:bg-[#0C0E11] border border-[#E5E4E0] dark:border-[#1E2229] rounded-2xl p-5 space-y-4"
                 >
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    Resume Analysis Result
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <BsCheckCircleFill className="text-emerald-500" size={14} />
+                    <h3 className="font-mono-studio text-[11px] tracking-wide text-[#5C6472] dark:text-[#8B92A0] uppercase">
+                      Resume analysis result
+                    </h3>
+                  </div>
+
                   {projects.length > 0 && (
                     <div>
-                      <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Projects:
+                      <p className="text-xs font-medium text-[#5C6472] dark:text-[#9AA1AC] mb-1.5">
+                        Projects
                       </p>
-                      <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 space-y-1">
+                      <ul className="list-disc list-inside text-sm text-[#3D4148] dark:text-[#C7CBD1] space-y-1">
                         {projects.map((p, i) => (
                           <li key={i}>{p}</li>
                         ))}
@@ -367,14 +459,14 @@ function Step1Setup({ onstart }) {
 
                   {skills.length > 0 && (
                     <div>
-                      <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Skills:
+                      <p className="text-xs font-medium text-[#5C6472] dark:text-[#9AA1AC] mb-1.5">
+                        Skills
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {skills.map((s, i) => (
                           <span
                             key={i}
-                            className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-sm"
+                            className="font-mono-studio bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] px-2.5 py-1 rounded-full text-[11px]"
                           >
                             {s}
                           </span>
@@ -389,10 +481,10 @@ function Step1Setup({ onstart }) {
             {startError && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 flex items-start gap-2">
                 <IoWarningOutline
-                  size={16}
+                  size={15}
                   className="text-red-600 dark:text-red-400 mt-0.5 shrink-0"
                 />
-                <p className="text-red-700 dark:text-red-400 text-xs sm:text-sm leading-relaxed">
+                <p className="text-red-700 dark:text-red-400 text-xs leading-relaxed">
                   {startError}
                 </p>
               </div>
@@ -401,16 +493,23 @@ function Step1Setup({ onstart }) {
             <motion.button
               onClick={handleStart}
               disabled={!role || !experience || loading}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 rounded-full text-lg font-semibold transition duration-300 shadow-md shadow-green-900/20"
+              whileHover={{ scale: role && experience ? 1.02 : 1 }}
+              whileTap={{ scale: role && experience ? 0.98 : 1 }}
+              className="w-full disabled:bg-[#D8D6D0] dark:disabled:bg-[#1E2229] disabled:text-[#9AA1AC] dark:disabled:text-[#565D68] disabled:cursor-not-allowed bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] py-3.5 rounded-2xl text-base font-semibold transition-all duration-200 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2"
             >
-              {loading ? "Starting..." : "Start  Interview"}
+              {loading && (
+                <motion.span
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full"
+                />
+              )}
+              {loading ? "Starting interview..." : "Start Interview"}
             </motion.button>
           </div>
-        </motion.div>
-      </div>
-    </motion.div>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
