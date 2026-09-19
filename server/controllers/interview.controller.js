@@ -69,9 +69,14 @@ export const analyzeResume = async (req, res) => {
       {
         role: "system",
         content: `Extract structeured data from resume.
-                
+
+                For "name", extract the candidate's actual full name as it
+                appears at the top of the resume. If no clear name is found,
+                return null for it — never guess or invent one.
+
                 Return strictly JSON :
                 {
+                "name": "string or null",
                 "role": "string",
                 "experience" : "string",
                 "projects" : ["project1", "project2"],
@@ -96,6 +101,7 @@ export const analyzeResume = async (req, res) => {
     fs.unlinkSync(filePath);
 
     res.json({
+      name: parsed.name || null,
       role: parsed.role,
       experience: parsed.experience,
       projects: parsed.projects,
@@ -320,6 +326,12 @@ export const generateQuestion = async (req, res) => {
       });
     }
 
+    // the resume's actual name is preferred over the account's Google-login
+    // name — a candidate's account name may be a nickname or spelled
+    // differently from how they'd want to be addressed in the interview
+    const displayName = candidateName || user.name;
+    const firstName = displayName.trim().split(/\s+/)[0];
+
     const safeProjects = Array.isArray(projects) ? projects : [];
     const safeSkills = Array.isArray(skills) ? skills : [];
 
@@ -346,74 +358,11 @@ export const generateQuestion = async (req, res) => {
       });
     }
 
-    const messages = [
-      {
-        role: "system",
-        content: `
-                You are a real human interviewer starting a live ${mode} interview.
-
-                speak in simple, natural english as if you are directly talking to the candidate,
-                the way a warm, experienced interviewer opens a conversation.
-
-                Your ONLY job here is to generate the OPENING question, and it must be an
-                "introduce yourself" style question — asking the candidate to walk you through
-                their background, experience, and what they've worked on. Keep it broad and
-                welcoming — do NOT ask about a specific project or skill yet, that comes later.
-${
-  companyGuidance
-    ? `
-                COMPANY CONTEXT:
-                ${companyGuidance}
-                Let this shape the TONE and framing of your opening question (how formal,
-                how values-driven, how technical the interview feels).
-                Do NOT mention the company name in the question itself — the candidate already
-                knows where they're interviewing, and naming it makes the question sound scripted.
-`
-    : ""
-}${
-  jobDescription
-    ? `
-                JOB DESCRIPTION (the candidate is interviewing for exactly this posting):
-                ${jobDescription}
-
-                Keep this posting's specific responsibilities and required skills in mind for
-                later questions in this interview, but the OPENING question still stays a
-                broad "introduce yourself" question — do not quote or reference the posting yet.
-`
-    : ""
-}
-                strict rules:
-                - The question must contain 20 to 35 words.
-                - It must be a single complete sentence (you may use one comma-joined clause).
-                - Do NOT number it.
-                - Do NOT add explanations.
-                - Do NOT add extra text before or after.
-                - Output ONLY the question text, nothing else.
-
-                Base it on the candidate's role, experience, and interviewMode.
-                `,
-      },
-      {
-        role: "user",
-        content: userPrompt,
-      },
-    ];
-
-    const aiResponse = await askAi(messages);
-
-    if (!aiResponse || !aiResponse.trim()) {
-      return res.status(500).json({
-        message: "AI returned empty response.",
-      });
-    }
-
-    const firstQuestion = aiResponse.trim().split("\n")[0].trim();
-
-    if (!firstQuestion) {
-      return res.status(500).json({
-        message: "Ai failed to genrate questions",
-      });
-    }
+    // the opening question is always this exact, fixed line — greeting the
+    // candidate by their real (resume) name and asking them to introduce
+    // themselves. No AI call needed here: this must be 100% consistent
+    // every single time, not AI-varied wording.
+    const firstQuestion = `Ok ${firstName}, let's begin — first, introduce yourself. Walk me through your background and experience.`;
 
     user.credits -= 50;
     await user.save();
@@ -434,6 +383,7 @@ ${
       mode,
       interviewType,
       company,
+      candidateName: displayName,
       jobDescription,
       resumeText: safeResume,
       projects: safeProjects,
@@ -457,7 +407,7 @@ ${
     res.json({
       interviewId: interview._id,
       creditsLeft: user.credits,
-      userName: user.name,
+      userName: interview.candidateName,
       role: interview.role,
       company: interview.company,
       hasJobDescription: Boolean(interview.jobDescription),

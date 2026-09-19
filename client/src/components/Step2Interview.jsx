@@ -601,13 +601,11 @@ function Step2Interview({ interviewData, onFinish }) {
 
     const runIntro = async () => {
       if (isIntroPhase) {
+        const interviewerName = voiceGender === "male" ? "Arjun" : "Priya";
         await speakText(
-          `Hi ${userName}, it's great to meet you today. I hope you'are feeling confident and ready`,
+          `Hi, I'm ${interviewerName}, and I'll be conducting your interview today. I've spent several years interviewing candidates for roles like this one, so let's have a good conversation.`,
         );
-
-        await speakText(
-          `I'll ask you a few questions. Just answer naturally, and take your time. Let us begin.`,
-        );
+        await speakText(`Alright, let's begin.`);
         setIsIntroPhase(false);
       } else if (currentQuestion) {
         await new Promise((r) => setTimeout(r, 800));

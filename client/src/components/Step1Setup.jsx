@@ -53,6 +53,9 @@ function Step1Setup({ onstart }) {
   const [projects, setProjects] = useState([]);
   const [skills, setSkills] = useState([]);
   const [resumeText, setResumeText] = useState("");
+  // the candidate's real name, extracted from their resume — used to greet
+  // them correctly in the interview instead of their account's login name
+  const [candidateName, setCandidateName] = useState("");
   const [analysisDone, setAnalysisDone] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -87,6 +90,7 @@ function Step1Setup({ onstart }) {
       );
       setSkills(Array.isArray(result.data.skills) ? result.data.skills : []);
       setResumeText(result.data.resumeText || "");
+      setCandidateName(result.data.name || "");
       setAnalysisDone(true);
     } catch (error) {
       console.log(error);
@@ -115,6 +119,7 @@ function Step1Setup({ onstart }) {
           resumeText,
           projects,
           skills,
+          candidateName,
         },
         { withCredentials: true },
       );

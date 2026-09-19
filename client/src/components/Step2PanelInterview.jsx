@@ -591,11 +591,15 @@ function Step2PanelInterview({ interviewData, onFinish }) {
     const runIntro = async () => {
       if (isIntroPhase) {
         await speakText(
-          `Hi ${userName}, welcome in. Today you'll be speaking with two of us — I'm Interviewer A, I'll focus on the technical side, and Interviewer B will cover communication and fit.`,
+          `Hi, I'm Arjun — I'll be handling the technical side of today's interview. I've spent several years working on systems like the ones we'll be discussing.`,
           "interviewerA",
         );
         await speakText(
-          `We'll take turns asking questions. Just answer naturally, and take your time. Let's begin.`,
+          `And I'm Priya — I'll be focusing on communication, ownership, and how you work with others. Great to have you with us today.`,
+          "interviewerB",
+        );
+        await speakText(
+          `We'll take turns asking questions, so just answer naturally and take your time. Let's begin.`,
           "interviewerA",
         );
         setIsIntroPhase(false);

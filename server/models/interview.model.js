@@ -61,6 +61,13 @@ const interviewSchema = new mongoose.Schema(
             type: String,
             default: null,
         },
+        // candidate's real name as it appears on their resume — used to
+        // greet them correctly in the interview (their account's Google
+        // login name may differ, e.g. a nickname or a different spelling)
+        candidateName: {
+            type: String,
+            default: null,
+        },
         jobDescription: {
             type: String,
             default: null,
