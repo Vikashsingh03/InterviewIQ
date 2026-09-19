@@ -44,9 +44,6 @@ function Step1Setup({ onstart }) {
   const [role, setRole] = useState("");
   const [experience, setExperience] = useState("");
   const [mode, setMode] = useState("Technical");
-  // "solo" = existing single-AI interviewer, "panel" = two alternating
-  // AI interviewers (Mock Panel Mode) — backend defaults to "solo" too,
-  // so leaving this untouched never changes existing behavior
   const [interviewType, setInterviewType] = useState("solo");
   const [company, setCompany] = useState("");
   const [jobDescription, setJobDescription] = useState("");
