@@ -16,7 +16,14 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
-import { BsCode } from "react-icons/bs";
+import { BsCode, BsPersonFill } from "react-icons/bs";
+
+// client-side labels only — matches PANEL_PERSONAS in Step2PanelInterview,
+// kept separate (and this simple) since the report only needs a label + color
+const PANEL_LABELS = {
+  interviewerA: { label: "Interviewer A", subtitle: "Technical", accent: "#5EC8D8" },
+  interviewerB: { label: "Interviewer B", subtitle: "Behavioral", accent: "#E8A94C" },
+};
 
 function Step3Report({ report }) {
   const navigate = useNavigate();
@@ -40,8 +47,11 @@ function Step3Report({ report }) {
     company,
     hasJobDescription,
     proctoring,
+    interviewType,
+    perInterviewerScores,
   } = report;
 
+  const isPanel = interviewType === "panel" && perInterviewerScores;
   const wasTerminated = Boolean(proctoring?.terminatedForMisbehavior);
 
   const questionScoreData = questionWiseScore.map((score, index) => ({
@@ -89,9 +99,12 @@ function Step3Report({ report }) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     doc.setTextColor(30, 33, 38);
-    doc.text("AI Interview Performance Report", pageWidth / 2, currentY, {
-      align: "center",
-    });
+    doc.text(
+      isPanel ? "AI Panel Interview Performance Report" : "AI Interview Performance Report",
+      pageWidth / 2,
+      currentY,
+      { align: "center" },
+    );
 
     currentY += 5;
 
@@ -128,6 +141,25 @@ function Step3Report({ report }) {
     });
 
     currentY += 30;
+
+    // ================ PANEL VERDICT BOX (panel mode only) ================
+    if (isPanel) {
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(margin, currentY, contentWidth, 20, 4, 4, "F");
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(
+        `Interviewer A (Technical): ${perInterviewerScores.interviewerA}/10`,
+        margin + 10,
+        currentY + 9,
+      );
+      doc.text(
+        `Interviewer B (Behavioral): ${perInterviewerScores.interviewerB}/10`,
+        margin + 10,
+        currentY + 16,
+      );
+      currentY += 30;
+    }
 
     // ================ SKILLS BOX ================
     doc.setFillColor(249, 250, 251);
@@ -172,16 +204,27 @@ function Step3Report({ report }) {
     currentY += 50;
 
     // ================ QUESTION TABLE ================
+    const tableHead = isPanel
+      ? [["#", "Interviewer", "Question", "Score", "Feedback"]]
+      : [["#", "Question", "Score", "Feedback"]];
+
+    const tableBody = questionWiseScore.map((q, i) =>
+      isPanel
+        ? [
+            `${i + 1}`,
+            q.askedBy ? PANEL_LABELS[q.askedBy]?.label || "—" : "—",
+            q.question,
+            `${q.score}/10`,
+            q.feedback,
+          ]
+        : [`${i + 1}`, q.question, `${q.score}/10`, q.feedback],
+    );
+
     autoTable(doc, {
       startY: currentY,
       margin: { left: margin, right: margin },
-      head: [["#", "Question", "Score", "Feedback"]],
-      body: questionWiseScore.map((q, i) => [
-        `${i + 1}`,
-        q.question,
-        `${q.score}/10`,
-        q.feedback,
-      ]),
+      head: tableHead,
+      body: tableBody,
       styles: {
         fontSize: 9,
         cellPadding: 5,
@@ -192,18 +235,26 @@ function Step3Report({ report }) {
         textColor: 30,
         halign: "center",
       },
-      columnStyles: {
-        0: { cellWidth: 10, halign: "center" }, // index
-        1: { cellWidth: 55 }, // question
-        2: { cellWidth: 20, halign: "center" }, // score
-        3: { cellWidth: "auto" }, // feedback
-      },
+      columnStyles: isPanel
+        ? {
+            0: { cellWidth: 8, halign: "center" }, // index
+            1: { cellWidth: 22 }, // interviewer
+            2: { cellWidth: 45 }, // question
+            3: { cellWidth: 15, halign: "center" }, // score
+            4: { cellWidth: "auto" }, // feedback
+          }
+        : {
+            0: { cellWidth: 10, halign: "center" }, // index
+            1: { cellWidth: 55 }, // question
+            2: { cellWidth: 20, halign: "center" }, // score
+            3: { cellWidth: "auto" }, // feedback
+          },
       alternateRowStyles: {
         fillColor: [249, 250, 251],
       },
     });
 
-    doc.save("AI_Interview_report.pdf");
+    doc.save(isPanel ? "AI_Panel_Interview_report.pdf" : "AI_Interview_report.pdf");
   };
 
   return (
@@ -239,11 +290,16 @@ function Step3Report({ report }) {
             </button>
 
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <IoSparklesSharp className="text-[#E8A94C]" size={18} />
                 <h1 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
-                  Interview Analytics Dashboard
+                  {isPanel ? "Panel Interview Analytics" : "Interview Analytics Dashboard"}
                 </h1>
+                {isPanel && (
+                  <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-[#8B7FD6]/10 text-[#6A5FBF] dark:text-[#B3A9F5] border border-[#8B7FD6]/20">
+                    2 INTERVIEWERS
+                  </span>
+                )}
               </div>
 
               <p className="text-[#5C6472] dark:text-[#8B92A0] mt-2 text-sm">
@@ -333,6 +389,53 @@ function Step3Report({ report }) {
                 </p>
               </div>
             </motion.div>
+
+            {/* ============ Panel Verdict — split score by interviewer ============ */}
+            {isPanel && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.03 }}
+                className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl shadow-[0_20px_50px_-24px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.6)] p-6 sm:p-8"
+              >
+                <h3 className="font-mono-studio text-[11px] tracking-wide text-[#8B92A0] mb-6 uppercase">
+                  Panel Verdict
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {["interviewerA", "interviewerB"].map((key) => {
+                    const persona = PANEL_LABELS[key];
+                    const val = perInterviewerScores[key] ?? 0;
+                    return (
+                      <div
+                        key={key}
+                        className="rounded-2xl p-4 text-center border"
+                        style={{
+                          borderColor: `${persona.accent}33`,
+                          backgroundColor: `${persona.accent}0D`,
+                        }}
+                      >
+                        <BsPersonFill
+                          size={14}
+                          style={{ color: persona.accent }}
+                          className="mx-auto mb-1.5"
+                        />
+                        <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
+                          {val}
+                          <span className="text-xs text-[#8B92A0]">/10</span>
+                        </p>
+                        <p
+                          className="font-mono-studio text-[10px] tracking-wide mt-1"
+                          style={{ color: persona.accent }}
+                        >
+                          {persona.label}
+                        </p>
+                        <p className="text-[10px] text-[#8B92A0]">{persona.subtitle}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
 
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -506,50 +609,66 @@ function Step3Report({ report }) {
               </h3>
 
               <div className="space-y-5">
-                {questionWiseScore.map((q, i) => (
-                  <div
-                    key={i}
-                    className="bg-[#FAFAF8] dark:bg-[#0C0E11] p-4 sm:p-6 rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229]"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
-                      <div>
-                        <p className="font-mono-studio text-[11px] text-[#9AA1AC]">
-                          Question {String(i + 1).padStart(2, "0")}
-                        </p>
-                        <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] text-base sm:text-lg leading-relaxed mt-0.5">
-                          {q.question || "Question not available"}
-                        </p>
+                {questionWiseScore.map((q, i) => {
+                  const persona = q.askedBy ? PANEL_LABELS[q.askedBy] : null;
+                  return (
+                    <div
+                      key={i}
+                      className="bg-[#FAFAF8] dark:bg-[#0C0E11] p-4 sm:p-6 rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229]"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="font-mono-studio text-[11px] text-[#9AA1AC]">
+                              Question {String(i + 1).padStart(2, "0")}
+                            </p>
+                            {persona && (
+                              <span
+                                className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide"
+                                style={{
+                                  backgroundColor: `${persona.accent}1A`,
+                                  color: persona.accent,
+                                }}
+                              >
+                                <BsPersonFill size={8} /> {persona.label}
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] text-base sm:text-lg leading-relaxed mt-0.5">
+                            {q.question || "Question not available"}
+                          </p>
+                        </div>
+
+                        <div className="font-mono-studio bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] px-3 py-1 rounded-full font-bold text-xs sm:text-sm w-fit shrink-0">
+                          {q.score ?? 0}/10
+                        </div>
                       </div>
 
-                      <div className="font-mono-studio bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] px-3 py-1 rounded-full font-bold text-xs sm:text-sm w-fit shrink-0">
-                        {q.score ?? 0}/10
+                      {q.type === "coding" && q.answer && (
+                        <div className="mb-4">
+                          <p className="font-mono-studio text-[11px] text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
+                            <BsCode size={11} /> Submitted code
+                            {q.language ? ` · ${q.language}` : ""}
+                          </p>
+                          <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#1E2229]">
+                            <code>{q.answer}</code>
+                          </pre>
+                        </div>
+                      )}
+
+                      <div className="bg-white dark:bg-[#111318] border border-[#E8A94C]/25 p-4 rounded-xl">
+                        <p className="font-mono-studio text-[10px] text-[#B27E2E] dark:text-[#E8A94C] tracking-wide uppercase mb-1.5">
+                          AI feedback
+                        </p>
+                        <p className="text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">
+                          {q.feedback && q.feedback.trim() !== ""
+                            ? q.feedback
+                            : "No feedback available for this question."}
+                        </p>
                       </div>
                     </div>
-
-                    {q.type === "coding" && q.answer && (
-                      <div className="mb-4">
-                        <p className="font-mono-studio text-[11px] text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
-                          <BsCode size={11} /> Submitted code
-                          {q.language ? ` · ${q.language}` : ""}
-                        </p>
-                        <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#1E2229]">
-                          <code>{q.answer}</code>
-                        </pre>
-                      </div>
-                    )}
-
-                    <div className="bg-white dark:bg-[#111318] border border-[#E8A94C]/25 p-4 rounded-xl">
-                      <p className="font-mono-studio text-[10px] text-[#B27E2E] dark:text-[#E8A94C] tracking-wide uppercase mb-1.5">
-                        AI feedback
-                      </p>
-                      <p className="text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">
-                        {q.feedback && q.feedback.trim() !== ""
-                          ? q.feedback
-                          : "No feedback available for this question."}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           </div>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import Step1Setup from "../components/Step1Setup";
 import Step2Interview from "../components/Step2Interview";
+import Step2PanelInterview from "../components/Step2PanelInterview";
 import Step3Report from "../components/Step3Report";
 import { BsGear, BsMic, BsBarChart, BsCheckLg } from "react-icons/bs";
 
@@ -14,6 +15,11 @@ const steps = [
 function InterviewPage() {
   const [step, setStep] = useState(1);
   const [interviewData, setinterviewData] = useState(null);
+
+  // Step1 always returns interviewType ("solo" | "panel") in its payload —
+  // this decides which Step2 component runs, existing solo flow (Step2Interview)
+  // stays completely untouched either way.
+  const isPanel = interviewData?.interviewType === "panel";
 
   return (
     <div className="relative min-h-screen bg-[#f3f3f3] dark:bg-gray-950 transition-colors duration-300 overflow-hidden">
@@ -102,23 +108,40 @@ function InterviewPage() {
             </motion.div>
           )}
 
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -30 }}
-              transition={{ duration: 0.35 }}
-            >
-              <Step2Interview
-                interviewData={interviewData}
-                onFinish={(report) => {
-                  setinterviewData(report);
-                  setStep(3);
-                }}
-              />
-            </motion.div>
-          )}
+          {step === 2 &&
+            (isPanel ? (
+              <motion.div
+                key="step2-panel"
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -30 }}
+                transition={{ duration: 0.35 }}
+              >
+                <Step2PanelInterview
+                  interviewData={interviewData}
+                  onFinish={(report) => {
+                    setinterviewData(report);
+                    setStep(3);
+                  }}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="step2-solo"
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -30 }}
+                transition={{ duration: 0.35 }}
+              >
+                <Step2Interview
+                  interviewData={interviewData}
+                  onFinish={(report) => {
+                    setinterviewData(report);
+                    setStep(3);
+                  }}
+                />
+              </motion.div>
+            ))}
 
           {step === 3 && (
             <motion.div
