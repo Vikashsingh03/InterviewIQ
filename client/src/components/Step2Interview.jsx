@@ -37,11 +37,18 @@ const MAX_FULLSCREEN_EXITS = 3;
 // how long to wait, after the candidate's last spoken word, before treating
 // their answer as "finished" and auto-submitting it. Lower = snappier but
 // risks cutting someone off mid-thought; higher = safer but slower to advance.
-const SILENCE_AUTO_SUBMIT_MS = 3500;
+// A normal answer waits this long after the last word. Short answers
+// (under SHORT_ANSWER_WORDS) wait longer, because people pause to think
+// after a sentence or two and shouldn't be cut off.
+const SILENCE_AUTO_SUBMIT_MS = 5000;
+const SHORT_ANSWER_WORDS = 15;
+const SILENCE_AUTO_SUBMIT_SHORT_MS = 9000;
 // total silence (no speech at all) before the AI checks in
-const INACTIVITY_WARNING_MS = 15000;
+const INACTIVITY_WARNING_MS = 10000;
 // grace window after the check-in before the AI moves on by itself
 const INACTIVITY_GRACE_MS = 15000;
+// after the candidate says "wait", stay quiet for this long before checking in
+const WAIT_EXTENSION_MS = 30000;
 // short utterances matching these are treated as voice COMMANDS, not part
 // of the answer — capped at COMMAND_MAX_WORDS so a genuine long answer that
 // happens to contain the word "wait" is never swallowed as a command
@@ -50,6 +57,11 @@ const REPEAT_COMMAND_REGEX =
 const WAIT_COMMAND_REGEX =
   /\b(wait|hold on|give me (a )?(second|minute|sec|moment)|one (sec|second|minute)|hang on)\b/i;
 const PRESENCE_REGEX = /\b(yes|yeah|i'?m here|still here|here|okay|ok)\b/i;
+// also matches how Chrome commonly mishears "skip this question"
+// ("just give this question"); "skip list" is excluded so a real answer
+// about the data structure is never treated as a command
+const SKIP_COMMAND_REGEX =
+  /\b(skip(?:ped|ping)?(?!\s*list)|next question|move on|pass (on )?this|go to (the )?next|(just|scape|skit|ski) (give )?(this|the) question|leave this question)\b/i;
 const COMMAND_MAX_WORDS = 8;
 
 function Step2Interview({ interviewData, onFinish }) {
@@ -70,6 +82,8 @@ function Step2Interview({ interviewData, onFinish }) {
   const [showAnswerBox, setShowAnswerBox] = useState(false);
   const [inactivityWarning, setInactivityWarning] = useState(false);
   const [warningSecondsLeft, setWarningSecondsLeft] = useState(15);
+  // words still being spoken (not yet finalized by the browser), shown live
+  const [interimText, setInterimText] = useState("");
 
   const silenceTimerRef = useRef(null); // pause-after-speech -> auto-submit
   const inactivityTimerRef = useRef(null); // total silence -> "are you there?"
@@ -90,6 +104,11 @@ function Step2Interview({ interviewData, onFinish }) {
   const isSubmittingRef = useRef(false);
   const isIntroPhaseRef = useRef(true);
   const isCodingQuestionRef = useRef(false);
+  // true while we WANT the mic open; lets recognition.onend tell a
+  // deliberate stop() apart from Chrome silently ending the session
+  const wantListeningRef = useRef(false);
+  const showAnswerBoxRef = useRef(false);
+  const answerRef = useRef("");
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -178,6 +197,7 @@ function Step2Interview({ interviewData, onFinish }) {
   // array) so frozen callbacks always call the freshest version, which
   // closes over the freshest state (answer, timeLeft, currentIndex, etc.)
   useEffect(() => {
+    answerRef.current = answer;
     submitAnswerRef.current = submitAnswer;
     skipQuestionRef.current = skipQuestion;
     speakTextRef.current = speakText;
@@ -192,10 +212,14 @@ function Step2Interview({ interviewData, onFinish }) {
     inactivityTimerRef.current = null;
     graceTimerRef.current = null;
     warningIntervalRef.current = null;
+    inactivityWarningRef.current = false;
+    setInactivityWarning(false);
+    setInterimText("");
   };
 
   const safeStartRecognition = () => {
     if (!recognitionRef.current || !isMicOnRef.current) return;
+    wantListeningRef.current = true;
     try {
       recognitionRef.current.start();
     } catch {
@@ -204,6 +228,7 @@ function Step2Interview({ interviewData, onFinish }) {
   };
 
   const safeStopRecognition = () => {
+    wantListeningRef.current = false;
     if (!recognitionRef.current) return;
     try {
       recognitionRef.current.stop();
@@ -223,11 +248,16 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const armSilenceAutoSubmit = () => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    const words = answerRef.current.trim().split(/\s+/).filter(Boolean).length;
+    const delay =
+      words < SHORT_ANSWER_WORDS
+        ? SILENCE_AUTO_SUBMIT_SHORT_MS
+        : SILENCE_AUTO_SUBMIT_MS;
     silenceTimerRef.current = setTimeout(() => {
       if (!isAIPlayingRef.current && !isSubmittingRef.current) {
         submitAnswerRef.current();
       }
-    }, SILENCE_AUTO_SUBMIT_MS);
+    }, delay);
   };
 
   const handleInactivityTimeout = () => {
@@ -245,20 +275,21 @@ function Step2Interview({ interviewData, onFinish }) {
       isAIPlayingRef.current ||
       isSubmittingRef.current ||
       isCodingQuestionRef.current ||
+      showAnswerBoxRef.current || // typing mode: never nag or auto-skip
       terminatedRef.current
     ) {
       return;
     }
 
+    // just ask, no hints. The countdown only begins once the AI has
+    // FINISHED speaking, so the candidate always gets the full window
+    safeStopRecognition();
+    await speakTextRef.current("Are you still there?");
+    if (terminatedRef.current) return;
+
     setInactivityWarning(true);
     inactivityWarningRef.current = true;
     setWarningSecondsLeft(Math.round(INACTIVITY_GRACE_MS / 1000));
-
-    safeStopRecognition();
-    await speakTextRef.current(
-      "Are you still there? Take your time, or say repeat if you'd like me to ask the question again.",
-    );
-    if (terminatedRef.current) return;
     safeStartRecognition();
 
     warningIntervalRef.current = setInterval(() => {
@@ -270,11 +301,11 @@ function Step2Interview({ interviewData, onFinish }) {
     }, INACTIVITY_GRACE_MS);
   };
 
-  const armInactivityTimer = () => {
+  const armInactivityTimer = (delayMs = INACTIVITY_WARNING_MS) => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     inactivityTimerRef.current = setTimeout(() => {
       handleInactivityWarning();
-    }, INACTIVITY_WARNING_MS);
+    }, delayMs);
   };
 
   const handleRepeatCommand = async () => {
@@ -294,8 +325,29 @@ function Step2Interview({ interviewData, onFinish }) {
     await speakTextRef.current("Ok, take your time.");
     if (terminatedRef.current) return;
     safeStartRecognition();
-    armInactivityTimer();
+    armInactivityTimer(WAIT_EXTENSION_MS);
   };
+
+  const handleSkipCommand = () => {
+    if (terminatedRef.current) return;
+    clearAllVoiceTimers();
+    safeStopRecognition();
+    skipQuestionRef.current();
+  };
+
+  // switching to typing pauses every voice timer (so a slow typist is never
+  // nagged or auto-skipped); switching back re-arms the check-in timer
+  const toggleTypingMode = () => {
+    const next = !showAnswerBoxRef.current;
+    showAnswerBoxRef.current = next;
+    setShowAnswerBox(next);
+    if (next) {
+      clearAllVoiceTimers();
+    } else if (!isAIPlayingRef.current && !isSubmittingRef.current) {
+      armInactivityTimer();
+    }
+  };
+
   // ---- proctoring: camera ----
   const requestCamera = async () => {
     setCameraError("");
@@ -624,16 +676,13 @@ function Step2Interview({ interviewData, onFinish }) {
     }
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = "en-US";
+    // en-IN understands Indian-accented English far better than en-US
+    recognition.lang = "en-IN";
+    recognition.maxAlternatives = 3;
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-      const transcript = event.results[
-        event.results.length - 1
-      ][0].transcript.trim();
-
-      if (!transcript) return;
       if (
         isAIPlayingRef.current ||
         isSubmittingRef.current ||
@@ -643,39 +692,121 @@ function Step2Interview({ interviewData, onFinish }) {
         return;
       }
 
-      const wordCount = transcript.split(/\s+/).length;
-      const lower = transcript.toLowerCase();
-      const isShort = wordCount <= COMMAND_MAX_WORDS;
+      // walk only the results that changed in this event. "final" pieces are
+      // committed to the answer; "interim" pieces (still being spoken) are
+      // shown live and keep every silence timer pushed back, so the answer is
+      // never submitted while the candidate is mid-sentence
+      let finalText = "";
+      let interimChunk = "";
+      const finalAlternatives = [];
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) {
+          finalText += " " + res[0].transcript;
+          for (let a = 0; a < res.length; a++) {
+            finalAlternatives.push(res[a].transcript.toLowerCase());
+          }
+        } else {
+          interimChunk += " " + res[0].transcript;
+        }
+      }
+      finalText = finalText.trim();
+      interimChunk = interimChunk.trim();
 
-      if (isShort && REPEAT_COMMAND_REGEX.test(lower)) {
+      if (interimChunk) {
+        setInterimText(interimChunk);
+        if (inactivityWarningRef.current) {
+          // they're talking during the check-in: hold the countdown, the
+          // final result decides whether it was "I'm here" or a real answer
+          if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
+          if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+          graceTimerRef.current = null;
+          warningIntervalRef.current = null;
+        } else {
+          armInactivityTimer();
+        }
+        if (!showAnswerBoxRef.current && answerRef.current.trim()) {
+          armSilenceAutoSubmit();
+        }
+      }
+
+      if (!finalText) return;
+      setInterimText("");
+
+      const lower = finalText.toLowerCase();
+      const wordCount = finalText.split(/\s+/).length;
+      const isShort = wordCount <= COMMAND_MAX_WORDS;
+      // check every alternative Chrome considered, not just its top guess:
+      // "skip this question" is often ranked 2nd behind a misheard phrase
+      const matchesAny = (re) => finalAlternatives.some((alt) => re.test(alt));
+
+      if (isShort && matchesAny(SKIP_COMMAND_REGEX)) {
+        handleSkipCommand();
+        return;
+      }
+      if (isShort && matchesAny(REPEAT_COMMAND_REGEX)) {
         handleRepeatCommand();
         return;
       }
-      if (isShort && WAIT_COMMAND_REGEX.test(lower)) {
+      if (isShort && matchesAny(WAIT_COMMAND_REGEX)) {
         handleWaitCommand();
         return;
       }
 
       // any speech during the "are you still there?" window counts as
-      // presence — dismiss it. If it was JUST a presence phrase ("yes",
-      // "I'm here"), don't pollute the answer with it; otherwise it was
-      // real content, so let it fall through and count as the answer.
+      // presence. A bare "yes / I'm here" is not added to the answer;
+      // anything longer is real content and falls through as the answer.
       if (inactivityWarningRef.current) {
         const isPresenceOnly = isShort && PRESENCE_REGEX.test(lower);
         dismissInactivityWarning();
         if (isPresenceOnly) {
-          armInactivityTimer();
+          // "yes I'm here": acknowledge out loud, then give them quiet time
+          handleWaitCommand();
           return;
         }
       }
 
       hasSpokenRef.current = true;
-      setAnswer((prev) => (prev ? prev + " " + transcript : transcript));
+      const next = answerRef.current ? answerRef.current + " " + finalText : finalText;
+      answerRef.current = next;
+      setAnswer(next);
+
+      // in typing mode voice just appends text, no auto-submit / nagging
+      if (showAnswerBoxRef.current) return;
+
       armInactivityTimer();
       armSilenceAutoSubmit();
     };
 
+    // Chrome ends a "continuous" session by itself after a stretch of
+    // silence. If we still want the mic open, quietly reopen it.
+    recognition.onend = () => {
+      if (!wantListeningRef.current) return;
+      setTimeout(() => {
+        if (
+          !wantListeningRef.current ||
+          !isMicOnRef.current ||
+          isAIPlayingRef.current ||
+          isSubmittingRef.current ||
+          terminatedRef.current
+        ) {
+          return;
+        }
+        try {
+          recognition.start();
+        } catch {
+          // already running: ignore
+        }
+      }, 250);
+    };
+
     recognition.onerror = (event) => {
+      if (
+        event.error === "not-allowed" ||
+        event.error === "service-not-allowed"
+      ) {
+        wantListeningRef.current = false;
+      }
       if (
         event.error === "not-allowed" ||
         event.error === "service-not-allowed"
@@ -699,6 +830,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
   const startMic = () => {
     if (recognitionRef.current && !isAIPlaying) {
+      wantListeningRef.current = true;
       try {
         recognitionRef.current.start();
         setMicError("");
@@ -709,6 +841,7 @@ function Step2Interview({ interviewData, onFinish }) {
   };
 
   const stopMic = () => {
+    wantListeningRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -999,6 +1132,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
   useEffect(() => {
     return () => {
+      wantListeningRef.current = false;
       clearAllVoiceTimers();
       if (recognitionRef.current) {
         recognitionRef.current.stop();
@@ -1713,7 +1847,17 @@ function Step2Interview({ interviewData, onFinish }) {
                 </span>
               </div>
               <p className="text-[#1C1F24] dark:text-[#EDEEF0] text-base leading-relaxed">
-                {answer || (
+                {answer || interimText ? (
+                  <>
+                    {answer}
+                    {interimText && (
+                      <span className="text-[#9AA1AC] dark:text-[#565D68]">
+                        {answer ? " " : ""}
+                        {interimText}
+                      </span>
+                    )}
+                  </>
+                ) : (
                   <span className="text-[#9AA1AC] dark:text-[#565D68]">
                     Just start speaking whenever you're ready — I'll pick it
                     up automatically. Say "repeat" if you missed the
@@ -1753,7 +1897,7 @@ function Step2Interview({ interviewData, onFinish }) {
               {!isCodingQuestion && (
                 <motion.button
                   type="button"
-                  onClick={() => setShowAnswerBox((v) => !v)}
+                  onClick={toggleTypingMode}
                   whileTap={{ scale: 0.95 }}
                   className="shrink-0 font-mono-studio text-[10px] sm:text-[11px] tracking-wide px-2.5 sm:px-3 py-2 rounded-xl border border-[#E5E4E0] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] hover:bg-white dark:hover:bg-[#181B20] transition"
                 >
