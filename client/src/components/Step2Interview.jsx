@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 import axios from "axios";
 import { ServerUrl } from "../App";
+import { createRecognition } from "../utils/speechRecognition";
 import {
   BsStars,
   BsSpeedometer2,
@@ -689,14 +690,19 @@ function Step2Interview({ interviewData, onFinish }) {
   };
 
   useEffect(() => {
-    if (!("webkitSpeechRecognition" in window)) {
-      setMicError(
-        "Voice input isn't supported in this browser. Please type your answers.",
-      );
-      return;
-    }
-
-    const recognition = new window.webkitSpeechRecognition();
+    // Deepgram when the server has a key (far better with accents and
+    // technical words), otherwise the browser's own recognition. Both expose
+    // the same interface, so everything below works with either.
+    const recognition = createRecognition({
+      fetchConfig: async () => {
+        const res = await axios.get(ServerUrl + "/api/interview/stt-token", {
+          withCredentials: true,
+        });
+        return res.data;
+      },
+      // project names + skills from the resume, so "BrokerBase" isn't misheard
+      keyterms: interviewData.sttKeyterms || [],
+    });
     // en-IN understands Indian-accented English far better than en-US
     recognition.lang = "en-IN";
     recognition.maxAlternatives = 3;

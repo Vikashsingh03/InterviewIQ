@@ -168,6 +168,30 @@ const cleanAck = (raw) => {
   return text;
 };
 
+// Words the speech recogniser should be primed to hear correctly: project
+// names and skills from the resume (e.g. "BrokerBase", "Redis") are exactly
+// what generic speech-to-text mangles.
+const buildSttKeyterms = (interview) => {
+  const raw = [
+    ...(interview.projects || []),
+    ...(interview.skills || []),
+    interview.role,
+    interview.company,
+  ];
+  const seen = new Set();
+  const terms = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const term = item.trim();
+    const key = term.toLowerCase();
+    if (term.length < 2 || term.length > 40 || seen.has(key)) continue;
+    seen.add(key);
+    terms.push(term);
+    if (terms.length >= 40) break;
+  }
+  return terms;
+};
+
 const computeSpeakingMetrics = (answerText, durationSeconds) => {
   const cleanText = (answerText || "").trim();
   const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
@@ -439,6 +463,7 @@ ${
       hasJobDescription: Boolean(interview.jobDescription),
       interviewType: interview.interviewType,
       questions: interview.questions,
+      sttKeyterms: buildSttKeyterms(interview),
     });
   } catch (error) {
     return res.status(500).json({
