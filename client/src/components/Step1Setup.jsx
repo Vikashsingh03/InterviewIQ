@@ -63,6 +63,10 @@ function Step1Setup({ onstart }) {
   const [resumeError, setResumeError] = useState("");
   const [startError, setStartError] = useState("");
 
+  // drives the small "fields ready" readout in the left panel — purely
+  // cosmetic, doesn't gate anything the backend already validates
+  const fieldsReady = [role, experience].filter(Boolean).length;
+
   const handleUploadResume = async () => {
     if (!resumeFile || analyzing) return;
     setAnalyzing(true);
@@ -144,13 +148,13 @@ function Step1Setup({ onstart }) {
   const INTERVIEW_TYPES = [
     {
       value: "solo",
-      icon: <BsPersonFill size={15} />,
+      icon: <BsPersonFill size={16} />,
       label: "Solo AI",
       sub: "One interviewer",
     },
     {
       value: "panel",
-      icon: <BsPeopleFill size={15} />,
+      icon: <BsPeopleFill size={16} />,
       label: "Panel (2 AI)",
       sub: "Technical + HR, back to back",
     },
@@ -171,6 +175,19 @@ function Step1Setup({ onstart }) {
           opacity: 0.03;
           mix-blend-mode: overlay;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* fine diagonal hairline mesh — reads as an engineering blueprint,
+           quiet at this opacity, sits behind the glow orbs on the left panel */
+        .blueprint-mesh {
+          position: absolute;
+          inset: 0;
+          opacity: 0.5;
+          background-image:
+            linear-gradient(115deg, rgba(232,169,76,0.05) 1px, transparent 1px),
+            linear-gradient(25deg, rgba(94,200,216,0.04) 1px, transparent 1px);
+          background-size: 34px 34px;
+          mask-image: radial-gradient(ellipse at 30% 20%, black 0%, transparent 70%);
         }
 
         .viewfinder-corner { position: absolute; width: 18px; height: 18px; z-index: 2; }
@@ -198,6 +215,19 @@ function Step1Setup({ onstart }) {
           border-color: rgba(232,169,76,0.5) !important;
           box-shadow: 0 0 0 4px rgba(232,169,76,0.1);
         }
+
+        /* shine sweep on the primary CTA — plays once on hover, not looping */
+        .shine-cta { position: relative; overflow: hidden; }
+        .shine-cta::after {
+          content: '';
+          position: absolute;
+          top: 0; left: -60%;
+          width: 40%; height: 100%;
+          background: linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent);
+          transform: skewX(-20deg);
+          transition: left 0.6s ease;
+        }
+        .shine-cta:hover::after { left: 130%; }
       `}</style>
 
       <div className="film-grain" />
@@ -210,17 +240,23 @@ function Step1Setup({ onstart }) {
       >
         {/* ============ LEFT: editorial panel ============ */}
         <div className="relative bg-[#0C0E11] p-9 sm:p-11 flex flex-col justify-center overflow-hidden">
-          <div className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 bg-[#E8A94C]/10 rounded-full blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 bg-[#5EC8D8]/10 rounded-full blur-3xl" />
+          <div className="blueprint-mesh" />
+          <div className="pointer-events-none absolute -top-24 -left-16 w-72 h-72 bg-[#E8A94C]/12 rounded-full blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 bg-[#5EC8D8]/12 rounded-full blur-3xl" />
 
-          <div className="relative flex items-center gap-2 mb-5">
-            <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
-            <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#E8A94C]">
-              SETUP · NEW SESSION
+          <div className="relative flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
+              <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#E8A94C]">
+                SETUP · NEW SESSION
+              </span>
+            </div>
+            <span className="font-mono-studio text-[10px] tracking-wide text-[#565D68]">
+              {fieldsReady}/2 READY
             </span>
           </div>
 
-          <h2 className="relative font-serif-display text-3xl sm:text-4xl text-white leading-tight mb-4">
+          <h2 className="relative font-serif-display text-[2.3rem] sm:text-5xl text-white leading-[1.05] mb-5">
             Start your
             <br />
             AI interview
@@ -251,7 +287,7 @@ function Step1Setup({ onstart }) {
                 initial={{ x: 20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.25 + index * 0.12 }}
-                className="flex items-center gap-3 bg-white/5 border border-white/10 backdrop-blur-sm px-4 py-3 rounded-2xl"
+                className="flex items-center gap-3 bg-white/4 border border-white/10 backdrop-blur-sm px-4 py-3 rounded-2xl hover:border-[#E8A94C]/25 transition-colors duration-300"
               >
                 <span className="w-8 h-8 shrink-0 rounded-lg bg-[#E8A94C]/10 flex items-center justify-center">
                   {item.icon}
@@ -329,46 +365,72 @@ function Step1Setup({ onstart }) {
                 Interviewer setup
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {INTERVIEW_TYPES.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
-                    onClick={() => setInterviewType(t.value)}
-                    className={`relative flex flex-col items-start gap-1 p-3.5 rounded-2xl border text-left transition-all duration-200 ${
-                      interviewType === t.value
-                        ? "border-[#E8A94C] bg-[#E8A94C]/8"
-                        : "border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] hover:border-[#E8A94C]/30"
-                    }`}
-                  >
-                    <span
-                      className={`flex items-center gap-1.5 text-sm font-semibold ${
-                        interviewType === t.value
-                          ? "text-[#B27E2E] dark:text-[#E8A94C]"
-                          : "text-[#1C1F24] dark:text-[#EDEEF0]"
+                {INTERVIEW_TYPES.map((t) => {
+                  const isSelected = interviewType === t.value;
+                  return (
+                    <motion.button
+                      key={t.value}
+                      type="button"
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setInterviewType(t.value)}
+                      className={`relative flex flex-col items-start gap-1.5 p-3.5 rounded-2xl border text-left transition-all duration-200 ${
+                        isSelected
+                          ? "border-[#E8A94C] bg-[#E8A94C]/8 shadow-[0_8px_24px_-12px_rgba(232,169,76,0.5)]"
+                          : "border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] hover:border-[#E8A94C]/30"
                       }`}
                     >
-                      {t.icon}
-                      {t.label}
-                    </span>
-                    <span className="text-[11px] text-[#8B92A0] leading-snug">
-                      {t.sub}
-                    </span>
-                    {interviewType === t.value && (
-                      <BsCheckCircleFill
-                        className="absolute top-3 right-3 text-[#E8A94C]"
-                        size={13}
-                      />
-                    )}
-                  </button>
-                ))}
+                      <span
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center mb-0.5 transition-colors duration-200 ${
+                          isSelected
+                            ? "bg-[#E8A94C] text-[#1C1F24]"
+                            : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#9AA1AC] dark:text-[#565D68]"
+                        }`}
+                      >
+                        {t.icon}
+                      </span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          isSelected
+                            ? "text-[#B27E2E] dark:text-[#E8A94C]"
+                            : "text-[#1C1F24] dark:text-[#EDEEF0]"
+                        }`}
+                      >
+                        {t.label}
+                      </span>
+                      <span className="text-[11px] text-[#8B92A0] leading-snug">
+                        {t.sub}
+                      </span>
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.span
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute top-3 right-3"
+                          >
+                            <BsCheckCircleFill className="text-[#E8A94C]" size={14} />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                  );
+                })}
               </div>
-              {interviewType === "panel" && (
-                <p className="mt-2 text-[11px] text-[#9AA1AC] dark:text-[#565D68] pl-1 leading-relaxed">
-                  Two AI interviewers alternate questions — Interviewer A goes
-                  deep on technical depth, Interviewer B focuses on
-                  communication and fit. Uses more credits than Solo AI.
-                </p>
-              )}
+              <AnimatePresence>
+                {interviewType === "panel" && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-2 text-[11px] text-[#9AA1AC] dark:text-[#565D68] pl-1 leading-relaxed overflow-hidden"
+                  >
+                    Two AI interviewers alternate questions — Interviewer A goes
+                    deep on technical depth, Interviewer B focuses on
+                    communication and fit. Uses more credits than Solo AI.
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* company */}
@@ -565,7 +627,7 @@ function Step1Setup({ onstart }) {
               disabled={!role || !experience || loading}
               whileHover={{ scale: role && experience ? 1.02 : 1 }}
               whileTap={{ scale: role && experience ? 0.98 : 1 }}
-              className="w-full disabled:bg-[#D8D6D0] dark:disabled:bg-[#1E2229] disabled:text-[#9AA1AC] dark:disabled:text-[#565D68] disabled:cursor-not-allowed bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] py-3.5 rounded-2xl text-base font-semibold transition-all duration-200 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2"
+              className="shine-cta w-full disabled:bg-[#D8D6D0] dark:disabled:bg-[#1E2229] disabled:text-[#9AA1AC] dark:disabled:text-[#565D68] disabled:cursor-not-allowed bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] py-3.5 rounded-2xl text-base font-semibold transition-all duration-200 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] flex items-center justify-center gap-2"
             >
               {loading && (
                 <motion.span
