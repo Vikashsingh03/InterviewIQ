@@ -33,6 +33,25 @@ const CODE_LANGUAGES = [
 // leaving fullscreen this many times ends the interview
 const MAX_FULLSCREEN_EXITS = 3;
 
+// ---- conversational voice engine tuning ----
+// how long to wait, after the candidate's last spoken word, before treating
+// their answer as "finished" and auto-submitting it. Lower = snappier but
+// risks cutting someone off mid-thought; higher = safer but slower to advance.
+const SILENCE_AUTO_SUBMIT_MS = 3500;
+// total silence (no speech at all) before the AI checks in
+const INACTIVITY_WARNING_MS = 15000;
+// grace window after the check-in before the AI moves on by itself
+const INACTIVITY_GRACE_MS = 15000;
+// short utterances matching these are treated as voice COMMANDS, not part
+// of the answer — capped at COMMAND_MAX_WORDS so a genuine long answer that
+// happens to contain the word "wait" is never swallowed as a command
+const REPEAT_COMMAND_REGEX =
+  /\b(repeat|say that again|didn'?t (hear|catch)|come again|pardon|one more time)\b/i;
+const WAIT_COMMAND_REGEX =
+  /\b(wait|hold on|give me (a )?(second|minute|sec|moment)|one (sec|second|minute)|hang on)\b/i;
+const PRESENCE_REGEX = /\b(yes|yeah|i'?m here|still here|here|okay|ok)\b/i;
+const COMMAND_MAX_WORDS = 8;
+
 function Step2Interview({ interviewData, onFinish }) {
   const { interviewId, userName } = interviewData;
 
@@ -44,6 +63,33 @@ function Step2Interview({ interviewData, onFinish }) {
   const [micError, setMicError] = useState("");
   const recognitionRef = useRef(null);
   const [isAIPlaying, setIsAIPlaying] = useState(false);
+
+  // ---- conversational voice engine state ----
+  // textarea is hidden by default — voice is the primary input, typing is
+  // an explicit fallback the candidate can reveal
+  const [showAnswerBox, setShowAnswerBox] = useState(false);
+  const [inactivityWarning, setInactivityWarning] = useState(false);
+  const [warningSecondsLeft, setWarningSecondsLeft] = useState(15);
+
+  const silenceTimerRef = useRef(null); // pause-after-speech -> auto-submit
+  const inactivityTimerRef = useRef(null); // total silence -> "are you there?"
+  const graceTimerRef = useRef(null); // after warning -> auto-advance
+  const warningIntervalRef = useRef(null); // ticks warningSecondsLeft down
+  const inactivityWarningRef = useRef(false);
+  const hasSpokenRef = useRef(false);
+
+  // "latest value" refs — the SpeechRecognition object and its callbacks are
+  // set up once on mount, so anything they read must come through a ref,
+  // otherwise it would forever see only the very first render's values
+  const currentQuestionRef = useRef(null);
+  const isMicOnRef = useRef(true);
+  const submitAnswerRef = useRef(() => {});
+  const skipQuestionRef = useRef(() => {});
+  const speakTextRef = useRef(() => Promise.resolve());
+  const isAIPlayingRef = useRef(false);
+  const isSubmittingRef = useRef(false);
+  const isIntroPhaseRef = useRef(true);
+  const isCodingQuestionRef = useRef(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -104,6 +150,152 @@ function Step2Interview({ interviewData, onFinish }) {
     proctoringReadyRef.current = proctoringReady;
   }, [proctoringReady]);
 
+  useEffect(() => {
+    isAIPlayingRef.current = isAIPlaying;
+  }, [isAIPlaying]);
+
+  useEffect(() => {
+    isSubmittingRef.current = isSubmitting;
+  }, [isSubmitting]);
+
+  useEffect(() => {
+    isIntroPhaseRef.current = isIntroPhase;
+  }, [isIntroPhase]);
+
+  useEffect(() => {
+    isCodingQuestionRef.current = isCodingQuestion;
+  }, [isCodingQuestion]);
+
+  useEffect(() => {
+    currentQuestionRef.current = currentQuestion;
+  }, [currentQuestion]);
+
+  useEffect(() => {
+    isMicOnRef.current = isMicOn;
+  }, [isMicOn]);
+
+  // "latest function" refs — updated after EVERY render (no dependency
+  // array) so frozen callbacks always call the freshest version, which
+  // closes over the freshest state (answer, timeLeft, currentIndex, etc.)
+  useEffect(() => {
+    submitAnswerRef.current = submitAnswer;
+    skipQuestionRef.current = skipQuestion;
+    speakTextRef.current = speakText;
+  });
+
+    const clearAllVoiceTimers = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
+    if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+    silenceTimerRef.current = null;
+    inactivityTimerRef.current = null;
+    graceTimerRef.current = null;
+    warningIntervalRef.current = null;
+  };
+
+  const safeStartRecognition = () => {
+    if (!recognitionRef.current || !isMicOnRef.current) return;
+    try {
+      recognitionRef.current.start();
+    } catch {
+      // already running — ignore
+    }
+  };
+
+  const safeStopRecognition = () => {
+    if (!recognitionRef.current) return;
+    try {
+      recognitionRef.current.stop();
+    } catch {
+      // already stopped — ignore
+    }
+  };
+
+  const dismissInactivityWarning = () => {
+    setInactivityWarning(false);
+    inactivityWarningRef.current = false;
+    if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
+    if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+    graceTimerRef.current = null;
+    warningIntervalRef.current = null;
+  };
+
+  const armSilenceAutoSubmit = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      if (!isAIPlayingRef.current && !isSubmittingRef.current) {
+        submitAnswerRef.current();
+      }
+    }, SILENCE_AUTO_SUBMIT_MS);
+  };
+
+  const handleInactivityTimeout = () => {
+    if (terminatedRef.current) return;
+    dismissInactivityWarning();
+    if (hasSpokenRef.current) {
+      submitAnswerRef.current();
+    } else {
+      skipQuestionRef.current();
+    }
+  };
+
+  const handleInactivityWarning = async () => {
+    if (
+      isAIPlayingRef.current ||
+      isSubmittingRef.current ||
+      isCodingQuestionRef.current ||
+      terminatedRef.current
+    ) {
+      return;
+    }
+
+    setInactivityWarning(true);
+    inactivityWarningRef.current = true;
+    setWarningSecondsLeft(Math.round(INACTIVITY_GRACE_MS / 1000));
+
+    safeStopRecognition();
+    await speakTextRef.current(
+      "Are you still there? Take your time, or say repeat if you'd like me to ask the question again.",
+    );
+    if (terminatedRef.current) return;
+    safeStartRecognition();
+
+    warningIntervalRef.current = setInterval(() => {
+      setWarningSecondsLeft((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+
+    graceTimerRef.current = setTimeout(() => {
+      handleInactivityTimeout();
+    }, INACTIVITY_GRACE_MS);
+  };
+
+  const armInactivityTimer = () => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = setTimeout(() => {
+      handleInactivityWarning();
+    }, INACTIVITY_WARNING_MS);
+  };
+
+  const handleRepeatCommand = async () => {
+    if (!currentQuestionRef.current || terminatedRef.current) return;
+    clearAllVoiceTimers();
+    safeStopRecognition();
+    await speakTextRef.current(currentQuestionRef.current.question);
+    if (terminatedRef.current) return;
+    safeStartRecognition();
+    armInactivityTimer();
+  };
+
+  const handleWaitCommand = async () => {
+    if (terminatedRef.current) return;
+    clearAllVoiceTimers();
+    safeStopRecognition();
+    await speakTextRef.current("Ok, take your time.");
+    if (terminatedRef.current) return;
+    safeStartRecognition();
+    armInactivityTimer();
+  };
   // ---- proctoring: camera ----
   const requestCamera = async () => {
     setCameraError("");
@@ -355,7 +547,9 @@ function Step2Interview({ interviewData, onFinish }) {
         answerWindowStartRef.current = Date.now();
 
         if (isMicOn && currentQuestion.type !== "coding") {
+          hasSpokenRef.current = false;
           startMic();
+          armInactivityTimer();
         }
       }
     };
@@ -435,9 +629,50 @@ function Step2Interview({ interviewData, onFinish }) {
     recognition.interimResults = false;
 
     recognition.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1][0].transcript;
+      const transcript = event.results[
+        event.results.length - 1
+      ][0].transcript.trim();
 
-      setAnswer((prev) => prev + " " + transcript);
+      if (!transcript) return;
+      if (
+        isAIPlayingRef.current ||
+        isSubmittingRef.current ||
+        isIntroPhaseRef.current ||
+        isCodingQuestionRef.current
+      ) {
+        return;
+      }
+
+      const wordCount = transcript.split(/\s+/).length;
+      const lower = transcript.toLowerCase();
+      const isShort = wordCount <= COMMAND_MAX_WORDS;
+
+      if (isShort && REPEAT_COMMAND_REGEX.test(lower)) {
+        handleRepeatCommand();
+        return;
+      }
+      if (isShort && WAIT_COMMAND_REGEX.test(lower)) {
+        handleWaitCommand();
+        return;
+      }
+
+      // any speech during the "are you still there?" window counts as
+      // presence — dismiss it. If it was JUST a presence phrase ("yes",
+      // "I'm here"), don't pollute the answer with it; otherwise it was
+      // real content, so let it fall through and count as the answer.
+      if (inactivityWarningRef.current) {
+        const isPresenceOnly = isShort && PRESENCE_REGEX.test(lower);
+        dismissInactivityWarning();
+        if (isPresenceOnly) {
+          armInactivityTimer();
+          return;
+        }
+      }
+
+      hasSpokenRef.current = true;
+      setAnswer((prev) => (prev ? prev + " " + transcript : transcript));
+      armInactivityTimer();
+      armSilenceAutoSubmit();
     };
 
     recognition.onerror = (event) => {
@@ -536,6 +771,7 @@ function Step2Interview({ interviewData, onFinish }) {
     let cancelled = false;
 
     const handle = async () => {
+      clearAllVoiceTimers();
       stopMic();
       window.speechSynthesis.cancel();
 
@@ -608,6 +844,7 @@ function Step2Interview({ interviewData, onFinish }) {
     if (isIntroPhase || isAIPlaying) return;
     if (isTerminated || fullscreenWarning) return;
 
+    clearAllVoiceTimers();
     stopMic();
     setIsSubmitting(true);
     setErrorMessage("");
@@ -695,6 +932,7 @@ function Step2Interview({ interviewData, onFinish }) {
     if (isIntroPhase || isAIPlaying) return;
     if (isTerminated || fullscreenWarning) return;
 
+    clearAllVoiceTimers();
     stopMic();
     setIsSubmitting(true);
     setErrorMessage("");
@@ -761,6 +999,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
   useEffect(() => {
     return () => {
+      clearAllVoiceTimers();
       if (recognitionRef.current) {
         recognitionRef.current.stop();
         recognitionRef.current.abort();
@@ -1451,7 +1690,7 @@ function Step2Interview({ interviewData, onFinish }) {
                 </div>
               )}
             </div>
-          ) : (
+          ) : showAnswerBox ? (
             <textarea
               placeholder="Type your answer here..."
               onChange={(e) => setAnswer(e.target.value)}
@@ -1459,10 +1698,69 @@ function Step2Interview({ interviewData, onFinish }) {
               disabled={controlsDisabled}
               className="flex-1 mt-3 bg-white dark:bg-[#0C0E11] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#1E2229] text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] text-base leading-relaxed resize-none outline-none focus:border-[#E8A94C]/50 focus:ring-4 focus:ring-[#E8A94C]/10 transition-all duration-200 disabled:opacity-60"
             />
+          ) : (
+            <div className="flex-1 mt-3 bg-white dark:bg-[#0C0E11] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#1E2229] flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isMicOn && !controlsDisabled
+                      ? "bg-[#E8A94C] live-dot"
+                      : "bg-[#9AA1AC]"
+                  }`}
+                />
+                <span className="font-mono-studio text-[11px] tracking-wide text-[#8B92A0] uppercase">
+                  {isMicOn && !controlsDisabled ? "Listening..." : "Mic paused"}
+                </span>
+              </div>
+              <p className="text-[#1C1F24] dark:text-[#EDEEF0] text-base leading-relaxed">
+                {answer || (
+                  <span className="text-[#9AA1AC] dark:text-[#565D68]">
+                    Just start speaking whenever you're ready — I'll pick it
+                    up automatically. Say "repeat" if you missed the
+                    question, or "wait" if you need a moment.
+                  </span>
+                )}
+              </p>
+            </div>
           )}
+
+          <AnimatePresence>
+            {inactivityWarning && !isCodingQuestion && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mt-4 flex items-center justify-between gap-3 bg-[#E8A94C]/10 border border-[#E8A94C]/25 rounded-2xl px-4 py-3"
+              >
+                <div className="flex items-center gap-2">
+                  <IoWarningOutline
+                    size={16}
+                    className="text-[#B27E2E] dark:text-[#E8A94C] shrink-0"
+                  />
+                  <p className="text-[#8A6A2F] dark:text-[#E8B96A] text-sm">
+                    Still there? Say anything to let me know.
+                  </p>
+                </div>
+                <span className="font-mono-studio text-xs font-semibold text-[#B27E2E] dark:text-[#E8A94C] shrink-0">
+                  {warningSecondsLeft}s
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {!feedback ? (
             <div className="flex items-center gap-3 mt-6">
+              {!isCodingQuestion && (
+                <motion.button
+                  type="button"
+                  onClick={() => setShowAnswerBox((v) => !v)}
+                  whileTap={{ scale: 0.95 }}
+                  className="shrink-0 font-mono-studio text-[10px] sm:text-[11px] tracking-wide px-2.5 sm:px-3 py-2 rounded-xl border border-[#E5E4E0] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] hover:bg-white dark:hover:bg-[#181B20] transition"
+                >
+                  {showAnswerBox ? "USE VOICE" : "TYPE INSTEAD"}
+                </motion.button>
+              )}
+
               {!isCodingQuestion && (
                 <motion.button
                   onClick={toggleMic}
