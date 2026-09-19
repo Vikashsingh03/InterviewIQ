@@ -140,6 +140,34 @@ const computeQuestionBudget = (topicPool, mode) => {
 const FILLER_WORD_REGEX =
   /\b(um+|uh+|erm+|like|you know|i mean|basically|actually|so yeah|kind of|sort of)\b/gi;
 
+// ---- spoken acknowledgement -------------------------------------------
+// A real interviewer doesn't announce a verdict after every answer; they
+// react briefly ("okay, got it") and move on. The detailed feedback still
+// lives in the report. The AI writes a context-aware reaction; anything
+// that sounds like grading, or is missing/too long, falls back to a neutral one.
+const NEUTRAL_ACKS = [
+  "Okay, got it.",
+  "Alright, thanks for that.",
+  "Mm-hmm, understood.",
+  "Okay, I see. Thank you.",
+  "Right, noted.",
+];
+
+const JUDGEMENT_WORDS_REGEX =
+  /\b(great|excellent|perfect|correct|incorrect|wrong|good job|well done|impressive|nice answer|weak|poor|score|marks?|out of)\b/i;
+
+const cleanAck = (raw) => {
+  const fallback = () =>
+    NEUTRAL_ACKS[Math.floor(Math.random() * NEUTRAL_ACKS.length)];
+  if (typeof raw !== "string") return fallback();
+  const text = raw.trim();
+  const words = text.split(/\s+/).filter(Boolean).length;
+  if (!text || words < 2 || words > 24) return fallback();
+  if (JUDGEMENT_WORDS_REGEX.test(text)) return fallback();
+  if (text.includes("?")) return fallback(); // acknowledgements never ask
+  return text;
+};
+
 const computeSpeakingMetrics = (answerText, durationSeconds) => {
   const cleanText = (answerText || "").trim();
   const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
@@ -512,6 +540,23 @@ const decideNextStep = async (interview) => {
     };
   }
 
+  // ---- follow-ups: how a real interviewer probes ----
+  // "followup": the answer was thin, push for something concrete.
+  // "probe":    the answer was solid, dig deeper into something specific the
+  //             candidate actually said (why X over Y, what breaks at scale...).
+  // Both stay on the SAME topic and each topic gets at most one of them.
+  const lastAnswerText =
+    !wasSkipped && typeof lastQuestion?.answer === "string"
+      ? lastQuestion.answer.trim()
+      : "";
+  const lastAnswerWords = lastAnswerText.split(/\s+/).filter(Boolean).length;
+
+  // a probe must never crowd out topics still waiting to be covered, so it
+  // only happens when the interview budget has spare room after them
+  const hasSpareSlot =
+    remainingSlots - 1 >=
+    uncoveredOrdered.length + (canAskCodingQuestion ? 1 : 0);
+
   const eligibleFollowUp =
     !wasSkipped &&
     isRealTopic &&
@@ -519,11 +564,22 @@ const decideNextStep = async (interview) => {
     lastScore > 0 &&
     lastScore < 6;
 
+  const eligibleProbe =
+    !wasSkipped &&
+    isRealTopic &&
+    topicUseCount === 1 &&
+    lastScore >= 6 &&
+    lastAnswerWords >= 25 &&
+    hasSpareSlot;
+
   let action;
   let targetTopic = null;
 
   if (eligibleFollowUp) {
     action = "followup";
+    targetTopic = lastTopic;
+  } else if (eligibleProbe) {
+    action = "probe";
     targetTopic = lastTopic;
   } else if (uncoveredOrdered.length > 0) {
     action = "nextTopic";
@@ -601,8 +657,18 @@ const decideNextStep = async (interview) => {
     action === "followup"
       ? `The candidate's last answer (topic: "${lastTopic}") scored low (${lastScore}/10) and felt
          thin or vague. Ask ONE follow-up question that pushes for something concrete — a specific
-         example, a number, or exactly what THEY personally did — staying on this SAME topic.
-         Do not introduce a new subject.`
+         example, a number, or exactly what THEY personally did. Anchor it in something they
+         actually said so it is clear you listened. Stay on this SAME topic.
+         Do not introduce a new subject.
+         Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""`
+      : action === "probe"
+        ? `The candidate just gave a solid answer about "${lastTopic}". Ask ONE natural cross-question
+           that digs deeper into something SPECIFIC they actually said: pick a concrete claim, tool,
+           or decision from their last answer (quote or closely paraphrase it) and ask why they chose
+           it over the alternatives, what the trade-off was, what could go wrong, or how it would
+           change at larger scale. It must clearly build on their own words, the way a real
+           interviewer probes. Stay on this SAME topic; do not introduce a new subject.
+         Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""`
       : action === "general"
         ? `All resume topics are already covered, but the interview hasn't hit its minimum length
            yet. Ask one thoughtful, natural reflective question that doesn't repeat anything
@@ -1136,6 +1202,17 @@ export const submitAnswer = async (req, res) => {
             - Do NOT explain scoring.
             - Keep tone professional and honest.
 
+            Spoken reaction ("ack"):
+            - This is what you say OUT LOUD right after hearing the answer, before moving on.
+            - 6 to 14 words. Mention ONE specific thing the candidate actually said (a tool,
+              decision or detail) so it is obvious you listened.
+            - Stay neutral-to-warm. NEVER reveal or hint at quality: no "great", "excellent",
+              "correct", "wrong", "weak", no scores.
+            - Do NOT ask a question and do NOT give advice here.
+            - If the answer was vague or had no specifics, just acknowledge it plainly,
+              for example: "Okay, I see. Thank you."
+            - Example: "Okay, so Redis handled your caching layer, got it."
+
             Return ONLY valid JSON in this format:
 
             {
@@ -1143,7 +1220,8 @@ export const submitAnswer = async (req, res) => {
             "communication": number,
             "correctness": number,
             "finalScore": number,
-            "feedback": "short human feedback"
+            "feedback": "short human feedback",
+            "ack": "short spoken reaction"
             }
             `,
       },
@@ -1217,6 +1295,7 @@ export const submitAnswer = async (req, res) => {
 
     return res.status(200).json({
       feedback: parsed.feedback,
+      ack: cleanAck(parsed.ack),
       isLast: !continueInterview,
       nextQuestion: continueInterview ? nextQuestion : null,
       speakingMetrics: question.speakingMetrics,

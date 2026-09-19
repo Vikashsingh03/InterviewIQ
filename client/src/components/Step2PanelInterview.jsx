@@ -29,6 +29,22 @@ const CODE_LANGUAGES = [
 
 const MAX_FULLSCREEN_EXITS = 3;
 
+// A real interviewer doesn't read out a verdict after every answer. They
+// react briefly ("okay, got it") and move straight on; detailed feedback
+// lives in the final report. `ack` comes from the server (it references
+// something the candidate actually said); the fallbacks cover paths where
+// the server sends none (skips, empty answers, coding questions).
+const buildSpokenReply = ({ ack, isLast, isCodingQuestion, userName }) => {
+  const base =
+    ack ||
+    (isCodingQuestion
+      ? "Thanks, I've noted your solution."
+      : "Alright, let's move on.");
+  return isLast
+    ? `${base} That was my last question. Thank you for your time, ${userName}.`
+    : base;
+};
+
 // ---- conversational voice engine tuning ----
 // pause after the candidate's last spoken words before the answer is
 // treated as "finished" and auto-submitted
@@ -979,7 +995,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
         { withCredentials: true },
       );
 
-      const { feedback: fb, isLast, nextQuestion, testResults, testsPassedCount, testsTotalCount } =
+      const { ack, isLast, nextQuestion, testResults, testsPassedCount, testsTotalCount } =
         result.data;
 
       if (isCodingQuestion) {
@@ -994,11 +1010,12 @@ function Step2PanelInterview({ interviewData, onFinish }) {
         setQuestions((prev) => [...prev, nextQuestion]);
       }
       setIsLastQuestion(!!isLast);
-      setFeedback(fb);
+      const spokenReply = buildSpokenReply({ ack, isLast, isCodingQuestion, userName });
+      setFeedback(spokenReply);
 
       if (terminatedRef.current) return;
 
-      await speakText(`Thank you ${userName}. ${fb}`, activeSpeaker);
+      await speakText(spokenReply, activeSpeaker);
 
       if (terminatedRef.current) return;
 
@@ -1053,11 +1070,18 @@ function Step2PanelInterview({ interviewData, onFinish }) {
         setQuestions((prev) => [...prev, nextQuestion]);
       }
       setIsLastQuestion(!!isLast);
-      setFeedback(fb || "No problem, let's move on.");
+      // on the very last question just say goodbye, no "next question" talk
+      const spokenSkip = buildSpokenReply({
+        ack: isLast ? "No problem." : fb || "No problem, let's move on.",
+        isLast,
+        isCodingQuestion: false,
+        userName,
+      });
+      setFeedback(spokenSkip);
 
       if (terminatedRef.current) return;
 
-      await speakText(fb || "No problem, let's move on to the next question.", activeSpeaker);
+      await speakText(spokenSkip, activeSpeaker);
 
       if (terminatedRef.current) return;
 
