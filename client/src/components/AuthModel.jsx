@@ -14,7 +14,7 @@ function AuthModel({onclose}) {
     },[userData, onclose])
 
   return (
-    <div className='fixed inset-0 bg-black/10 bg-opacity-50 flex justify-center items-center z-[999] backdrop-blur-sm px-4'>
+    <div className='fixed inset-0 bg-black/10 bg-opacity-50 flex justify-center items-center z-999 backdrop-blur-sm px-4'>
         <div className='relative w-full max-w-md'>
                 <button 
                 onClick={onclose}
