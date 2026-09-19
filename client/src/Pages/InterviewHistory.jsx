@@ -12,6 +12,21 @@ import {
 } from "react-icons/bs";
 import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
 
+// 4.666666666666667 -> "4.7", 7 -> "7", 2.4 -> "2.4"
+const formatScore = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return String(Math.round(n * 10) / 10);
+};
+
+// colour tells you at a glance how the interview went
+const scoreTone = (value) => {
+  const n = Number(value) || 0;
+  if (n >= 7) return "text-[#2E9C5A] dark:text-[#4ADE80]";
+  if (n >= 4) return "text-[#B27E2E] dark:text-[#E8A94C]";
+  return "text-[#E05252] dark:text-[#F87171]";
+};
+
 const InterviewHistory = () => {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -256,25 +271,35 @@ const InterviewHistory = () => {
                   )}
 
                   <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
                       <div className="w-12 h-12 shrink-0 rounded-2xl bg-[#1C1F24] dark:bg-[#EDEEF0] flex items-center justify-center text-white dark:text-[#0A0B0D] shadow-md group-hover:scale-105 transition-transform">
                         <BsBriefcase size={18} />
                       </div>
-                      <div>
-                        <h3 className="font-serif-display text-lg text-[#1C1F24] dark:text-[#EDEEF0]">
+                      <div className="min-w-0">
+                        <h3 className="font-serif-display text-lg text-[#1C1F24] dark:text-[#EDEEF0] truncate">
                           {item.role}
                         </h3>
+
                         <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                          <span className="inline-flex items-center gap-1 text-[#5C6472] dark:text-[#9AA1AC] text-sm">
-                            <BsChatDots size={13} />
-                            {item.experience}
-                          </span>
-                          <span className="text-[#D8D6D0] dark:text-[#2A2F37]">
-                            •
-                          </span>
                           <span className="text-[#5C6472] dark:text-[#9AA1AC] text-sm">
                             {item.mode}
                           </span>
+                          {item.interviewType === "panel" && (
+                            <span className="font-mono-studio text-[10px] tracking-wide px-2 py-0.5 rounded-md bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8]">
+                              PANEL
+                            </span>
+                          )}
+                          {item.company && (
+                            <>
+                              <span className="text-[#D8D6D0] dark:text-[#2A2F37]">
+                                •
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-[#5C6472] dark:text-[#9AA1AC] text-sm">
+                                <BsBriefcase size={12} />
+                                {item.company}
+                              </span>
+                            </>
+                          )}
                           <span className="text-[#D8D6D0] dark:text-[#2A2F37]">
                             •
                           </span>
@@ -283,14 +308,28 @@ const InterviewHistory = () => {
                             {new Date(item.createdAt).toLocaleDateString()}
                           </span>
                         </div>
+
+                        {/* experience can be a whole pasted resume line, so
+                            keep it to ONE line here; hover shows the full text */}
+                        {item.experience && (
+                          <p
+                            title={item.experience}
+                            className="mt-2 flex items-start gap-1.5 text-[#8B92A0] dark:text-[#7A828F] text-[13px]"
+                          >
+                            <BsChatDots size={12} className="shrink-0 mt-0.75" />
+                            <span className="line-clamp-1">{item.experience}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-5 md:gap-7 pl-16 md:pl-0">
+                    <div className="flex items-center gap-5 md:gap-7 pl-16 md:pl-0 shrink-0">
                       {isCompleted && (
-                        <div className="text-right">
-                          <p className="font-mono-studio text-2xl font-bold text-[#E8A94C]">
-                            {item.finalScore || 0}
+                        <div className="text-right min-w-20">
+                          <p
+                            className={`font-mono-studio text-2xl font-bold ${scoreTone(item.finalScore)}`}
+                          >
+                            {formatScore(item.finalScore)}
                             <span className="text-sm text-[#9AA1AC] font-medium">
                               /10
                             </span>
