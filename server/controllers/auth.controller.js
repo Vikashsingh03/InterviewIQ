@@ -1,16 +1,45 @@
+import { getAuth } from "firebase-admin/auth";
 import genToken from "../config/token.js";
 import userModel from "../models/user.model.js";
+import initFirebaseAdmin from "../config/firebaseAdmin.js";
+
+const firebaseAdminReady = initFirebaseAdmin();
 
 export const googleAuth = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    if (!firebaseAdminReady) {
+      return res.status(500).json({
+        message: "Google sign-in isn't configured on the server yet.",
+      });
+    }
+
+    const { idToken } = req.body;
+
+    if (!idToken || typeof idToken !== "string") {
+      return res.status(400).json({ message: "Missing sign-in token." });
+    }
+
+    let decodedToken;
+    try {
+      decodedToken = await getAuth().verifyIdToken(idToken);
+    } catch (verifyError) {
+      console.error("Google ID token verification failed:", verifyError.message);
+      return res.status(401).json({
+        message: "Invalid or expired sign-in token. Please sign in again.",
+      });
+    }
+
+    const email = decodedToken.email;
+    if (!email) {
+      return res.status(401).json({ message: "Google account has no verified email." });
+    }
+
+    const name = decodedToken.name || email.split("@")[0];
+
     let user = await userModel.findOne({ email });
 
     if (!user) {
-      user = await userModel.create({
-        name,
-        email,
-      });
+      user = await userModel.create({ name, email });
     }
 
     const token = await genToken(user._id);
@@ -22,21 +51,15 @@ export const googleAuth = async (req, res) => {
     });
     return res.status(200).json(user);
   } catch (error) {
-    return res.status(500).json({
-      message: `Google auth error ${error}`,
-    });
+    return res.status(500).json({ message: `Google auth error ${error}` });
   }
 };
 
 export const logOut = async (req, res) => {
   try {
     await res.clearCookie("token");
-    return res.status(200).json({
-      message: "Logout successfully ",
-    });
+    return res.status(200).json({ message: "Logout successfully " });
   } catch (error) {
-    return res.status(500).json({
-      message: `logout error ${error}`,
-    });
+    return res.status(500).json({ message: `logout error ${error}` });
   }
 };
