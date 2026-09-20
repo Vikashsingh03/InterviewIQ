@@ -18,6 +18,8 @@ import {
   sendCoachMessage
 
 } from '../controllers/interview.controller.js';
+import { clearCoachChat } from '../controllers/coachChat.controller.js';
+
 
 
 
@@ -42,6 +44,7 @@ interviewRouter.post("/coaching/:questionId", isAuth, getQuestionCoaching)
 // full conversation with the AI coach about this finished interview
 interviewRouter.get("/coach/:id", isAuth, getCoachChat)
 interviewRouter.post("/coach/:id", isAuth, sendCoachMessage)
+interviewRouter.delete("/coach/:id", isAuth, clearCoachChat)
 interviewRouter.get("/analytics-summary", isAuth, getAnalyticsSummary)
 
 interviewRouter.delete("/delete/:id", isAuth, deleteInterview);
