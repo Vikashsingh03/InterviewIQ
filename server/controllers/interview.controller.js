@@ -279,6 +279,109 @@ const buildCodingQuestion = (dsaQuestion, askedBy = null) => ({
   askedBy,
 });
 
+// ---------------- Resume <-> Job Description match score ----------------
+export const getResumeJobMatch = async (req, res) => {
+  try {
+    let { resumeText, skills, projects, jobDescription } = req.body;
+
+    jobDescription = jobDescription?.trim().slice(0, 4000) || "";
+    resumeText = resumeText?.trim() || "";
+
+    if (jobDescription.length < 30) {
+      return res.status(400).json({
+        message: "Paste a fuller job description to check your match.",
+      });
+    }
+    if (!resumeText) {
+      return res.status(400).json({
+        message: "Upload and analyze your resume first.",
+      });
+    }
+
+    const safeSkills = Array.isArray(skills) ? skills : [];
+    const safeProjects = Array.isArray(projects) ? projects : [];
+
+    const messages = [
+      {
+        role: "system",
+        content: `
+          You are an expert technical recruiter comparing a candidate's resume
+          against a specific job description.
+
+          Score the overall fit from 0 to 100 based on how well the candidate's
+          actual skills, projects, and experience align with what THIS job
+          description specifically asks for.
+
+          Be realistic, not flattering — a generic resume with little real
+          overlap against a specific posting should score low (below 40).
+          A strong, specific match should score high (75+).
+
+          Return ONLY valid JSON in this exact format, nothing else:
+          {
+            "matchScore": number (0-100),
+            "matchedSkills": ["skill1", "skill2"],
+            "missingSkills": ["skill3", "skill4"],
+            "summary": "one or two honest sentences, 20-35 words"
+          }
+
+          Rules:
+          - matchedSkills: skills/keywords from the job description that the
+            resume clearly demonstrates. Max 8 items, short keywords only.
+          - missingSkills: important skills/keywords the job description asks
+            for that the resume does not evidence. Max 8 items, short keywords only.
+          - Do not invent skills that aren't actually mentioned in either text.
+          `,
+      },
+      {
+        role: "user",
+        content: `
+          Job Description:
+          ${jobDescription}
+
+          Candidate's Skills: ${safeSkills.join(", ") || "None listed"}
+          Candidate's Projects: ${safeProjects.join(", ") || "None listed"}
+          Resume Text: ${resumeText.slice(0, 6000)}
+          `,
+      },
+    ];
+
+    const aiResponse = await askAi(messages);
+    const cleaned = aiResponse
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({
+        message: "Couldn't analyze the match right now. Please try again.",
+      });
+    }
+
+    const matchScore = Math.max(
+      0,
+      Math.min(100, Math.round(Number(parsed.matchScore) || 0)),
+    );
+
+    return res.status(200).json({
+      matchScore,
+      matchedSkills: Array.isArray(parsed.matchedSkills)
+        ? parsed.matchedSkills.slice(0, 8)
+        : [],
+      missingSkills: Array.isArray(parsed.missingSkills)
+        ? parsed.missingSkills.slice(0, 8)
+        : [],
+      summary: parsed.summary || "",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `Failed to compute match score: ${error.message}`,
+    });
+  }
+};
+
 export const generateQuestion = async (req, res) => {
   try {
     // NEW: `company` and `jobDescription` are both optional — jobDescription

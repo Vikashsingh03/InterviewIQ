@@ -14,6 +14,7 @@ import {
   BsCheckCircleFill,
   BsPeopleFill,
   BsPersonFill,
+  BsBullseye,
 } from "react-icons/bs";
 import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
 import axios from "axios";
@@ -57,6 +58,11 @@ function Step1Setup({ onstart }) {
   // them correctly in the interview instead of their account's login name
   const [candidateName, setCandidateName] = useState("");
   const [analysisDone, setAnalysisDone] = useState(false);
+
+  // ---- resume <-> job description match score ----
+  const [matchResult, setMatchResult] = useState(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchError, setMatchError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
 
   // shown to the user on resume-analysis or start-interview failures
@@ -100,6 +106,30 @@ function Step1Setup({ onstart }) {
       );
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleCheckMatch = async () => {
+    if (matchLoading) return;
+    setMatchLoading(true);
+    setMatchError("");
+    setMatchResult(null);
+
+    try {
+      const result = await axios.post(
+        ServerUrl + "/api/interview/match-score",
+        { resumeText, skills, projects, jobDescription },
+        { withCredentials: true },
+      );
+      setMatchResult(result.data);
+    } catch (error) {
+      console.log(error);
+      setMatchError(
+        error?.response?.data?.message ||
+          "Couldn't check the match right now. Please try again.",
+      );
+    } finally {
+      setMatchLoading(false);
     }
   };
 
@@ -496,6 +526,105 @@ function Step1Setup({ onstart }) {
                     <p className="mt-1.5 font-mono-studio text-[10px] text-[#9AA1AC] dark:text-[#565D68] pl-1">
                       {jobDescription.length}/4000 CHARACTERS
                     </p>
+
+                    {resumeText && jobDescription.trim().length >= 30 && (
+                      <motion.button
+                        type="button"
+                        onClick={handleCheckMatch}
+                        disabled={matchLoading}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="mt-3 flex items-center justify-center gap-2 w-full bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-70"
+                      >
+                        <BsBullseye size={14} />
+                        {matchLoading ? "Checking match..." : "Check Match Score"}
+                      </motion.button>
+                    )}
+
+                    {matchError && (
+                      <div className="mt-3 bg-[#E8A94C]/8 border border-[#E8A94C]/25 rounded-xl p-3 flex items-start gap-2">
+                        <IoWarningOutline
+                          size={15}
+                          className="text-[#B27E2E] dark:text-[#E8A94C] mt-0.5 shrink-0"
+                        />
+                        <p className="text-[#8A6A2F] dark:text-[#E8B96A] text-xs leading-relaxed">
+                          {matchError}
+                        </p>
+                      </div>
+                    )}
+
+                    <AnimatePresence>
+                      {matchResult && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          className="mt-3 bg-[#FAFAF8] dark:bg-[#0C0E11] border border-[#E5E4E0] dark:border-[#1E2229] rounded-2xl p-5 space-y-4"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div
+                              className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg shrink-0"
+                              style={{
+                                background:
+                                  matchResult.matchScore >= 75
+                                    ? "rgba(74, 222, 128, 0.15)"
+                                    : matchResult.matchScore >= 40
+                                      ? "rgba(232, 169, 76, 0.15)"
+                                      : "rgba(248, 113, 113, 0.15)",
+                                color:
+                                  matchResult.matchScore >= 75
+                                    ? "#22c55e"
+                                    : matchResult.matchScore >= 40
+                                      ? "#B27E2E"
+                                      : "#ef4444",
+                              }}
+                            >
+                              {matchResult.matchScore}%
+                            </div>
+                            <p className="text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">
+                              {matchResult.summary}
+                            </p>
+                          </div>
+
+                          {matchResult.matchedSkills.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-[#5C6472] dark:text-[#9AA1AC] mb-1.5">
+                                You match on
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {matchResult.matchedSkills.map((s, i) => (
+                                  <span
+                                    key={i}
+                                    className="font-mono-studio flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full text-[11px]"
+                                  >
+                                    <BsCheckCircleFill size={10} />
+                                    {s}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {matchResult.missingSkills.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-[#5C6472] dark:text-[#9AA1AC] mb-1.5">
+                                Missing from your resume
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {matchResult.missingSkills.map((s, i) => (
+                                  <span
+                                    key={i}
+                                    className="font-mono-studio bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] px-2.5 py-1 rounded-full text-[11px]"
+                                  >
+                                    {s}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )}
               </AnimatePresence>

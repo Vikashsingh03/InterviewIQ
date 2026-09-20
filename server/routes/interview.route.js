@@ -11,7 +11,8 @@ import {
   runCode,
   submitAnswer,
   deleteInterview,
-  getAnalyticsSummary
+  getAnalyticsSummary,
+  getResumeJobMatch
 } from '../controllers/interview.controller.js';
 
 
@@ -19,6 +20,8 @@ import {
 const interviewRouter = express.Router();
 
 interviewRouter.post("/resume", isAuth, upload.single("resume"), analyzeResume)
+// no credits deducted — this is a lightweight pre-interview check, not the interview itself
+interviewRouter.post("/match-score", isAuth, getResumeJobMatch)
 interviewRouter.post("/generate-questions", isAuth, generateQuestion)
 interviewRouter.post("/submit-answer", isAuth, submitAnswer)
 // NEW: lets the candidate test their code against the question's test cases
