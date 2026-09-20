@@ -1,13 +1,33 @@
 import mongoose from "mongoose";
 
+// one reference solution for a coding question, in one language.
+// verified: true  = passed every test case when we ran it
+//           false = ran, but failed some
+//           null  = couldn't be tested (e.g. the code runner was offline)
+const codeSolutionSchema = new mongoose.Schema(
+    {
+        language: String,
+        code: String,
+        verified: { type: Boolean, default: null },
+        passed: Number,
+        total: Number,
+    },
+    { _id: false },
+);
+
 // AI coaching for one question (a stronger sample answer + what was missing +
 // tips). Generated on demand from the report page, then cached here so the
 // same question never costs a second AI call.
 const coachingSchema = new mongoose.Schema(
     {
+        // verbal questions: a stronger spoken answer.
+        // coding questions: how to approach the problem.
         idealAnswer: String,
         gaps: [String],
         tips: [String],
+        // coding questions only
+        complexity: String,
+        solutions: [codeSolutionSchema],
         generatedAt: Date,
     },
     { _id: false },
@@ -105,6 +125,16 @@ const interviewSchema = new mongoose.Schema(
         askedCodingQuestion: {
             type: Boolean,
             default: false,
+        },
+        coachMessages: {
+            type: [
+                {
+                    role: { type: String, enum: ["user", "assistant"], required: true },
+                    content: { type: String, required: true },
+                    createdAt: { type: Date, default: Date.now },
+                },
+            ],
+            default: [],
         },
         questions: [questionSchema],
         minQuestions: { type: Number, default: 4 },

@@ -13,7 +13,10 @@ import {
   deleteInterview,
   getAnalyticsSummary,
   getResumeJobMatch,
-  getQuestionCoaching
+ getQuestionCoaching,
+  getCoachChat,
+  sendCoachMessage
+
 } from '../controllers/interview.controller.js';
 
 
@@ -36,6 +39,9 @@ interviewRouter.get("/get-interviews", isAuth, getMyInterviews)
 interviewRouter.get("/report/:id", isAuth, getInterviewReport)
 // AI coaching for one question of a finished interview (cached after first use)
 interviewRouter.post("/coaching/:questionId", isAuth, getQuestionCoaching)
+// full conversation with the AI coach about this finished interview
+interviewRouter.get("/coach/:id", isAuth, getCoachChat)
+interviewRouter.post("/coach/:id", isAuth, sendCoachMessage)
 interviewRouter.get("/analytics-summary", isAuth, getAnalyticsSummary)
 
 interviewRouter.delete("/delete/:id", isAuth, deleteInterview);

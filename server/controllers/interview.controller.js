@@ -6,6 +6,7 @@ import interviewModel from "../models/interview.model.js";
 import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
 import { runTestCases } from "../services/codeExecution.service.js";
 import { getCompanyStyleGuidance } from "../data/companyStyles.js";
+import { handleCodingCoaching } from "../services/codingCoaching.service.js";
 
 // ---------------- panel mode: interviewer personas ----------------
 const INTERVIEWER_PERSONAS = {
@@ -513,6 +514,7 @@ export const generateQuestion = async (req, res) => {
       interviewId: interview._id,
       creditsLeft: user.credits,
       userName: interview.candidateName,
+      interviewId: interview._id,
       role: interview.role,
       company: interview.company,
       hasJobDescription: Boolean(interview.jobDescription),
@@ -1622,7 +1624,7 @@ export const getInterviewReport = async (req, res) => {
     interview.status = "Completed";
 
     return res.status(200).json({
-
+      interviewId: interview._id,
       role: interview.role,
       company: interview.company || null,
       hasJobDescription: Boolean(interview.jobDescription),
@@ -1821,9 +1823,15 @@ export const getQuestionCoaching = async (req, res) => {
       });
     }
 
+// naya
     if (question.type === "coding") {
-      return res.status(400).json({
-        message: "Coaching isn't available for coding questions.",
+      // await matters: without it a rejection would skip this try/catch
+      return await handleCodingCoaching({
+        req,
+        res,
+        interview,
+        question,
+        questionId,
       });
     }
 
@@ -1914,5 +1922,164 @@ Feedback they received during the interview: ${question.feedback || "n/a"}`,
     return res
       .status(500)
       .json({ message: "Couldn't prepare coaching right now. Please try again." });
+  }
+};
+
+// ---------------- AI Coach: full conversation about the finished interview ----------------
+// Different from `coaching` above (a one-time generated sample answer per
+// question): this is a live, multi-turn chat about the interview as a whole.
+
+const MAX_COACH_MESSAGE_LENGTH = 2000;
+const MAX_COACH_HISTORY_TURNS = 30; // bounds prompt size on long conversations
+
+const buildCoachContext = (interview) => {
+  const weakQuestions = interview.questions
+    .filter((q) => !q.skipped && q.type !== "coding" && (q.score || 0) < 6)
+    .slice(0, 6);
+
+  const weakSummary = weakQuestions.length
+    ? weakQuestions
+        .map((q, i) => {
+          const sampleNote = q.coaching?.idealAnswer
+            ? `\n   A stronger sample answer was already shown to them: "${q.coaching.idealAnswer.slice(0, 280)}..."`
+            : "";
+          return `${i + 1}. Q: ${q.question}\n   Candidate's answer: ${
+            q.answer || "(no answer given)"
+          }\n   Score: ${q.score}/10 — Feedback given: ${q.feedback || "n/a"}${sampleNote}`;
+        })
+        .join("\n\n")
+    : "No question scored below 6 — this was a solid interview overall.";
+
+  return `Candidate interviewed for: ${interview.role} (${interview.experience} experience), ${interview.mode} interview${
+    interview.company ? ` at ${interview.company}` : ""
+  }.
+Final score: ${interview.finalScore}/10.
+
+Their weakest answers from this interview:
+${weakSummary}`;
+};
+
+// ownership enforced via userId in the query, same pattern as coaching above
+const findOwnedCompletedInterview = async (id, userId) => {
+  const interview = await interviewModel.findOne({ _id: id, userId });
+  if (!interview) return { error: "Interview not found." };
+  if (interview.status !== "Completed") {
+    return { error: "The AI Coach is available once the interview is finished." };
+  }
+  return { interview };
+};
+
+// GET /api/interview/coach/:id — returns the chat so far, generating an
+// opening message (that names their weakest topic) the very first time
+export const getCoachChat = async (req, res) => {
+  try {
+    const { interview, error } = await findOwnedCompletedInterview(
+      req.params.id,
+      req.userId,
+    );
+    if (error) return res.status(404).json({ message: error });
+
+    if (!interview.coachMessages.length) {
+      const context = buildCoachContext(interview);
+      const messages = [
+        {
+          role: "system",
+          content: `You are a warm, encouraging but honest interview coach, speaking directly
+            to a candidate right after their mock interview. You have their full performance
+            below. Start the conversation yourself with ONE short opening message (2 to 3
+            sentences, under 55 words): name their weakest topic specifically and invite them
+            to talk it through with you. No bullet points, no summary of the whole interview —
+            just a natural conversational opener, speaking directly to them ("you", "your").`,
+        },
+        { role: "user", content: context },
+      ];
+
+      let opening;
+      try {
+        opening = (await askAi(messages)).trim();
+      } catch {
+        opening =
+          "Hey! I went through your interview — want to talk through where you can improve the most?";
+      }
+
+      interview.coachMessages.push({ role: "assistant", content: opening });
+      await interview.save();
+    }
+
+    return res.status(200).json({
+      messages: interview.coachMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        createdAt: m.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("coach chat load error:", error?.message || error);
+    return res
+      .status(500)
+      .json({ message: "Couldn't load the AI Coach right now. Please try again." });
+  }
+};
+
+// POST /api/interview/coach/:id — { message: "..." }
+export const sendCoachMessage = async (req, res) => {
+  try {
+    let { message } = req.body;
+    message =
+      typeof message === "string"
+        ? message.trim().slice(0, MAX_COACH_MESSAGE_LENGTH)
+        : "";
+
+    if (!message) {
+      return res.status(400).json({ message: "Message can't be empty." });
+    }
+
+    const { interview, error } = await findOwnedCompletedInterview(
+      req.params.id,
+      req.userId,
+    );
+    if (error) return res.status(404).json({ message: error });
+
+    interview.coachMessages.push({ role: "user", content: message });
+
+    const context = buildCoachContext(interview);
+    const history = interview.coachMessages
+      .slice(-MAX_COACH_HISTORY_TURNS)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const messages = [
+      {
+        role: "system",
+        content: `You are a warm, encouraging but honest interview coach, continuing a
+          conversation with a candidate about their finished mock interview. Ground every
+          reply in their ACTUAL performance below — never invent details, employers, or
+          achievements they never mentioned. Keep replies conversational and concise (under
+          120 words) unless they explicitly ask for something longer, like a full sample
+          answer. You can suggest practice exercises, rephrase their answers, or explain what
+          a stronger answer looks like. Never mention that you are an AI system or refer to
+          this context block.
+
+          Their interview context:
+          ${context}`,
+      },
+      ...history,
+    ];
+
+    let reply;
+    try {
+      reply = (await askAi(messages)).trim();
+    } catch {
+      reply = "Sorry, I couldn't think that through just now — mind trying again?";
+    }
+
+    interview.coachMessages.push({ role: "assistant", content: reply });
+    await interview.save();
+
+    return res.status(200).json({ reply, createdAt: new Date() });
+  } catch (error) {
+    console.error("coach chat send error:", error?.message || error);
+    return res
+      .status(500)
+      .json({ message: "Couldn't send that message. Please try again." });
   }
 };

@@ -1,7 +1,7 @@
 import React from "react";
 import { FaArrowLeft, FaDownload } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { buildStyles, CircularProgressbar } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import {
@@ -18,6 +18,9 @@ import autoTable from "jspdf-autotable";
 import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
 import { BsCode, BsPersonFill } from "react-icons/bs";
 import QuestionCoaching from "./QuestionCoaching";
+import CoachChat from "./CoachChat";
+import { BsChatDots } from "react-icons/bs";
+import { useState } from "react";
 
 // client-side labels only — matches PANEL_PERSONAS in Step2PanelInterview,
 // kept separate (and this simple) since the report only needs a label + color
@@ -28,6 +31,7 @@ const PANEL_LABELS = {
 
 function Step3Report({ report }) {
   const navigate = useNavigate();
+  const [showCoach, setShowCoach] = useState(false);
   if (!report) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300">
@@ -50,6 +54,7 @@ function Step3Report({ report }) {
     proctoring,
     interviewType,
     perInterviewerScores,
+    interviewId,
   } = report;
 
   const isPanel = interviewType === "panel" && perInterviewerScores;
@@ -471,6 +476,17 @@ function Step3Report({ report }) {
             <FaDownload size={13} />
             Download PDF
           </button>
+                    {interviewId && (
+            <motion.button
+              onClick={() => setShowCoach(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center gap-2 bg-white dark:bg-[#111318] border border-[#E8A94C]/40 hover:bg-[#E8A94C]/8 text-[#B27E2E] dark:text-[#E8A94C] px-6 py-3 rounded-2xl transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap shrink-0"
+            >
+              <BsChatDots size={14} />
+              Talk to AI Coach
+            </motion.button>
+          )}
         </div>
 
         {/* ============ misbehavior banner ============ */}
@@ -820,6 +836,11 @@ function Step3Report({ report }) {
           </div>
         </div>
       </div>
+        <AnimatePresence>
+        {showCoach && interviewId && (
+          <CoachChat interviewId={interviewId} onClose={() => setShowCoach(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
