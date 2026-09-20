@@ -86,98 +86,197 @@ function Step3Report({ report }) {
   const score = finalScore;
   const percentage = (score / 10) * 100;
 
+  const hexToRgb = (hex) => {
+    const n = parseInt(hex.replace("#", ""), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+
   const downloadPDF = () => {
     const doc = new jsPDF("p", "mm", "a4");
 
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
+    const margin = 16;
     const contentWidth = pageWidth - margin * 2;
 
-    let currentY = 25;
+    const DARK = [17, 19, 24]; // #111318
+    const AMBER = [232, 169, 76]; // #E8A94C
+    const CYAN = [94, 200, 216]; // #5EC8D8
+    const MUTED = [139, 146, 160]; // #8B92A0
+    const INK = [28, 31, 36]; // #1C1F24
+    const CARD_BG = [247, 246, 243]; // #F7F6F3
+    const scoreRgb = hexToRgb(progressColor);
 
-    // ================ TITLE ================
+    const today = new Date().toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+    // ================ COVER HEADER BAND ================
+    doc.setFillColor(...DARK);
+    doc.rect(0, 0, pageWidth, 34, "F");
+    doc.setFillColor(...AMBER);
+    doc.rect(0, 0, pageWidth, 1.4, "F");
+
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(30, 33, 38);
+    doc.setFontSize(17);
+    doc.setTextColor(255, 255, 255);
     doc.text(
       isPanel ? "AI Panel Interview Performance Report" : "AI Interview Performance Report",
-      pageWidth / 2,
-      currentY,
-      { align: "center" },
+      margin,
+      15,
     );
 
-    currentY += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(200, 204, 211);
+    const subtitleParts = [role, company, today].filter(Boolean);
+    doc.text(subtitleParts.join("   •   "), margin, 22);
 
-    // underline — brand amber
-    doc.setDrawColor(232, 169, 76);
-    doc.line(margin, currentY + 2, pageWidth - margin, currentY + 2);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...AMBER);
+    doc.text("InterviewIQ.AI", pageWidth - margin, 15, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(160, 165, 175);
+    doc.text("Performance Report", pageWidth - margin, 20, { align: "right" });
 
-    currentY += 15;
+    let currentY = 44;
 
     // ================ MISBEHAVIOR NOTICE (if terminated) ================
     if (wasTerminated) {
       doc.setFillColor(254, 226, 226);
-      doc.roundedRect(margin, currentY, contentWidth, 16, 4, 4, "F");
+      doc.setDrawColor(248, 113, 113);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, currentY, contentWidth, 16, 3, 3, "FD");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
+      doc.setFontSize(10.5);
       doc.setTextColor(185, 28, 28);
       doc.text(
-        "Interview was not successful — ended due to repeated fullscreen exits.",
-        pageWidth / 2,
+        "⚠ Interview was not successful — ended due to repeated fullscreen exits.",
+        margin + 6,
         currentY + 10,
-        { align: "center" },
       );
-      currentY += 24;
+      currentY += 22;
     }
 
-    // ================ FINAL SCORE BOX ================
-    doc.setFillColor(247, 246, 243);
-    doc.roundedRect(margin, currentY, contentWidth, 20, 4, 4, "F");
+    // ================ SCORE HERO CARD ================
+    const scoreCardH = 32;
+    doc.setFillColor(...CARD_BG);
+    doc.roundedRect(margin, currentY, contentWidth, scoreCardH, 4, 4, "F");
 
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Final Score: ${finalScore}/10`, pageWidth / 2, currentY + 12, {
-      align: "center",
+    const circleCx = margin + 18;
+    const circleCy = currentY + scoreCardH / 2;
+    doc.setFillColor(...scoreRgb);
+    doc.circle(circleCx, circleCy, 11, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(17, 19, 24);
+    doc.text(`${finalScore}`, circleCx, circleCy + 1, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.text("/ 10", circleCx, circleCy + 5.5, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED);
+    doc.text("OVERALL PERFORMANCE", margin + 36, currentY + 11);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...INK);
+    doc.text(performanceText, margin + 36, currentY + 19);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text(shortTagline, margin + 36, currentY + 25);
+
+    currentY += scoreCardH + 8;
+
+    // ================ PANEL VERDICT (panel mode only) ================
+    if (isPanel) {
+      const halfW = (contentWidth - 6) / 2;
+      const panelH = 26;
+      const panels = [
+        {
+          x: margin,
+          label: "INTERVIEWER A",
+          sub: "Technical",
+          score: perInterviewerScores.interviewerA,
+          rgb: CYAN,
+        },
+        {
+          x: margin + halfW + 6,
+          label: "INTERVIEWER B",
+          sub: "Behavioral",
+          score: perInterviewerScores.interviewerB,
+          rgb: AMBER,
+        },
+      ];
+
+      panels.forEach((p) => {
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(230, 229, 224);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(p.x, currentY, halfW, panelH, 3, 3, "FD");
+        doc.setFillColor(...p.rgb);
+        doc.rect(p.x, currentY, 1.4, panelH, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(...p.rgb);
+        doc.text(p.label, p.x + 7, currentY + 9);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.text(p.sub, p.x + 7, currentY + 15);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(...INK);
+        doc.text(`${p.score}/10`, p.x + halfW - 7, currentY + 13, {
+          align: "right",
+        });
+      });
+
+      currentY += panelH + 8;
+    }
+
+    // ================ SKILLS CARD (with mini bars) ================
+    const skillsCardH = 8 + skills.length * 11;
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(230, 229, 224);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(margin, currentY, contentWidth, skillsCardH, 4, 4, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED);
+    doc.text("SKILL EVALUATION", margin + 8, currentY + 9);
+
+    skills.forEach((s, i) => {
+      const rowY = currentY + 15 + i * 11;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...INK);
+      doc.text(s.label, margin + 8, rowY);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...AMBER);
+      doc.text(`${s.value}`, pageWidth - margin - 8, rowY, { align: "right" });
+
+      const barX = margin + 8;
+      const barW = contentWidth - 16;
+      const barY = rowY + 2;
+      doc.setFillColor(239, 238, 234);
+      doc.roundedRect(barX, barY, barW, 2, 1, 1, "F");
+      doc.setFillColor(...AMBER);
+      doc.roundedRect(barX, barY, Math.max(2, (barW * s.value) / 10), 2, 1, 1, "F");
     });
 
-    currentY += 30;
+    currentY += skillsCardH + 8;
 
-    // ================ PANEL VERDICT BOX (panel mode only) ================
-    if (isPanel) {
-      doc.setFillColor(249, 250, 251);
-      doc.roundedRect(margin, currentY, contentWidth, 20, 4, 4, "F");
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(
-        `Interviewer A (Technical): ${perInterviewerScores.interviewerA}/10`,
-        margin + 10,
-        currentY + 9,
-      );
-      doc.text(
-        `Interviewer B (Behavioral): ${perInterviewerScores.interviewerB}/10`,
-        margin + 10,
-        currentY + 16,
-      );
-      currentY += 30;
-    }
-
-    // ================ SKILLS BOX ================
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(margin, currentY, contentWidth, 30, 4, 4, "F");
-
-    doc.setFontSize(12);
-
-    doc.text(`Confidence: ${confidence}`, margin + 10, currentY + 10);
-    doc.text(`Communication: ${communication}`, margin + 10, currentY + 18);
-    doc.text(`Correctness: ${correctness}`, margin + 10, currentY + 26);
-
-    currentY += 45;
-
-    // ================ ADVICE ================
-    // uses the same >=8 / >=5 tiers as the on-screen headline above,
-    // so the PDF and the dashboard never disagree on a score like exactly 8
+    // ================ ADVICE CARD ================
     let advice = "";
-
     if (finalScore >= 8) {
       advice =
         "Excellent performance. Maintain confidence and structure. Continue supporting your answers with strong real-world examples.";
@@ -189,19 +288,28 @@ function Step3Report({ report }) {
         "Significant improvement required. Focus on structured thinking, clarity, and confident delivery. Practice answering aloud regularly.";
     }
 
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    const splitAdvice = doc.splitTextToSize(advice, contentWidth - 18);
+    const adviceCardH = 16 + splitAdvice.length * 5;
+
     doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(220);
-    doc.roundedRect(margin, currentY, contentWidth, 35, 4, 4);
+    doc.setDrawColor(230, 229, 224);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(margin, currentY, contentWidth, adviceCardH, 4, 4, "FD");
+    doc.setFillColor(...AMBER);
+    doc.rect(margin, currentY, 1.4, adviceCardH, "F");
 
     doc.setFont("helvetica", "bold");
-    doc.text("Professional Advice", margin + 10, currentY + 10);
+    doc.setFontSize(9);
+    doc.setTextColor(...INK);
+    doc.text("PROFESSIONAL ADVICE", margin + 8, currentY + 10);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 85, 92);
+    doc.text(splitAdvice, margin + 8, currentY + 17);
 
-    const splitAdvice = doc.splitTextToSize(advice, contentWidth - 20);
-    doc.text(splitAdvice, margin + 10, currentY + 20);
-
-    currentY += 50;
+    currentY += adviceCardH + 10;
 
     // ================ QUESTION TABLE ================
     const tableHead = isPanel
@@ -222,37 +330,72 @@ function Step3Report({ report }) {
 
     autoTable(doc, {
       startY: currentY,
-      margin: { left: margin, right: margin },
+      margin: { left: margin, right: margin, bottom: 16 },
       head: tableHead,
       body: tableBody,
       styles: {
-        fontSize: 9,
-        cellPadding: 5,
+        fontSize: 8.5,
+        cellPadding: 4.5,
         valign: "top",
+        lineColor: [235, 234, 230],
+        lineWidth: 0.2,
+        textColor: INK,
       },
       headStyles: {
-        fillColor: [232, 169, 76],
-        textColor: 30,
+        fillColor: AMBER,
+        textColor: INK,
+        fontStyle: "bold",
         halign: "center",
+        fontSize: 8.5,
       },
       columnStyles: isPanel
         ? {
-            0: { cellWidth: 8, halign: "center" }, // index
-            1: { cellWidth: 22 }, // interviewer
-            2: { cellWidth: 45 }, // question
-            3: { cellWidth: 15, halign: "center" }, // score
-            4: { cellWidth: "auto" }, // feedback
+            0: { cellWidth: 8, halign: "center" },
+            1: { cellWidth: 22 },
+            2: { cellWidth: 45 },
+            3: { cellWidth: 15, halign: "center", fontStyle: "bold" },
+            4: { cellWidth: "auto" },
           }
         : {
-            0: { cellWidth: 10, halign: "center" }, // index
-            1: { cellWidth: 55 }, // question
-            2: { cellWidth: 20, halign: "center" }, // score
-            3: { cellWidth: "auto" }, // feedback
+            0: { cellWidth: 10, halign: "center" },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+            3: { cellWidth: "auto" },
           },
       alternateRowStyles: {
-        fillColor: [249, 250, 251],
+        fillColor: [250, 249, 247],
+      },
+      // color the "Interviewer" column text to match each panelist's accent
+      didParseCell: (data) => {
+        if (
+          isPanel &&
+          data.section === "body" &&
+          data.column.index === 1
+        ) {
+          const raw = questionWiseScore[data.row.index];
+          const rgb = raw?.askedBy === "interviewerA" ? CYAN : AMBER;
+          data.cell.styles.textColor = rgb;
+          data.cell.styles.fontStyle = "bold";
+        }
       },
     });
+
+    // ================ FOOTER ON EVERY PAGE ================
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      const pageH = doc.internal.pageSize.getHeight();
+      doc.setDrawColor(230, 229, 224);
+      doc.setLineWidth(0.2);
+      doc.line(margin, pageH - 12, pageWidth - margin, pageH - 12);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MUTED);
+      doc.text("Generated by InterviewIQ.AI", margin, pageH - 7);
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageH - 7, {
+        align: "right",
+      });
+    }
 
     doc.save(isPanel ? "AI_Panel_Interview_report.pdf" : "AI_Interview_report.pdf");
   };

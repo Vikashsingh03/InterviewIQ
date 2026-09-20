@@ -296,6 +296,7 @@ export const generateQuestion = async (req, res) => {
       projects,
       skills,
       interviewType,
+      candidateName,
     } = req.body;
 
     role = role?.trim();
@@ -305,6 +306,7 @@ export const generateQuestion = async (req, res) => {
     // cap length so a huge pasted posting can't blow up prompt size/cost
     jobDescription = jobDescription?.trim().slice(0, 4000) || null;
     interviewType = interviewType === "panel" ? "panel" : "solo";
+    candidateName = candidateName?.trim() || null;
 
     if (!role || !experience || !mode) {
       return res.status(400).json({

@@ -601,7 +601,7 @@ function Step2Interview({ interviewData, onFinish }) {
 
     const runIntro = async () => {
       if (isIntroPhase) {
-        const interviewerName = voiceGender === "male" ? "Arjun" : "Priya";
+        const interviewerName = voiceGender === "male" ? "Marcus" : "Elena";
         await speakText(
           `Hi, I'm ${interviewerName}, and I'll be conducting your interview today. I've spent several years interviewing candidates for roles like this one, so let's have a good conversation.`,
         );
