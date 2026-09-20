@@ -9,7 +9,6 @@ import userRouter from "./routes/user.route.js";
 import interviewRouter from "./routes/interview.route.js";
 import paymentRouter from "./routes/payment.route.js";
 import practiceRouter from "./routes/practice.route.js";
-import deepgramRouter from "./routes/deepgram.route.js";
 
 const app = express();
 app.use(
@@ -27,7 +26,7 @@ app.use("/api/user", userRouter);
 app.use("/api/interview", interviewRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/practice", practiceRouter);
-app.use("/api/deepgram", deepgramRouter);
+
 
 const PORT = process.env.PORT || 6000;
 app.listen(PORT, () => {
