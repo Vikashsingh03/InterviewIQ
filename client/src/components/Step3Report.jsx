@@ -165,7 +165,7 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-function Step3Report({ report }) {
+function Step3Report({ report, showBackButton = true }) {
   const navigate = useNavigate();
   const [showCoach, setShowCoach] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -626,13 +626,15 @@ function Step3Report({ report }) {
         {/* ============ header ============ */}
         <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div className="flex items-start gap-4 min-w-0">
-            <button
-              onClick={() => navigate("/history")}
-              aria-label="Back to history"
-              className="mt-1 w-11 h-11 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-            >
-              <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
-            </button>
+            {showBackButton && (
+              <button
+                onClick={() => navigate("/history")}
+                aria-label="Back to history"
+                className="mt-1 w-11 h-11 shrink-0 cursor-pointer flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
+              </button>
+            )}
 
             <div className="min-w-0">
               <span className="font-mono-studio inline-flex items-center gap-1.5 text-[11px] tracking-wide text-[#B27E2E] dark:text-[#E8A94C] bg-[#E8A94C]/10 border border-[#E8A94C]/25 px-3 py-1 rounded-full mb-3">

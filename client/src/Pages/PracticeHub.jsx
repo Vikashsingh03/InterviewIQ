@@ -10,11 +10,11 @@ import {
   BsSearch,
   BsArrowRight,
   BsCheckCircleFill,
+  BsGraphUp,
+  BsListCheck,
 } from "react-icons/bs";
-import { FaCalendarDay } from "react-icons/fa";
+import { FaCalendarDay, FaArrowLeft } from "react-icons/fa";
 import { ServerUrl } from "../App";
-import { FaArrowLeft } from "react-icons/fa";
-
 
 const DIFFICULTY_STYLES = {
   easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
@@ -25,43 +25,66 @@ const DIFFICULTY_STYLES = {
 
 const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" };
 
-function StatPill({ label, value }) {
-  return (
-    <div className="bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl px-5 py-4 flex-1 min-w-30">
-      <p className="font-mono-studio text-[10px] tracking-wide uppercase text-[#8B92A0] mb-1">
-        {label}
-      </p>
+const CARD_BASE =
+  "bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229]";
 
-      <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
-        {value}
-      </p>
-    </div>
+function StatPill({ label, value, icon, accent }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`${CARD_BASE} rounded-2xl px-5 py-4 flex items-center gap-4 flex-1 min-w-30 shadow-[0_16px_40px_-30px_rgba(0,0,0,0.35)]`}
+    >
+      <div
+        className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center"
+        style={{ backgroundColor: `${accent}1A`, color: accent }}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="font-mono-studio text-[10px] tracking-wide uppercase text-[#8B92A0] mb-0.5">
+          {label}
+        </p>
+        <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-none">
+          {value}
+        </p>
+      </div>
+    </motion.div>
   );
 }
 
-function QuestionCard({ q, onClick }) {
+function QuestionCard({ q, onClick, index }) {
+  const isCoding = q.type === "coding";
+  const accent = isCoding ? "#5EC8D8" : "#8B7FD6";
+
   return (
     <motion.button
       onClick={onClick}
-      whileHover={{ y: -3 }}
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.025, 0.25) }}
+      whileHover={{ y: -4 }}
       whileTap={{ scale: 0.98 }}
-      className="text-left bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl p-5 hover:border-[#E8A94C]/40 hover:shadow-[0_12px_30px_-16px_rgba(232,169,76,0.3)] transition-all duration-200 flex flex-col gap-3"
+      className={`group relative text-left ${CARD_BASE} rounded-2xl p-5 pl-6 hover:border-[#E8A94C]/40 hover:shadow-[0_18px_40px_-20px_rgba(232,169,76,0.35)] transition-all duration-200 flex flex-col gap-3 cursor-pointer overflow-hidden`}
     >
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* left accent rail — tells coding vs HR at a glance */}
+      <span
+        className="absolute left-0 top-5 bottom-5 w-0.75 rounded-r-full opacity-70 group-hover:opacity-100 transition-opacity"
+        style={{ backgroundColor: accent }}
+      />
+      {/* hover glow */}
+      <span className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/12 transition-all duration-500" />
+
+      <div className="relative flex items-center gap-2 flex-wrap">
         <span
           className={`font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] tracking-wide ${
-            q.type === "coding"
+            isCoding
               ? "bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] border-[#5EC8D8]/20"
               : "bg-[#8B7FD6]/10 text-[#6A5FBF] dark:text-[#B3A9F5] border-[#8B7FD6]/20"
           }`}
         >
-          {q.type === "coding" ? (
-            <BsCode size={10} />
-          ) : (
-            <BsChatSquareText size={10} />
-          )}
-
-          {q.type === "coding" ? "Coding" : "HR"}
+          {isCoding ? <BsCode size={10} /> : <BsChatSquareText size={10} />}
+          {isCoding ? "Coding" : "HR"}
         </span>
 
         {q.difficulty && (
@@ -76,14 +99,17 @@ function QuestionCard({ q, onClick }) {
         )}
       </div>
 
-      <p className="font-serif-display text-base text-[#1C1F24] dark:text-[#EDEEF0] leading-snug line-clamp-2">
+      <p className="relative font-serif-display text-base text-[#1C1F24] dark:text-[#EDEEF0] leading-snug line-clamp-2">
         {q.title}
       </p>
 
-      <div className="flex items-center justify-between mt-1 cursor-pointer">
-        <span className="text-xs text-[#8B92A0]">{q.category}</span>
-
-        <BsArrowRight size={14} className="text-[#9AA1AC]" />
+      <div className="relative flex items-center justify-between mt-auto pt-1">
+        <span className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] capitalize">
+          {q.category}
+        </span>
+        <span className="w-7 h-7 rounded-full flex items-center justify-center bg-[#EFEEEA] dark:bg-[#181B20] text-[#9AA1AC] group-hover:bg-[#E8A94C] group-hover:text-[#1C1F24] transition-all duration-200">
+          <BsArrowRight size={12} />
+        </span>
       </div>
     </motion.button>
   );
@@ -94,48 +120,60 @@ function DailyChallengeCard({ daily, onClick }) {
 
   return (
     <motion.button
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
       onClick={onClick}
-      className="w-full text-left relative overflow-hidden bg-[#0F1115] border border-[#232830] rounded-2xl p-5 sm:p-6 mb-6 group transition-all duration-200 hover:border-[#E8A94C]/40"
+      className="w-full text-left relative overflow-hidden bg-[#0C0E11] border border-[#232830] rounded-3xl p-6 sm:p-7 mb-6 group transition-all duration-200 hover:border-[#E8A94C]/50 shadow-[0_24px_60px_-32px_rgba(0,0,0,0.7)] cursor-pointer"
     >
-      <div className="absolute -top-14 -right-14 w-40 h-40 bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/10 rounded-full blur-3xl transition-all duration-500 pointer-events-none" />
+      {/* blueprint mesh + glow, same language as the setup screen */}
+      <span className="pointer-events-none absolute inset-0 daily-mesh" />
+      <span className="pointer-events-none absolute -top-20 -right-16 w-56 h-56 bg-[#E8A94C]/10 group-hover:bg-[#E8A94C]/20 rounded-full blur-3xl transition-all duration-500" />
+      <span className="pointer-events-none absolute -bottom-24 -left-12 w-52 h-52 bg-[#5EC8D8]/8 rounded-full blur-3xl" />
 
-      <div className="relative flex items-center justify-between gap-4 flex-wrap">
+      <div className="relative flex items-center justify-between gap-5 flex-wrap">
         <div className="flex items-start gap-4 min-w-0">
-          <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#E8A94C]/10 text-[#E8A94C] flex items-center justify-center">
-            <FaCalendarDay size={16} />
+          <div className="w-12 h-12 shrink-0 rounded-2xl bg-[#E8A94C]/12 border border-[#E8A94C]/25 text-[#E8A94C] flex items-center justify-center">
+            <FaCalendarDay size={17} />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="font-mono-studio text-[10px] tracking-wide text-[#E8A94C] uppercase">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C] live-dot" />
+              <span className="font-mono-studio text-[10px] tracking-widest text-[#E8A94C] uppercase">
                 Daily Challenge
               </span>
               <span
                 className={`font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide ${
                   daily.type === "coding"
                     ? "bg-[#5EC8D8]/10 text-[#5EC8D8]"
-                    : "bg-[#E8A94C]/10 text-[#E8A94C]"
+                    : "bg-[#8B7FD6]/10 text-[#B3A9F5]"
                 }`}
               >
-                {daily.type === "coding" ? <BsCode size={9} /> : <BsChatSquareText size={9} />}
+                {daily.type === "coding" ? (
+                  <BsCode size={9} />
+                ) : (
+                  <BsChatSquareText size={9} />
+                )}
                 {daily.type === "coding" ? "Coding" : "HR"}
               </span>
             </div>
-            <h3 className="font-serif-display text-lg sm:text-xl text-[#EDEEF0] leading-snug truncate">
+            <h3 className="font-serif-display text-lg sm:text-2xl text-[#EDEEF0] leading-snug line-clamp-2">
               {daily.title}
             </h3>
+            <p className="text-[11px] text-[#8B92A0] mt-1.5">
+              Same question for everyone today — keep the streak alive.
+            </p>
           </div>
         </div>
 
         <div className="shrink-0">
           {daily.completed ? (
-            <span className="font-mono-studio inline-flex items-center gap-2 text-[#4ADE80] text-xs bg-[#4ADE80]/10 px-4 py-2.5 rounded-xl">
+            <span className="font-mono-studio inline-flex items-center gap-2 text-[#4ADE80] text-xs bg-[#4ADE80]/10 border border-[#4ADE80]/25 px-4 py-2.5 rounded-xl">
               <BsCheckCircleFill size={13} />
               Completed today
             </span>
           ) : (
-            <span className="font-mono-studio inline-flex items-center gap-2 bg-[#E8A94C] text-[#1C1F24] text-xs font-semibold px-4 py-2.5 rounded-xl group-hover:gap-3 transition-all duration-200">
+            <span className="font-mono-studio inline-flex items-center gap-2 bg-linear-to-br from-[#F4C97A] to-[#E8A94C] text-[#1C1F24] text-xs font-bold px-5 py-3 rounded-xl shadow-[0_10px_28px_-10px_rgba(232,169,76,0.6)] group-hover:gap-3.5 transition-all duration-200">
               Start Challenge
               <BsArrowRight size={13} />
             </span>
@@ -238,8 +276,13 @@ function PracticeHub() {
     openQuestion(random);
   };
 
+  const typeCount = (t) =>
+    t === "all"
+      ? allQuestions.length
+      : allQuestions.filter((q) => q.type === t).length;
+
   return (
-    <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300 px-4 sm:px-6 pb-16">
+    <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300 px-4 sm:px-6 pb-16 overflow-hidden">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -256,9 +299,49 @@ function PracticeHub() {
         .font-mono-studio {
           font-family: 'JetBrains Mono', monospace;
         }
+
+        .film-grain {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.025;
+          mix-blend-mode: overlay;
+          z-index: 0;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/rect%3E%3C/svg%3E");
+        }
+
+        /* fine diagonal hairline mesh inside the daily-challenge card */
+        .daily-mesh {
+          opacity: 0.6;
+          background-image:
+            linear-gradient(115deg, rgba(232,169,76,0.05) 1px, transparent 1px),
+            linear-gradient(25deg, rgba(94,200,216,0.04) 1px, transparent 1px);
+          background-size: 30px 30px;
+          mask-image: radial-gradient(ellipse at 25% 20%, black 0%, transparent 75%);
+        }
+
+        @keyframes livePulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,169,76,0.5); }
+          50% { opacity: 0.5; box-shadow: 0 0 0 4px rgba(232,169,76,0); }
+        }
+        .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
       `}</style>
 
-      <div className="practice-root max-w-6xl mx-auto">
+      <div className="film-grain" />
+
+      {/* ambient brand glow behind the header */}
+      <div
+        className="pointer-events-none absolute top-0 left-0 right-0 h-125 z-0"
+        style={{
+          background:
+            "radial-gradient(circle at 12% 0%, rgba(232,169,76,0.12), transparent 42%), radial-gradient(circle at 88% 0%, rgba(94,200,216,0.09), transparent 40%)",
+          maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, transparent 100%)",
+        }}
+      />
+
+      <div className="practice-root relative z-10 max-w-6xl mx-auto">
 
         {/* ================= HEADER ================= */}
         <div className="pt-6 sm:pt-10 mb-8">
@@ -282,6 +365,7 @@ function PracticeHub() {
                 shadow-sm hover:shadow-md
                 border border-[#EAE9E5] dark:border-[#232830]
                 transition-all duration-200
+                cursor-pointer
               "
             >
               <FaArrowLeft
@@ -290,8 +374,8 @@ function PracticeHub() {
               />
             </motion.button>
 
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-[#E8A94C] shrink-0" />
+            <div className="flex items-center gap-2 min-w-0 bg-[#E8A94C]/8 border border-[#E8A94C]/20 px-3 py-1.5 rounded-full">
+              <span className="w-2 h-2 rounded-full bg-[#E8A94C] shrink-0 live-dot" />
 
               <span
                 className="
@@ -300,7 +384,7 @@ function PracticeHub() {
                   sm:text-[11px]
                   tracking-[0.06em]
                   sm:tracking-[0.08em]
-                  text-[#E8A94C]
+                  text-[#B27E2E] dark:text-[#E8A94C]
                   whitespace-nowrap
                 "
               >
@@ -315,8 +399,9 @@ function PracticeHub() {
 
             <div className="min-w-0">
 
-              <h1 className="font-serif-display text-3xl sm:text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-2">
-                Sharpen one question at a time
+              <h1 className="font-serif-display text-3xl sm:text-5xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-3 leading-[1.08]">
+                Sharpen one question
+                <br className="hidden sm:block" /> at a time
               </h1>
 
               <p className="text-sm text-[#5C6472] dark:text-[#8B92A0] max-w-xl leading-relaxed">
@@ -328,7 +413,7 @@ function PracticeHub() {
 
             <motion.button
               onClick={practiceRandom}
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, y: -1 }}
               whileTap={{ scale: 0.98 }}
               disabled={!allQuestions.length}
               className="
@@ -339,11 +424,12 @@ function PracticeHub() {
                 bg-[#1C1F24] dark:bg-[#EDEEF0]
                 text-white dark:text-[#0A0B0D]
                 font-semibold
-                px-5 py-3
+                px-6 py-3.5
                 rounded-2xl
-                shadow-lg
+                shadow-[0_14px_36px_-12px_rgba(0,0,0,0.45)]
                 disabled:opacity-60
-                transition
+                transition-all duration-200
+                cursor-pointer
               "
             >
               <BsLightningCharge size={15} />
@@ -365,6 +451,8 @@ function PracticeHub() {
 
             <StatPill
               label="Current streak"
+              icon={<BsFire size={16} />}
+              accent="#E8A94C"
               value={`${stats.currentStreak} ${
                 stats.currentStreak === 1 ? "day" : "days"
               }`}
@@ -372,11 +460,15 @@ function PracticeHub() {
 
             <StatPill
               label="Total attempts"
+              icon={<BsListCheck size={16} />}
+              accent="#5EC8D8"
               value={stats.totalAttempts}
             />
 
             <StatPill
               label="Average score"
+              icon={<BsGraphUp size={16} />}
+              accent="#4ADE80"
               value={`${stats.averageScore || 0}/10`}
             />
 
@@ -431,19 +523,17 @@ function PracticeHub() {
                   px-3.5 py-2.5
                   rounded-xl
                   border
-                  transition
+                  transition-all duration-200
+                  cursor-pointer
                   ${
                     typeFilter === t
-                      ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] border-transparent"
-                      : "bg-white dark:bg-[#0F1115] text-[#5C6472] dark:text-[#8B92A0] border-[#EAE9E5] dark:border-[#1E2229]"
+                      ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] border-transparent shadow-[0_8px_20px_-10px_rgba(0,0,0,0.5)]"
+                      : "bg-white dark:bg-[#0F1115] text-[#5C6472] dark:text-[#8B92A0] border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/40"
                   }
                 `}
               >
-                {t === "all"
-                  ? "All"
-                  : t === "coding"
-                  ? "Coding"
-                  : "HR"}
+                {t === "all" ? "All" : t === "coding" ? "Coding" : "HR"}
+                <span className="opacity-50"> · {typeCount(t)}</span>
               </button>
             ))}
 
@@ -466,6 +556,7 @@ function PracticeHub() {
               outline-none
               focus:border-[#E8A94C]/50
               transition
+              cursor-pointer
             "
           >
             <option value="all">Any difficulty</option>
@@ -491,7 +582,7 @@ function PracticeHub() {
               <div
                 key={i}
                 className="
-                  h-32
+                  h-36
                   rounded-2xl
                   bg-white dark:bg-[#0F1115]
                   border border-[#EAE9E5] dark:border-[#1E2229]
@@ -502,17 +593,21 @@ function PracticeHub() {
 
           </div>
         ) : filtered.length ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-            {filtered.map((q) => (
-              <QuestionCard
-                key={`${q.type}-${q.id}`}
-                q={q}
-                onClick={() => openQuestion(q)}
-              />
-            ))}
-
-          </div>
+          <>
+            <p className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] uppercase mb-3">
+              {filtered.length} question{filtered.length === 1 ? "" : "s"}
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map((q, i) => (
+                <QuestionCard
+                  key={`${q.type}-${q.id}`}
+                  q={q}
+                  index={i}
+                  onClick={() => openQuestion(q)}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <div className="text-center py-20">
 

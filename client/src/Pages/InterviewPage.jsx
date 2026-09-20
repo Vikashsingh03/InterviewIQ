@@ -175,7 +175,7 @@ function InterviewPage() {
               exit={{ opacity: 0, x: -30 }}
               transition={{ duration: 0.35 }}
             >
-              <Step3Report report={interviewData} />
+              <Step3Report report={interviewData} showBackButton={false} />
             </motion.div>
           )}
         </AnimatePresence>

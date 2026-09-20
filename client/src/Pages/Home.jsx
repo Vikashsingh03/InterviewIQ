@@ -10,6 +10,9 @@ import {
   BsFileEarmarkText,
   BsArrowRight,
   BsCheckCircleFill,
+  BsLightningCharge,
+  BsPeopleFill,
+  BsShieldCheck,
 } from "react-icons/bs";
 import { IoSparklesSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +41,18 @@ const techStack = [
 
 const waveHeights = [40, 70, 100, 55, 85, 35, 65, 95, 45, 75];
 
+// small eyebrow label used above every section heading
+function SectionLabel({ children }) {
+  return (
+    <div className="flex justify-center mb-4">
+      <span className="font-mono-studio inline-flex items-center gap-2 text-[10px] sm:text-[11px] tracking-[0.12em] text-[#B27E2E] dark:text-[#E8A94C] bg-[#E8A94C]/8 border border-[#E8A94C]/20 px-3.5 py-1.5 rounded-full">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C]" />
+        {children}
+      </span>
+    </div>
+  );
+}
+
 function Home() {
   const [showAuth, setShowAuth] = useState(false);
   const { userData } = useSelector((state) => state.user);
@@ -57,6 +72,13 @@ function Home() {
     }
     navigate("/history");
   };
+  const goPractice = () => {
+    if (!userData) {
+      setShowAuth(true);
+      return;
+    }
+    navigate("/practice");
+  };
 
   return (
     <div className="relative min-h-screen bg-[#F7F6F3] dark:bg-[#0A0B0D] flex flex-col transition-colors duration-300">
@@ -73,6 +95,14 @@ function Home() {
           opacity: 0.025;
           mix-blend-mode: overlay;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        /* blueprint hairline mesh behind the hero mockup */
+        .hero-mesh {
+          background-image:
+            linear-gradient(115deg, rgba(232,169,76,0.06) 1px, transparent 1px),
+            linear-gradient(25deg, rgba(94,200,216,0.05) 1px, transparent 1px);
+          background-size: 30px 30px;
+          mask-image: radial-gradient(ellipse at 30% 20%, black 0%, transparent 72%);
         }
       `}</style>
 
@@ -153,6 +183,13 @@ function Home() {
                     className="relative inline-block text-[#E8A94C]"
                   >
                     AI Intelligence
+                    {/* hand-drawn style underline sweep */}
+                    <motion.span
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: 0.7, delay: 1.1, ease: "easeOut" }}
+                      className="absolute left-0 -bottom-1 h-0.75 w-full origin-left rounded-full bg-linear-to-r from-[#E8A94C] to-[#E8A94C]/0"
+                    />
                   </motion.span>
                 </h1>
 
@@ -187,11 +224,34 @@ function Home() {
                   </div>
 
                   <button
-                    onClick={goHistory}
-                    className="text-[#5C6472] dark:text-[#9AA1AC] font-medium px-6 py-3.5 rounded-full hover:bg-white/60 dark:hover:bg-[#111318]/60 transition"
+                    onClick={goPractice}
+                    className="cursor-pointer flex items-center gap-2 text-[#5C6472] dark:text-[#9AA1AC] font-medium px-6 py-3.5 rounded-full border border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/40 hover:bg-white/60 dark:hover:bg-[#111318]/60 transition-all duration-200"
                   >
-                    View past interviews
+                    <BsLightningCharge size={14} className="text-[#E8A94C]" />
+                    Free practice mode
                   </button>
+                </motion.div>
+
+                {/* ---- trust strip ---- */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 1.3 }}
+                  className="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 mt-8"
+                >
+                  {[
+                    { icon: <BsPeopleFill size={12} />, text: "Solo or 2-AI panel" },
+                    { icon: <BsShieldCheck size={12} />, text: "Proctored sessions" },
+                    { icon: <BsFileEarmarkText size={12} />, text: "PDF report" },
+                  ].map((t) => (
+                    <span
+                      key={t.text}
+                      className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-wide text-[#8B92A0]"
+                    >
+                      <span className="text-[#E8A94C]">{t.icon}</span>
+                      {t.text}
+                    </span>
+                  ))}
                 </motion.div>
               </div>
 
@@ -206,9 +266,12 @@ function Home() {
                 <div className="absolute -inset-4 bg-[#E8A94C]/15 rounded-4xl blur-2xl"></div>
 
                 <div className="relative bg-[#0C0E11] rounded-3xl shadow-2xl shadow-black/30 border border-[#1E2229] overflow-hidden">
+                  <span className="pointer-events-none absolute inset-0 hero-mesh" />
+
                   {/* top bar */}
-                  <div className="flex items-center justify-between px-5 py-3 border-b border-[#1E2229]">
-                    <span className="font-mono-studio text-[11px] tracking-wide text-[#8B92A0]">
+                  <div className="relative flex items-center justify-between px-5 py-3 border-b border-[#1E2229]">
+                    <span className="font-mono-studio text-[11px] tracking-wide text-[#8B92A0] flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C] live-dot" />
                       LIVE MOCK INTERVIEW
                     </span>
                     <span className="font-mono-studio text-[11px] px-2 py-1 rounded-full bg-[#E8A94C]/15 text-[#E8A94C]">
@@ -217,7 +280,7 @@ function Home() {
                   </div>
 
                   {/* avatar + waveform */}
-                  <div className="px-6 pt-7 pb-5 flex flex-col items-center">
+                  <div className="relative px-6 pt-7 pb-5 flex flex-col items-center">
                     <div className="relative">
                       <div className="absolute inset-0 rounded-full bg-[#E8A94C]/25 blur-xl animate-pulse"></div>
                       <div className="relative w-20 h-20 rounded-full bg-[#E8A94C] flex items-center justify-center shadow-lg shadow-black/30">
@@ -240,7 +303,7 @@ function Home() {
                   </div>
 
                   {/* transcript line */}
-                  <div className="px-5 pb-5">
+                  <div className="relative px-5 pb-5">
                     <div className="bg-[#15181D] border border-[#232830] rounded-xl p-4 text-sm text-[#D8DCE3] leading-relaxed">
                       "Tell me about a challenging bug you fixed recently —
                       what made it tricky?"
@@ -248,7 +311,7 @@ function Home() {
                   </div>
 
                   {/* live scoring chips */}
-                  <div className="px-5 pb-5 flex flex-wrap gap-2">
+                  <div className="relative px-5 pb-5 flex flex-wrap gap-2">
                     {[
                       { label: "Confidence", value: "8/10" },
                       { label: "Communication", value: "7/10" },
@@ -300,6 +363,17 @@ function Home() {
         {/* ============ HOW IT WORKS ============ */}
         <div className="relative z-10 px-6 pb-28">
           <div className="max-w-6xl mx-auto">
+            <SectionLabel>HOW IT WORKS</SectionLabel>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="font-serif-display text-3xl md:text-4xl text-center mb-14 text-[#1C1F24] dark:text-[#EDEEF0]"
+            >
+              Three steps to a <span className="text-[#E8A94C]">real rep</span>
+            </motion.h2>
+
             <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-4">
               {[
                 {
@@ -328,9 +402,11 @@ function Home() {
                     viewport={{ once: true }}
                     transition={{ duration: 0.5, delay: index * 0.15 }}
                     whileHover={{ y: -6 }}
-                    className="group relative bg-white dark:bg-[#111318] rounded-3xl shadow-md p-8 w-72 max-w-[90%] transition-shadow duration-300 hover:shadow-[0_0_45px_-12px_rgba(232,169,76,0.35)] border border-[#EAE9E5] dark:border-[#1E2229]"
+                    className="group relative bg-white dark:bg-[#111318] rounded-3xl shadow-md p-8 w-72 max-w-[90%] transition-shadow duration-300 hover:shadow-[0_0_45px_-12px_rgba(232,169,76,0.35)] border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden"
                   >
-                    <div className="flex items-center gap-3 mb-5">
+                    <span className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/12 blur-2xl transition-all duration-500" />
+
+                    <div className="relative flex items-center gap-3 mb-5">
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-[#0A0B0D] bg-[#E8A94C] shadow-lg shadow-black/10 group-hover:scale-110 transition-transform">
                         {item.icon}
                       </div>
@@ -341,10 +417,10 @@ function Home() {
                         {item.step}
                       </span>
                     </div>
-                    <h3 className="font-semibold mb-2 text-lg text-[#1C1F24] dark:text-[#EDEEF0]">
+                    <h3 className="relative font-semibold mb-2 text-lg text-[#1C1F24] dark:text-[#EDEEF0]">
                       {item.title}
                     </h3>
-                    <p className="text-sm text-[#5C6472] dark:text-[#8B92A0] leading-relaxed">
+                    <p className="relative text-sm text-[#5C6472] dark:text-[#8B92A0] leading-relaxed">
                       {item.desc}
                     </p>
                   </motion.div>
@@ -361,9 +437,50 @@ function Home() {
           </div>
         </div>
 
+        {/* ============ PRACTICE HUB BAND ============ */}
+        <div className="relative z-10 px-6 pb-28">
+          <div className="max-w-6xl mx-auto">
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              whileHover={{ y: -3 }}
+              onClick={goPractice}
+              className="group relative w-full text-left overflow-hidden rounded-[28px] bg-[#0C0E11] border border-[#1E2229] hover:border-[#E8A94C]/45 p-8 sm:p-10 transition-all duration-300 shadow-[0_26px_70px_-34px_rgba(0,0,0,0.7)] cursor-pointer"
+            >
+              <span className="pointer-events-none absolute inset-0 hero-mesh" />
+              <span className="pointer-events-none absolute -top-24 -right-20 w-72 h-72 rounded-full bg-[#E8A94C]/10 group-hover:bg-[#E8A94C]/20 blur-3xl transition-all duration-500" />
+
+              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-7">
+                <div className="max-w-xl">
+                  <span className="font-mono-studio inline-flex items-center gap-2 text-[10px] tracking-[0.12em] text-[#E8A94C] bg-[#E8A94C]/10 border border-[#E8A94C]/20 px-3 py-1.5 rounded-full mb-5">
+                    <BsLightningCharge size={11} />
+                    FREE · UNLIMITED · NO CREDITS
+                  </span>
+                  <h3 className="font-serif-display text-2xl sm:text-4xl text-white leading-tight mb-3">
+                    Not ready for a full interview?
+                  </h3>
+                  <p className="text-[#9AA1AC] leading-relaxed">
+                    Practice one question at a time — DSA coding problems or
+                    HR/behavioral questions — with instant AI scoring and a
+                    daily challenge to keep your streak alive.
+                  </p>
+                </div>
+
+                <span className="shrink-0 font-semibold inline-flex items-center gap-2 bg-linear-to-br from-[#F4C97A] to-[#E8A94C] text-[#1C1F24] px-7 py-3.5 rounded-full shadow-[0_14px_36px_-12px_rgba(232,169,76,0.6)] group-hover:gap-3.5 transition-all duration-200">
+                  Open Practice Hub
+                  <BsArrowRight size={15} />
+                </span>
+              </div>
+            </motion.button>
+          </div>
+        </div>
+
         {/* ============ CAPABILITIES — bento grid ============ */}
         <div className="relative z-10 px-6 pb-28">
           <div className="max-w-6xl mx-auto">
+            <SectionLabel>WHAT YOU GET</SectionLabel>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -382,8 +499,9 @@ function Home() {
               className="grid md:grid-cols-3 gap-6 md:auto-rows-55"
             >
               {/* featured, larger cell */}
-              <div className="md:col-span-2 md:row-span-2 group relative bg-white dark:bg-[#111318] rounded-3xl p-8 shadow-sm transition-all duration-300 border border-transparent hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex flex-col md:flex-row items-center gap-6 overflow-hidden">
-                <div className="w-full md:w-1/2 order-2 md:order-1">
+              <div className="md:col-span-2 md:row-span-2 group relative bg-white dark:bg-[#111318] rounded-3xl p-8 shadow-sm transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex flex-col md:flex-row items-center gap-6 overflow-hidden">
+                <span className="pointer-events-none absolute -bottom-20 -left-16 w-56 h-56 rounded-full bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/10 blur-3xl transition-all duration-500" />
+                <div className="relative w-full md:w-1/2 order-2 md:order-1">
                   <div className="bg-[#E8A94C] text-[#0A0B0D] w-12 h-12 rounded-xl flex items-center justify-center mb-5 shadow-lg shadow-black/10">
                     <BsBarChart size={20} />
                   </div>
@@ -396,7 +514,7 @@ function Home() {
                     work on, not just how you did overall.
                   </p>
                 </div>
-                <div className="w-full md:w-1/2 order-1 md:order-2 flex justify-center">
+                <div className="relative w-full md:w-1/2 order-1 md:order-2 flex justify-center">
                   <img
                     src={evalImg}
                     alt="AI answer evaluation"
@@ -406,8 +524,8 @@ function Home() {
               </div>
 
               {/* two medium cells */}
-              <div className="group relative bg-white dark:bg-[#111318] rounded-3xl p-6 shadow-sm transition-all duration-300 border border-transparent hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex flex-col justify-between">
-                <div>
+              <div className="group relative bg-white dark:bg-[#111318] rounded-3xl p-6 shadow-sm transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex flex-col justify-between overflow-hidden">
+                <div className="relative">
                   <div className="bg-[#E8A94C] text-[#0A0B0D] w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-black/10">
                     <BsFileEarmarkText size={16} />
                   </div>
@@ -422,12 +540,12 @@ function Home() {
                 <img
                   src={resumeImg}
                   alt="Resume based interview"
-                  className="w-20 h-20 object-contain self-end group-hover:scale-110 transition-transform duration-300"
+                  className="relative w-20 h-20 object-contain self-end group-hover:scale-110 transition-transform duration-300"
                 />
               </div>
 
-              <div className="group relative bg-white dark:bg-[#111318] rounded-3xl p-6 shadow-sm transition-all duration-300 border border-transparent hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex flex-col justify-between">
-                <div>
+              <div className="group relative bg-white dark:bg-[#111318] rounded-3xl p-6 shadow-sm transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex flex-col justify-between overflow-hidden">
+                <div className="relative">
                   <div className="bg-[#E8A94C] text-[#0A0B0D] w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-black/10">
                     <BsBarChart size={16} />
                   </div>
@@ -442,12 +560,12 @@ function Home() {
                 <img
                   src={analyticsImg}
                   alt="History and analytics"
-                  className="w-20 h-20 object-contain self-end group-hover:scale-110 transition-transform duration-300"
+                  className="relative w-20 h-20 object-contain self-end group-hover:scale-110 transition-transform duration-300"
                 />
               </div>
 
               {/* wide small cell */}
-              <div className="md:col-span-3 group relative bg-white dark:bg-[#111318] rounded-3xl p-6 shadow-sm transition-all duration-300 border border-transparent hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex items-center gap-6">
+              <div className="md:col-span-3 group relative bg-white dark:bg-[#111318] rounded-3xl p-6 shadow-sm transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/30 hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] flex items-center gap-6 overflow-hidden">
                 <div className="bg-[#E8A94C] text-[#0A0B0D] w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-black/10 shrink-0">
                   <BsFileEarmarkText size={20} />
                 </div>
@@ -473,6 +591,7 @@ function Home() {
         {/* ============ INTERVIEW MODES ============ */}
         <div className="relative z-10 px-6 pb-28">
           <div className="max-w-6xl mx-auto">
+            <SectionLabel>PICK YOUR FORMAT</SectionLabel>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -512,11 +631,13 @@ function Home() {
                   desc: "Unlock interview sessions with a simple, transparent credit balance.",
                 },
               ].map((mode, index) => (
-                <div
+                <motion.div
                   key={index}
-                  className="group bg-white dark:bg-[#111318] rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all border border-[#EAE9E5] dark:border-[#1E2229]"
+                  whileHover={{ y: -4 }}
+                  className="group relative bg-white dark:bg-[#111318] rounded-3xl p-8 shadow-sm hover:shadow-[0_0_45px_-15px_rgba(232,169,76,0.35)] transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/30 overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-6">
+                  <span className="pointer-events-none absolute -top-16 -right-16 w-44 h-44 rounded-full bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/10 blur-3xl transition-all duration-500" />
+                  <div className="relative flex items-center justify-between gap-6">
                     <div className="w-1/2">
                       <h3 className="font-semibold text-xl mb-3 text-[#1C1F24] dark:text-[#EDEEF0]">
                         {mode.title}
@@ -533,7 +654,7 @@ function Home() {
                       />
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </motion.div>
           </div>
@@ -567,17 +688,26 @@ function Home() {
                   your AI interviewer is ready when you are.
                 </p>
 
-                <div className="relative inline-block group">
-                  <div className="absolute -inset-1 bg-[#E8A94C] rounded-full blur-md opacity-60 group-hover:opacity-90 transition duration-300"></div>
-                  <motion.button
-                    onClick={goStart}
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="btn-shine cursor-pointer relative bg-white text-[#1C1F24] px-10 py-3.5 rounded-full font-semibold flex items-center gap-2 shadow-xl"
+                <div className="relative flex flex-wrap items-center justify-center gap-4">
+                  <div className="relative inline-block group">
+                    <div className="absolute -inset-1 bg-[#E8A94C] rounded-full blur-md opacity-60 group-hover:opacity-90 transition duration-300"></div>
+                    <motion.button
+                      onClick={goStart}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      className="btn-shine cursor-pointer relative bg-white text-[#1C1F24] px-10 py-3.5 rounded-full font-semibold flex items-center gap-2 shadow-xl"
+                    >
+                      Start Interview
+                      <BsArrowRight className="group-hover:translate-x-1 transition-transform" />
+                    </motion.button>
+                  </div>
+
+                  <button
+                    onClick={goHistory}
+                    className="cursor-pointer text-[#9AA1AC] hover:text-white font-medium px-6 py-3.5 rounded-full border border-[#1E2229] hover:border-[#E8A94C]/40 transition-all duration-200"
                   >
-                    Start Interview
-                    <BsArrowRight className="group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
+                    View past interviews
+                  </button>
                 </div>
               </div>
             </motion.div>
