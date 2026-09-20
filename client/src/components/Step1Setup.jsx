@@ -88,8 +88,12 @@ function Step1Setup({ onstart }) {
         { withCredentials: true },
       );
 
-      setRole(result.data.role || "");
-      setExperience(result.data.experience || "");
+      // only fill in blank fields — never overwrite a role/experience the
+      // candidate already typed themselves. This was the bug behind every
+      // interview showing "Full Stack Developer": uploading a resume was
+      // silently replacing whatever the person had manually entered.
+      setRole((prev) => prev || result.data.role || "");
+      setExperience((prev) => prev || result.data.experience || "");
       // these must stay arrays — a "" fallback would break the .map() calls below
       setProjects(
         Array.isArray(result.data.projects) ? result.data.projects : [],

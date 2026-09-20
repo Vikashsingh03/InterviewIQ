@@ -9,6 +9,9 @@ import {
   BsCalendar3,
   BsBriefcase,
   BsChatDots,
+  BsTrophy,
+  BsGraphUp,
+  BsCalendarCheck,
 } from "react-icons/bs";
 import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
 
@@ -165,6 +168,66 @@ const InterviewHistory = () => {
           </div>
         </motion.div>
 
+        {!loading && !error && interviews.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+          >
+            {[
+              {
+                icon: <BsClipboardData size={17} />,
+                label: "Total interviews",
+                value: interviews.length,
+              },
+              {
+                icon: <BsTrophy size={17} />,
+                label: "Average score",
+                value: (() => {
+                  const completed = interviews.filter(
+                    (i) => i.status === "Completed",
+                  );
+                  if (!completed.length) return "—";
+                  const avg =
+                    completed.reduce(
+                      (sum, i) => sum + (Number(i.finalScore) || 0),
+                      0,
+                    ) / completed.length;
+                  return `${formatScore(avg)}/10`;
+                })(),
+              },
+              {
+                icon: <BsCalendarCheck size={17} />,
+                label: "This month",
+                value: interviews.filter((i) => {
+                  const d = new Date(i.createdAt);
+                  const now = new Date();
+                  return (
+                    d.getMonth() === now.getMonth() &&
+                    d.getFullYear() === now.getFullYear()
+                  );
+                }).length,
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="bg-white/90 dark:bg-[#111318]/90 backdrop-blur-md border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl p-5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-28px_rgba(0,0,0,0.6)]"
+              >
+                <div className="flex items-center gap-2 mb-3 text-[#B27E2E] dark:text-[#E8A94C]">
+                  {stat.icon}
+                  <span className="font-mono-studio text-[11px] tracking-wide uppercase text-[#8B92A0]">
+                    {stat.label}
+                  </span>
+                </div>
+                <p className="font-serif-display text-3xl text-[#1C1F24] dark:text-[#EDEEF0]">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </motion.div>
+        )}
+
         {deleteError && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -281,7 +344,14 @@ const InterviewHistory = () => {
                         </h3>
 
                         <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                          <span className="text-[#5C6472] dark:text-[#9AA1AC] text-sm">
+                          <span
+                            className={`font-mono-studio inline-flex items-center gap-1 text-[10px] tracking-wide px-2 py-0.5 rounded-md ${
+                              item.mode === "Technical"
+                                ? "bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C]"
+                                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            }`}
+                          >
+                            <BsGraphUp size={10} />
                             {item.mode}
                           </span>
                           {item.interviewType === "panel" && (
