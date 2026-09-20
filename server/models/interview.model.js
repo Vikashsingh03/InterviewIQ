@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 
+// AI coaching for one question (a stronger sample answer + what was missing +
+// tips). Generated on demand from the report page, then cached here so the
+// same question never costs a second AI call.
+const coachingSchema = new mongoose.Schema(
+    {
+        idealAnswer: String,
+        gaps: [String],
+        tips: [String],
+        generatedAt: Date,
+    },
+    { _id: false },
+);
+
 const questionSchema = new mongoose.Schema({
     question: String,
     difficulty: String,
@@ -13,6 +26,8 @@ const questionSchema = new mongoose.Schema({
     topicHint: { type: String, default: "general" },
 
     skipped: { type: Boolean, default: false },
+
+    coaching: { type: coachingSchema, default: undefined },
 
     type: { type: String, enum: ["verbal", "coding"], default: "verbal" },
     askedBy: {

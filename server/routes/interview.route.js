@@ -12,7 +12,8 @@ import {
   submitAnswer,
   deleteInterview,
   getAnalyticsSummary,
-  getResumeJobMatch
+  getResumeJobMatch,
+  getQuestionCoaching
 } from '../controllers/interview.controller.js';
 
 
@@ -33,6 +34,8 @@ interviewRouter.get("/stt-token", isAuth, getSttToken)
 
 interviewRouter.get("/get-interviews", isAuth, getMyInterviews)
 interviewRouter.get("/report/:id", isAuth, getInterviewReport)
+// AI coaching for one question of a finished interview (cached after first use)
+interviewRouter.post("/coaching/:questionId", isAuth, getQuestionCoaching)
 interviewRouter.get("/analytics-summary", isAuth, getAnalyticsSummary)
 
 interviewRouter.delete("/delete/:id", isAuth, deleteInterview);

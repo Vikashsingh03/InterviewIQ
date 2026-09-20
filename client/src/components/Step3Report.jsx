@@ -17,6 +17,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
 import { BsCode, BsPersonFill } from "react-icons/bs";
+import QuestionCoaching from "./QuestionCoaching";
 
 // client-side labels only — matches PANEL_PERSONAS in Step2PanelInterview,
 // kept separate (and this simple) since the report only needs a label + color
@@ -809,6 +810,8 @@ function Step3Report({ report }) {
                             : "No feedback available for this question."}
                         </p>
                       </div>
+
+                      <QuestionCoaching question={q} />
                     </div>
                   );
                 })}
