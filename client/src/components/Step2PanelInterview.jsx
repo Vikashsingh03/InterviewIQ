@@ -1,3 +1,10 @@
+// ====================================================================
+// InterviewIQ voice-to-voice — FINAL BUILD 2026-09-22-D
+// New in D: instant commands (first-interim fire, utterance-anchored
+// matching via ../utils/voiceCommands), pure-voice UI — no transcript text,
+// no AI reply text, no subtitles in voice mode (speaking indicator instead).
+// If you do NOT see this header, you are looking at an OLD cached copy.
+// ====================================================================
 import React, { useEffect, useRef, useState } from "react";
 import maleVideo from "../assets/Videos/male-ai.mp4";
 import femaleVideo from "../assets/Videos/female-ai.mp4";
@@ -7,6 +14,9 @@ import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 import axios from "axios";
 import { ServerUrl } from "../App";
 import { createRecognition } from "../utils/speechRecognition";
+import { createTts } from "../utils/neuralTts";
+import { useVoiceAnswer } from "../hooks/useVoiceAnswer";
+import { getVoiceCommand } from "../utils/voiceCommands";
 import {
   BsStars,
   BsSkipForward,
@@ -76,6 +86,20 @@ const SKIP_COMMAND_REGEX =
   /\b(skip(?:ped|ping)?(?!\s*list)|next question|move on|pass (on )?this|go to (the )?next|(just|scape|skit|ski) (give )?(this|the) question|leave this question)\b/i;
 const COMMAND_MAX_WORDS = 8;
 
+// analysis beat after every submitted answer: the AI visibly "thinks" for
+// nine seconds while the evaluation runs, then responds and moves on
+const ANALYSIS_MS = 9000;
+
+// post-transcription safety net for voice commands — imported from
+// ../utils/voiceCommands so the real-time spotter and this check always agree.
+// The hook's spotter catches "repeat" / "skip" / "wait" on the first interim
+// result when the browser's speech recognition cooperates — but on machines
+// where it doesn't, the command would otherwise be transcribed and submitted
+// as a real answer (exactly the "repeat this question got submitted" bug).
+// So after Deepgram returns the transcript we check once more: a short,
+// command-shaped utterance is NEVER submitted — it is handled as a command
+// instead. Deterministic, no browser dependency.
+
 // client-side mirror of the backend's INTERVIEWER_PERSONAS — only the
 // presentation bits (video, label, accent) live here, the actual grading
 // persona lives server-side
@@ -96,6 +120,268 @@ const PANEL_PERSONAS = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Voice-to-voice answer panel — premium dark-glass UI for the
+// record -> Deepgram-transcribe pipeline. Rendered when answerMode === "voice".
+// headerChips lets panel mode show its interviewer avatars above the orb.
+// ---------------------------------------------------------------------------
+// premium 9-second "the interviewer is thinking" moment — gold progress ring
+// with a live countdown, shown after every submitted answer while the
+// evaluation runs. The interview always advances when the ring completes.
+function AnalysisOverlay({ progress = 0 }) {
+  const R = 54;
+  const C = 2 * Math.PI * R;
+  const secondsLeft = Math.max(1, Math.ceil((1 - progress) * 9));
+  return (
+    <div className="relative z-10 flex flex-col items-center justify-center py-8 select-none">
+      <div className="relative w-40 h-40">
+        <div className="absolute inset-0 rounded-full bg-[#E8A94C]/15 blur-2xl animate-pulse" />
+        <svg viewBox="0 0 128 128" className="relative w-40 h-40 -rotate-90">
+          <defs>
+            <linearlinear id="analysisGold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#F6D68A" />
+              <stop offset="100%" stopColor="#E8A94C" />
+            </linearlinear>
+          </defs>
+          <circle cx="64" cy="64" r={R} fill="none" stroke="#262B34" strokeWidth="8" />
+          <circle
+            cx="64"
+            cy="64"
+            r={R}
+            fill="none"
+            stroke="url(#analysisGold)"
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - progress)}
+            style={{ transition: "stroke-dashoffset 0.1s linear" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-4xl font-semibold text-[#EDEEF0] tabular-nums">
+            {secondsLeft}
+          </span>
+          <span className="font-mono-studio text-[10px] tracking-[0.25em] text-[#565D68] mt-1">
+            SEC
+          </span>
+        </div>
+      </div>
+      <div className="mt-6 font-mono-studio text-xs tracking-[0.25em] uppercase text-[#E8B96A]">
+        Analyzing your answer
+      </div>
+      <p className="mt-2 text-sm text-[#8B92A0]">
+        The interviewer is listening to every word…
+      </p>
+    </div>
+  );
+}
+
+function VoiceAnswerPanel({ voice, onRepeat, onSwitchToType, headerChips = null, analyzing = false, analysisProgress = 0 }) {
+  // NOTE: voice mode is pure voice — the candidate's transcribed words are
+  // deliberately NEVER shown as text (no "You said" box). They speak, the
+  // interviewers speak back. lastTranscript is intentionally not rendered.
+  const { status, level, notice, lastCommand } = voice;
+  const listening = status === "listening" || status === "countdown";
+  const busy = listening || status === "requesting" || status === "transcribing";
+
+  const statusLabel =
+    {
+      idle: "Get ready…",
+      requesting: "Setting up your mic…",
+      listening: "Listening — speak your answer",
+      countdown: "Wrapping up — stay silent to submit",
+      transcribing: "Transcribing your answer…",
+      denied: "Mic access blocked",
+      error: "Transcription failed",
+    }[status] || "Get ready…";
+
+  // 9-second analysis beat — replaces the orb while the AI "thinks"
+  if (analyzing) {
+    return (
+      <div className="flex-1 mt-3 relative overflow-hidden rounded-3xl bg-[#0C0E11] border border-[#1E2229] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-95">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-linear(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
+          }}
+        />
+        <AnalysisOverlay progress={analysisProgress} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 mt-3 relative overflow-hidden rounded-3xl bg-[#0C0E11] border border-[#1E2229] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-95">
+      {/* ambient glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-linear(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
+        }}
+      />
+      {headerChips}
+
+      {/* status pill */}
+      <div
+        className={`relative z-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 border transition-all duration-300 ${
+          listening
+            ? "bg-[#E8A94C]/10 border-[#E8A94C]/40 shadow-[0_0_24px_-6px_rgba(232,169,76,0.55)]"
+            : "bg-white/5 border-white/10"
+        }`}
+      >
+        <span
+          className={`w-2 h-2 rounded-full ${
+            listening
+              ? "bg-[#E8A94C] live-dot"
+              : status === "transcribing"
+                ? "bg-[#5EC8D8] live-dot"
+                : "bg-[#565D68]"
+          }`}
+        />
+        <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#C7CBD1] uppercase">
+          {statusLabel}
+        </span>
+      </div>
+
+      {/* mic orb */}
+      <motion.div
+        className="relative z-10 w-28 h-28 sm:w-32 sm:h-32 mb-6"
+        animate={listening ? { scale: [1, 1.045, 1] } : { scale: 1 }}
+        transition={
+          listening
+            ? { repeat: Infinity, duration: 2.4, ease: "easeInOut" }
+            : { duration: 0.2 }
+        }
+      >
+        {listening && (
+          <>
+            <span className="voice-ring absolute inset-0 rounded-full border-2 border-[#E8A94C]/60" />
+            <span className="voice-ring-2 absolute inset-0 rounded-full border-2 border-[#E8A94C]/40" />
+            {/* breathing halo */}
+            <motion.span
+              className="absolute -inset-4 rounded-full bg-[#E8A94C]/25 blur-2xl"
+              animate={{ opacity: [0.35, 0.7, 0.35] }}
+              transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
+            />
+          </>
+        )}
+        <div
+          className={`absolute inset-0 rounded-full flex items-center justify-center transition-colors duration-300 ${
+            listening
+              ? "orb-live bg-linear-to-br from-[#F2C063] via-[#E8A94C] to-[#B27E2E] shadow-[0_0_80px_-10px_rgba(232,169,76,0.8)]"
+              : "bg-[#14171C] border border-[#2A2F38]"
+          }`}
+        >
+          {/* inner top highlight for depth */}
+          <span className="absolute inset-0 rounded-full bg-linear-to-b from-white/25 via-transparent to-transparent pointer-events-none" />
+          {status === "transcribing" ? (
+            <motion.span
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+              className="w-8 h-8 border-[3px] border-[#E8A94C]/25 border-t-[#E8A94C] rounded-full"
+            />
+          ) : (
+            <FaMicrophone
+              size={32}
+              className={listening ? "text-[#0C0E11]" : "text-[#565D68]"}
+            />
+          )}
+        </div>
+      </motion.div>
+
+      {/* live waveform */}
+      <div
+        className="relative z-10 flex items-end justify-center gap-1 h-14 mb-5"
+        aria-hidden="true"
+      >
+        {Array.from({ length: 28 }).map((_, i) => {
+          const h =
+            6 +
+            Math.min(1, level) * 46 * (0.35 + 0.65 * Math.abs(Math.sin(i * 1.7)));
+          return (
+            <div
+              key={i}
+              className="w-1.5 rounded-full transition-[height] duration-150"
+              style={{
+                height: `${busy ? h : 6}px`,
+                opacity: busy ? 0.95 : 0.22,
+                background: busy
+                  ? "linear-linear(to top, #B27E2E, #E8A94C 60%, #F6D68A)"
+                  : "#2A2F38",
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* helper notice (e.g. "I didn't catch that — please speak again.") */}
+      {notice && (
+        <p className="relative z-10 text-sm text-[#E8B96A] mb-3 max-w-md">
+          {notice}
+        </p>
+      )}
+
+      {/* mic blocked -> nudge to type mode */}
+      {status === "denied" && (
+        <div className="relative z-10 w-full max-w-md bg-[#E8A94C]/8 border border-[#E8A94C]/25 rounded-2xl px-4 py-4 mb-4">
+          <p className="text-sm text-[#E8B96A] mb-3 leading-relaxed">
+            Your browser blocked mic access. Allow the microphone, then{" "}
+            <button
+              type="button"
+              onClick={onRepeat}
+              className="underline font-semibold"
+            >
+              try again
+            </button>
+            , or answer by typing instead.
+          </p>
+          <button
+            type="button"
+            onClick={onSwitchToType}
+            className="w-full py-2.5 rounded-xl bg-[#E8A94C] text-[#0C0E11] text-sm font-bold hover:bg-[#F0B95E] transition"
+          >
+            ⌨ Type instead
+          </button>
+        </div>
+      )}
+
+      {/* transcription error -> type mode fallback */}
+      {status === "error" && (
+        <div className="relative z-10 w-full max-w-md bg-red-500/8 border border-red-500/25 rounded-2xl px-4 py-4 mb-4">
+          <p className="text-sm text-red-300 mb-3 leading-relaxed">
+            Transcription isn&apos;t working right now. Your interview is
+            safe — switch to typing and keep going.
+          </p>
+          <button
+            type="button"
+            onClick={onSwitchToType}
+            className="w-full py-2.5 rounded-xl bg-white text-[#0C0E11] text-sm font-bold hover:bg-gray-100 transition"
+          >
+            ⌨ Switch to Type mode
+          </button>
+        </div>
+      )}
+
+      {/* voice-command flash — instant feedback when "repeat"/"skip"/"wait" is heard */}
+      {lastCommand && (
+        <motion.div
+          key={lastCommand.at}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 font-mono-studio text-[11px] tracking-wide px-4 py-2 rounded-xl border border-[#E8A94C]/40 bg-[#E8A94C]/10 text-[#E8B96A] shadow-[0_0_24px_-6px_rgba(232,169,76,0.5)]"
+        >
+          {lastCommand.id === "repeat" && "🔁 Repeating the question…"}
+          {lastCommand.id === "skip" && "⏭ Skipping…"}
+          {lastCommand.id === "wait" && "⏸ Take your time…"}
+        </motion.div>
+      )}
+
+    </div>
+  );
+}
+
 function Step2PanelInterview({ interviewData, onFinish }) {
   const { interviewId, userName } = interviewData;
 
@@ -111,6 +397,12 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   // ---- conversational voice engine state ----
   // voice is the primary input; the textarea is an explicit typing fallback
   const [showAnswerBox, setShowAnswerBox] = useState(false);
+  // ---- answer input mode ----
+  // "voice" (default): record -> Deepgram transcribe -> auto-submit.
+  // "type": the classic textarea UI, exactly as before. showAnswerBox stays
+  // synced so every legacy code path keeps working untouched.
+  const [answerMode, setAnswerMode] = useState("voice");
+  const answerModeRef = useRef("voice");
   const [inactivityWarning, setInactivityWarning] = useState(false);
   const [warningSecondsLeft, setWarningSecondsLeft] = useState(15);
   // words still being spoken (not yet finalized by the browser), shown live
@@ -147,6 +439,9 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   const [feedback, setFeedback] = useState("");
   const [timeLeft, setTimeLeft] = useState(questions[0]?.timeLimit || 60);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 9-second analysis beat state — the premium "AI is thinking" moment
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [subtitle, setSubtitle] = useState("");
   const [codeLanguage, setCodeLanguage] = useState("javascript");
 
@@ -160,6 +455,43 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   // per-question based on who's asking ----
   const [maleVoice, setMaleVoice] = useState(null);
   const [femaleVoice, setFemaleVoice] = useState(null);
+  // "deepgram" (neural) | "browser" (standard) — resolved once per interview
+  const [ttsProvider, setTtsProvider] = useState(null);
+  const ttsRef = useRef(null);
+  const browserSpeakRef = useRef(() => Promise.resolve());
+  // ref mirrors (the engine's browser fallback reads these, avoiding stale closures)
+  const maleVoiceRef = useRef(null);
+  const femaleVoiceRef = useRef(null);
+
+  // ---- voice-to-voice answer capture (record -> Deepgram transcribe) ----
+  // The transcript flows into the EXISTING submit pipeline through
+  // submitAnswerRef, so evaluation / ack speech / auto-advance are untouched.
+  // The active interviewer is read from activeSpeakerRef at submit time, so
+  // the transcript is always attributed to whoever asked the question.
+  const handleVoiceNoSpeechRef = useRef(() => {});
+  const handleVoiceCommandRef = useRef(() => {});
+  const voiceAnswer = useVoiceAnswer({
+    apiUrl: ServerUrl,
+    onTranscript: (transcript) => {
+      // safety net: a transcribed command is handled as a command, never
+      // submitted as an answer — the interviewer *responds* instead.
+      // Speaker attribution still flows through activeSpeakerRef.
+      const cmd = getVoiceCommand(transcript);
+      if (cmd) {
+        handleVoiceCommandRef.current(cmd);
+        return;
+      }
+      submitAnswerRef.current(transcript);
+    },
+    onNoSpeech: () => {
+      handleVoiceNoSpeechRef.current();
+    },
+    // real-time voice commands — "repeat" / "skip" / "wait" act instantly,
+    // bypassing the wrap-up countdown, like a face-to-face interviewer
+    onCommand: (cmd) => {
+      handleVoiceCommandRef.current(cmd);
+    },
+  });
 
   // ---- proctoring state (same contract as solo mode) ----
   const [proctoringReady, setProctoringReady] = useState(false);
@@ -227,6 +559,10 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   useEffect(() => {
     isMicOnRef.current = isMicOn;
   }, [isMicOn]);
+
+  useEffect(() => {
+    answerModeRef.current = answerMode;
+  }, [answerMode]);
 
   // "latest function" refs, refreshed after EVERY render (no dependency
   // array) so frozen callbacks always call the freshest version
@@ -373,18 +709,111 @@ function Step2PanelInterview({ interviewData, onFinish }) {
     skipQuestionRef.current();
   };
 
-  // switching to typing pauses every voice timer (so a slow typist is never
-  // nagged or auto-skipped); switching back re-arms the check-in timer
-  const toggleTypingMode = () => {
-    const next = !showAnswerBoxRef.current;
-    showAnswerBoxRef.current = next;
-    setShowAnswerBox(next);
-    if (next) {
-      clearAllVoiceTimers();
-    } else if (!isAIPlayingRef.current && !isSubmittingRef.current) {
+  // ---- answer input mode switching ----
+  // voice: record -> Deepgram transcribe -> auto-submit (new pipeline).
+  // type:  the classic textarea UI, exactly as before (browser dictation,
+  //        inactivity check-ins and the question-clock auto-submit all stay).
+  const switchAnswerMode = (mode) => {
+    if (mode === answerModeRef.current) return;
+    if (isIntroPhaseRef.current || terminatedRef.current) return;
+
+    // stop whichever capture path is currently running
+    voiceAnswer.stop();
+    stopMic();
+    clearAllVoiceTimers();
+    dismissInactivityWarning();
+
+    answerModeRef.current = mode;
+    setAnswerMode(mode);
+    const typing = mode === "type";
+    showAnswerBoxRef.current = typing;
+    setShowAnswerBox(typing);
+
+    if (isCodingQuestionRef.current) return; // the editor is mode-independent
+    if (isSubmittingRef.current || isAIPlayingRef.current) return;
+
+    if (typing) {
+      if (isMicOnRef.current) {
+        hasSpokenRef.current = false;
+        startMic();
+        armInactivityTimer();
+      }
+    } else {
+      voiceAnswer.start();
+    }
+  };
+
+  // re-ask the current question out loud, then resume listening
+  const handleRepeatQuestion = async () => {
+    if (!currentQuestionRef.current || terminatedRef.current) return;
+    if (isAIPlayingRef.current || isSubmittingRef.current) return;
+    voiceAnswer.stop();
+    stopMic();
+    clearAllVoiceTimers();
+    await speakTextRef.current(currentQuestionRef.current.question, activeSpeakerRef.current);
+    if (terminatedRef.current) return;
+    if (isCodingQuestionRef.current) return;
+    if (answerModeRef.current === "voice") {
+      voiceAnswer.start();
+    } else if (isMicOnRef.current) {
+      startMic();
       armInactivityTimer();
     }
   };
+
+  // voice mode: the candidate went quiet for a long stretch without saying
+  // anything — check in out loud, then resume listening
+  const handleVoiceNoSpeech = async () => {
+    if (terminatedRef.current) return;
+    voiceAnswer.stop();
+    await speakTextRef.current(
+      "Are you still there? Please speak your answer whenever you're ready — or switch to typing if you prefer.",
+      activeSpeakerRef.current,
+    );
+    if (terminatedRef.current) return;
+    if (
+      answerModeRef.current === "voice" &&
+      !isSubmittingRef.current &&
+      !isCodingQuestionRef.current
+    ) {
+      voiceAnswer.start();
+    }
+  };
+
+  // "wait" voice command — the candidate needs a breather. Discard the partial
+  // recording (nothing worth transcribing yet), acknowledge instantly, and
+  // start listening fresh. No countdown, no waiting.
+  const handleVoiceWait = async () => {
+    if (terminatedRef.current) return;
+    voiceAnswer.stop();
+    stopMic();
+    clearAllVoiceTimers();
+    await speakTextRef.current("Take your time.", activeSpeakerRef.current);
+    if (terminatedRef.current) return;
+    if (
+      answerModeRef.current === "voice" &&
+      !isSubmittingRef.current &&
+      !isCodingQuestionRef.current
+    ) {
+      voiceAnswer.start();
+    }
+  };
+
+  // Real-time voice commands from the spotter ("repeat" / "skip" / "wait").
+  // They bypass the wrap-up countdown entirely — the parent acts the instant
+  // the command is heard, like a face-to-face interviewer would.
+  const handleVoiceCommand = (cmd) => {
+    if (terminatedRef.current) return;
+    if (isSubmittingRef.current || isAIPlayingRef.current) return;
+    if (cmd === "repeat") handleRepeatQuestion();
+    else if (cmd === "skip") skipQuestion();
+    else if (cmd === "wait") handleVoiceWait();
+  };
+
+  useEffect(() => {
+    handleVoiceNoSpeechRef.current = handleVoiceNoSpeech;
+    handleVoiceCommandRef.current = handleVoiceCommand;
+  });
 
   // ---- proctoring: camera ----
   const requestCamera = async () => {
@@ -533,54 +962,136 @@ function Step2PanelInterview({ interviewData, onFinish }) {
 
       setFemaleVoice(female || voices[0]);
       setMaleVoice(male || voices[1] || voices[0]);
+      // ref mirrors for the neural-TTS browser fallback path
+      femaleVoiceRef.current = female || voices[0];
+      maleVoiceRef.current = male || voices[1] || voices[0];
     };
 
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
 
-  const voiceFor = (askedBy) =>
-    PANEL_PERSONAS[askedBy]?.voiceGender === "male" ? maleVoice : femaleVoice;
-
-  const speakText = (text, askedBy) => {
+  // ---- neural interviewer voice ----
+  // When the server has a Deepgram key each persona speaks with a neural
+  // (Aura) voice; otherwise this browser speech-synthesis path is used.
+  const browserSpeakText = (chunk, voiceGenderParam) => {
     return new Promise((resolve) => {
-      const voice = voiceFor(askedBy);
+      const voice =
+        voiceGenderParam === "male"
+          ? maleVoiceRef.current
+          : femaleVoiceRef.current;
       if (!window.speechSynthesis || !voice) {
         resolve();
         return;
       }
 
+      // NB: plain speechSynthesis.cancel() here, NOT ttsRef.current.cancel() —
+      // the engine owns the generation counter and this runs inside its speak()
       window.speechSynthesis.cancel();
-      const humanText = text.replace(/,/g, ", ...").replace(/\./g, ". ... ");
+      const humanText = chunk.replace(/,/g, ", ...").replace(/\./g, ". ... ");
       const utterance = new SpeechSynthesisUtterance(humanText);
       utterance.voice = voice;
       utterance.rate = 0.92;
       utterance.pitch = 1.05;
       utterance.volume = 1;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
+    });
+  };
 
-      const speakingRef =
-        askedBy === "interviewerA" ? videoRefA : videoRefB;
+  // always-fresh impl for the engine (it holds a stable wrapper)
+  useEffect(() => {
+    browserSpeakRef.current = browserSpeakText;
+  });
 
-      utterance.onstart = () => {
-        setIsAIPlaying(true);
-        stopMic();
-        speakingRef.current?.play();
-      };
+  if (!ttsRef.current) {
+    ttsRef.current = createTts({
+      // resilience fix: the engine reports a permanent neural->browser
+      // fallback so the header badge flips to STANDARD VOICE by itself
+      onProviderChange: (p) => setTtsProvider(p),
+      getConfig: async () => {
+        const res = await axios.get(ServerUrl + "/api/interview/tts-config", {
+          withCredentials: true,
+        });
+        return res.data;
+      },
+      fetchAudio: async (chunk, voiceGenderParam) => {
+        const res = await axios.post(
+          ServerUrl + "/api/interview/tts",
+          { text: chunk, voiceGender: voiceGenderParam },
+          { withCredentials: true, responseType: "arraybuffer" },
+        );
+        return res.data;
+      },
+      browser: {
+        speak: (chunk, voiceGenderParam) =>
+          browserSpeakRef.current(chunk, voiceGenderParam),
+        cancel: () => {
+          try {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+          } catch {
+            /* noop */
+          }
+        },
+      },
+    });
+  }
 
-      utterance.onend = () => {
-        if (speakingRef.current) {
-          speakingRef.current.pause();
-          speakingRef.current.currentTime = 0;
-        }
-        setIsAIPlaying(false);
-        setTimeout(() => {
-          setSubtitle("");
-          resolve();
-        }, 300);
-      };
+  // resolve once per interview for the voice badge in the header
+  useEffect(() => {
+    let cancelled = false;
+    ttsRef.current
+      .getProvider()
+      .then((p) => {
+        if (!cancelled) setTtsProvider(p);
+      })
+      .catch(() => {
+        if (!cancelled) setTtsProvider("browser");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const speakText = (text, askedBy) => {
+    return new Promise(async (resolve) => {
+      // cut off anything currently playing (e.g. "repeat that" mid-sentence)
+      ttsRef.current.cancel();
+
+      const voiceGender =
+        PANEL_PERSONAS[askedBy]?.voiceGender === "male" ? "male" : "female";
+      const speakingRef = askedBy === "interviewerA" ? videoRefA : videoRefB;
 
       setSubtitle(text);
-      window.speechSynthesis.speak(utterance);
+      setIsAIPlaying(true);
+      stopMic();
+      voiceAnswer.stop();
+      speakingRef.current?.play();
+
+      try {
+        // hang-proof: if the TTS engine never settles (network stall on the
+        // neural voice fetch), the interview must still move on — the
+        // candidate is never left hanging on a silent promise
+        await Promise.race([
+          ttsRef.current.speak(text, voiceGender),
+          new Promise((res) => setTimeout(() => res("tts-timeout"), 25000)),
+        ]);
+      } catch {
+        // the engine already fell back to the browser voice — never leave
+        // the interview hanging on a TTS failure
+      }
+
+      if (speakingRef.current) {
+        speakingRef.current.pause();
+        speakingRef.current.currentTime = 0;
+      }
+      setIsAIPlaying(false);
+
+      setTimeout(() => {
+        setSubtitle("");
+        resolve();
+      }, 300);
     });
   };
 
@@ -613,10 +1124,16 @@ function Step2PanelInterview({ interviewData, onFinish }) {
 
         answerWindowStartRef.current = Date.now();
 
-        if (isMicOn && currentQuestion.type !== "coding") {
-          hasSpokenRef.current = false;
-          startMic();
-          armInactivityTimer();
+        if (currentQuestion.type !== "coding") {
+          if (answerModeRef.current === "voice") {
+            // voice-to-voice: record the answer, transcribe it with
+            // Deepgram, auto-submit after the wrap-up countdown
+            voiceAnswer.start();
+          } else if (isMicOn) {
+            hasSpokenRef.current = false;
+            startMic();
+            armInactivityTimer();
+          }
         }
       }
     };
@@ -912,7 +1429,8 @@ function Step2PanelInterview({ interviewData, onFinish }) {
     const handle = async () => {
       clearAllVoiceTimers();
       stopMic();
-      window.speechSynthesis.cancel();
+      voiceAnswer.stop();
+      ttsRef.current.cancel();
 
       if (fullscreenWarning.isFinal) {
         await speakText(
@@ -939,7 +1457,10 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   const dismissWarningAndResume = () => {
     enterFullscreen();
     setFullscreenWarning(null);
-    if (isMicOn && !isCodingQuestion) {
+    if (isCodingQuestion) return;
+    if (answerModeRef.current === "voice") {
+      setTimeout(() => voiceAnswer.start(), 400);
+    } else if (isMicOn) {
       setTimeout(() => startMic(), 400);
     }
   };
@@ -975,7 +1496,24 @@ function Step2PanelInterview({ interviewData, onFinish }) {
     }
   };
 
-  const submitAnswer = async () => {
+  // ---- core flow: submit -> evaluate -> speak feedback -> auto-advance ----
+  // answerOverride lets the voice-to-voice pipeline feed a Deepgram
+  // transcript straight in; otherwise the textarea/editor state is used.
+  // drives the 9-second analysis ring; resolves when the beat completes
+  const runAnalysisBeat = () =>
+    new Promise((resolve) => {
+      const start = Date.now();
+      const tick = setInterval(() => {
+        const p = Math.min(1, (Date.now() - start) / ANALYSIS_MS);
+        setAnalysisProgress(p);
+        if (p >= 1) {
+          clearInterval(tick);
+          resolve();
+        }
+      }, 100);
+    });
+
+  const submitAnswer = async (answerOverride) => {
     if (isSubmitting) return;
     if (!currentQuestion) return;
     if (isIntroPhase || isAIPlaying) return;
@@ -983,7 +1521,19 @@ function Step2PanelInterview({ interviewData, onFinish }) {
 
     clearAllVoiceTimers();
     stopMic();
+    voiceAnswer.stop();
+    const finalAnswer =
+      typeof answerOverride === "string" ? answerOverride : answer;
+    setAnswer(finalAnswer);
+    answerRef.current = finalAnswer;
     setIsSubmitting(true);
+    // 9-second analysis beat (non-coding): the AI visibly "thinks" while the
+    // evaluation runs, then responds and moves on — never shorter, never stuck
+    const useBeat = !isCodingQuestion;
+    if (useBeat) {
+      setIsAnalyzing(true);
+      setAnalysisProgress(0);
+    }
     setErrorMessage("");
     setFeedback("");
 
@@ -991,36 +1541,61 @@ function Step2PanelInterview({ interviewData, onFinish }) {
       ? Math.max(1, Math.round((Date.now() - answerWindowStartRef.current) / 1000))
       : currentQuestion.timeLimit - timeLeft;
 
+    // the analysis beat runs in PARALLEL with the evaluation — the interview
+    // always advances after the beat, even if the API is slow or dies.
+    // Speaker attribution still flows through activeSpeakerRef.
+    const beatPromise = useBeat ? runAnalysisBeat() : Promise.resolve();
+    let data = null;
     try {
       const result = await axios.post(
         ServerUrl + "/api/interview/submit-answer",
         {
           interviewId,
           questionIndex: currentIndex,
-          answer,
+          answer: finalAnswer,
           timeTaken: currentQuestion.timeLimit - timeLeft,
           durationSeconds,
           ...(isCodingQuestion ? { language: codeLanguage } : {}),
         },
-        { withCredentials: true },
+        { withCredentials: true, timeout: 60000 },
       );
+      data = result.data;
+    } catch (apiError) {
+      console.log("[interview] submit-answer failed:", apiError?.message);
+      data = null;
+    }
+    await beatPromise;
+    setIsAnalyzing(false);
+    setAnalysisProgress(0);
 
+    try {
+      const evaluationFailed = !data;
       const { ack, isLast, nextQuestion, testResults, testsPassedCount, testsTotalCount } =
-        result.data;
+        data || {};
+      // on evaluation failure we advance with a generic acknowledgement
+      // instead of stranding the candidate — the interview never stalls
+      const effectiveIsLast = evaluationFailed ? isLastQuestion : !!isLast;
 
-      if (isCodingQuestion) {
-        setSubmitTestResults({
-          results: testResults || [],
-          passed: testsPassedCount ?? 0,
-          total: testsTotalCount ?? 0,
-        });
-      }
+      if (!evaluationFailed) {
+        if (isCodingQuestion) {
+          setSubmitTestResults({
+            results: testResults || [],
+            passed: testsPassedCount ?? 0,
+            total: testsTotalCount ?? 0,
+          });
+        }
 
-      if (!isLast && nextQuestion) {
-        setQuestions((prev) => [...prev, nextQuestion]);
+        if (!isLast && nextQuestion) {
+          setQuestions((prev) => [...prev, nextQuestion]);
+        }
+        setIsLastQuestion(!!isLast);
       }
-      setIsLastQuestion(!!isLast);
-      const spokenReply = buildSpokenReply({ ack, isLast, isCodingQuestion, userName });
+      const spokenReply = buildSpokenReply({
+        ack: evaluationFailed ? null : ack,
+        isLast: effectiveIsLast,
+        isCodingQuestion,
+        userName,
+      });
       setFeedback(spokenReply);
 
       if (terminatedRef.current) return;
@@ -1029,7 +1604,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
 
       if (terminatedRef.current) return;
 
-      if (isLast) {
+      if (effectiveIsLast) {
         await finishInterview();
         return;
       }
@@ -1039,13 +1614,18 @@ function Step2PanelInterview({ interviewData, onFinish }) {
       setSubmitTestResults(null);
       setCurrentIndex((prev) => prev + 1);
     } catch (error) {
-      console.log(error);
-      setErrorMessage(
-        error?.response?.data?.message ||
-          "Something went wrong while submitting your answer. Please try again.",
-      );
+      console.log("[interview] advance failed:", error);
+      // last resort — never strand the candidate on a question
+      try {
+        if (isLastQuestion) await finishInterview();
+        else setCurrentIndex((prev) => prev + 1);
+      } catch {
+        /* noop */
+      }
     } finally {
       setIsSubmitting(false);
+      setIsAnalyzing(false);
+      setAnalysisProgress(0);
     }
   };
 
@@ -1057,6 +1637,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
 
     clearAllVoiceTimers();
     stopMic();
+    voiceAnswer.stop();
     setIsSubmitting(true);
     setErrorMessage("");
     setFeedback("");
@@ -1071,7 +1652,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
           timeTaken: 0,
           skipped: true,
         },
-        { withCredentials: true },
+        { withCredentials: true, timeout: 60000 },
       );
 
       const { feedback: fb, isLast, nextQuestion } = result.data;
@@ -1120,7 +1701,15 @@ function Step2PanelInterview({ interviewData, onFinish }) {
     if (!currentQuestion) return;
     if (fullscreenWarning || isTerminated) return;
 
-    if (timeLeft === 0 && !isSubmitting && !feedback) {
+    // voice-to-voice mode runs its own capture lifecycle (silence ->
+    // countdown -> transcribe -> submit), so the question clock never
+    // auto-submits there; type mode keeps the classic behavior untouched
+    if (
+      timeLeft === 0 &&
+      !isSubmitting &&
+      !feedback &&
+      answerModeRef.current === "type"
+    ) {
       submitAnswer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1134,7 +1723,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
         recognitionRef.current.stop();
         recognitionRef.current.abort();
       }
-      window.speechSynthesis.cancel();
+      ttsRef.current.cancel();
     };
   }, []);
 
@@ -1304,9 +1893,50 @@ function Step2PanelInterview({ interviewData, onFinish }) {
         .studio-select { -webkit-appearance: none; appearance: none; }
         .lang-select-wrap:hover .lang-caret { color: #E8A94C; }
         .speaker-active { border-color: var(--accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+
+        /* ---- voice-to-voice mode ---- */
+        @keyframes voiceRing { 0% { transform: scale(0.85); opacity: 0.65; } 100% { transform: scale(1.65); opacity: 0; } }
+        .voice-ring { animation: voiceRing 1.9s ease-out infinite; }
+        .voice-ring-2 { animation: voiceRing 1.9s ease-out 0.6s infinite; }
+        @keyframes orbBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+        .orb-live { animation: orbBreathe 2.4s ease-in-out infinite; }
       `}</style>
 
       <div className="film-grain" />
+
+      {/* ============ voice wrap-up countdown overlay (3 -> 1) ============ */}
+      <AnimatePresence>
+        {voiceAnswer.countdown !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-1000 flex flex-col items-center justify-center bg-black/75 backdrop-blur-md"
+          >
+            <motion.div
+              key={voiceAnswer.countdown}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              className="font-serif-display text-[9rem] sm:text-[11rem] leading-none tabular-nums bg-linear-to-b from-[#F6D68A] via-[#E8A94C] to-[#B27E2E] bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(232,169,76,0.45)]"
+            >
+              {voiceAnswer.countdown}
+            </motion.div>
+            {/* depleting bar — one second per number */}
+            <motion.div
+              key={`bar-${voiceAnswer.countdown}`}
+              className="mt-6 h-1 rounded-full bg-linear-to-r from-[#E8A94C] to-[#F6D68A] origin-left"
+              initial={{ width: 160, opacity: 1 }}
+              animate={{ width: 0, opacity: 0.6 }}
+              transition={{ duration: 1, ease: "linear" }}
+            />
+            <p className="mt-4 text-xs sm:text-sm text-white/70 font-mono-studio tracking-[0.08em] uppercase">
+              Speak now to keep answering — staying silent submits
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {fullscreenWarning && (
@@ -1499,8 +2129,11 @@ function Step2PanelInterview({ interviewData, onFinish }) {
             )}
           </div>
 
+          {/* AI subtitles — hidden in voice mode (pure voice: the interviewers
+              are HEARD, not read). The question itself stays visible in the
+              question card above. */}
           <AnimatePresence mode="wait">
-            {subtitle && (
+            {subtitle && !(answerMode === "voice" && !isCodingQuestion) && (
               <motion.div
                 key={subtitle}
                 initial={{ opacity: 0, y: 6 }}
@@ -1522,10 +2155,16 @@ function Step2PanelInterview({ interviewData, onFinish }) {
           )}
 
           <div className="bg-[#131519] border border-[#232830] rounded-2xl p-5 space-y-4">
+            {/* voice mode runs on spoken turn-taking — the per-question clock
+                readout is hidden so the 3s voice wrap-up is the only timer */}
+            {!(answerMode === "voice" && !isCodingQuestion) && (
+              <>
             <div className="flex justify-center">
               <Timer timeLeft={timeLeft} totalTime={currentQuestion?.timeLimit} />
             </div>
             <div className="h-px bg-linear-to-r from-transparent via-[#232830] to-transparent" />
+              </>
+            )}
             <div className="text-center">
               <p className="font-serif-display text-4xl text-[#EDEEF0] tracking-tight">
                 {String(currentIndex + 1).padStart(2, "0")}
@@ -1559,9 +2198,27 @@ function Step2PanelInterview({ interviewData, onFinish }) {
                 Mock Panel Interview
               </h2>
             </div>
-            <span className="font-mono-studio text-xs text-[#8B92A0] tracking-wide">
-              {String(currentIndex + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}
-            </span>
+            <div className="flex items-center gap-2">
+              {ttsProvider && (
+                <span
+                  title={
+                    ttsProvider === "deepgram"
+                      ? "The interviewers are speaking with neural voices"
+                      : "The interviewers are speaking with the browser voice — set DEEPGRAM_API_KEY on the server for neural voices"
+                  }
+                  className={`font-mono-studio text-[10px] px-2 py-1 rounded-full border tracking-wide ${
+                    ttsProvider === "deepgram"
+                      ? "bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] border-[#5EC8D8]/30"
+                      : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#8B92A0] border-[#E5E4E0] dark:border-[#262B34]"
+                  }`}
+                >
+                  {ttsProvider === "deepgram" ? "NEURAL VOICE" : "STANDARD VOICE"}
+                </span>
+              )}
+              <span className="font-mono-studio text-xs text-[#8B92A0] tracking-wide">
+                {String(currentIndex + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}
+              </span>
+            </div>
           </div>
 
           {errorMessage && (
@@ -1578,6 +2235,40 @@ function Step2PanelInterview({ interviewData, onFinish }) {
               >
                 Dismiss
               </button>
+            </div>
+          )}
+
+          {/* ============ answer input mode toggle ============ */}
+          {!isIntroPhase && !isCodingQuestion && (
+            <div className="flex justify-center mb-5">
+              <div className="inline-flex items-center p-1 rounded-2xl bg-[#EFEEEA] dark:bg-[#131519] border border-[#E5E4E0] dark:border-[#232830] shadow-sm">
+                {[
+                  {
+                    id: "voice",
+                    label: "🎙 Voice",
+                    hint: "Speak your answer — auto transcribed & submitted",
+                  },
+                  {
+                    id: "type",
+                    label: "⌨ Type",
+                    hint: "Classic typing mode",
+                  },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    title={m.hint}
+                    onClick={() => switchAnswerMode(m.id)}
+                    className={`px-5 sm:px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                      answerMode === m.id
+                        ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] shadow"
+                        : "text-[#8B92A0] hover:text-[#1C1F24] dark:hover:text-[#EDEEF0]"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1721,50 +2412,65 @@ function Step2PanelInterview({ interviewData, onFinish }) {
                 </div>
               )}
             </div>
-          ) : showAnswerBox ? (
-            <textarea
-              placeholder="Type your answer here..."
-              onChange={(e) => setAnswer(e.target.value)}
-              value={answer}
-              disabled={controlsDisabled}
-              className="flex-1 mt-3 bg-white dark:bg-[#0C0E11] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#1E2229] text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] text-base leading-relaxed resize-none outline-none focus:border-[#E8A94C]/50 focus:ring-4 focus:ring-[#E8A94C]/10 transition-all duration-200 disabled:opacity-60"
+          ) : answerMode === "voice" ? (
+            <VoiceAnswerPanel
+              voice={voiceAnswer}
+              onRepeat={handleRepeatQuestion}
+              onSwitchToType={() => switchAnswerMode("type")}
+              analyzing={isAnalyzing && !isCodingQuestion}
+              analysisProgress={analysisProgress}
+              headerChips={
+                <div className="relative z-10 flex items-center gap-3 mb-6">
+                  {["interviewerA", "interviewerB"].map((key) => {
+                    const p = PANEL_PERSONAS[key];
+                    const isActive = activeSpeaker === key;
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10"
+                        style={isActive ? { borderColor: p.accent } : undefined}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: p.accent }}
+                        />
+                        <span className="font-mono-studio text-[10px] tracking-[0.08em] text-[#C7CBD1] uppercase">
+                          {p.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              }
             />
+          ) : isAnalyzing ? (
+            <div className="flex-1 mt-3 relative overflow-hidden rounded-3xl bg-[#0C0E11] border border-[#1E2229] p-6 sm:p-8 flex flex-col items-center justify-center min-h-95">
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "radial-linear(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
+                }}
+              />
+              <AnalysisOverlay progress={analysisProgress} />
+            </div>
           ) : (
-            <div className="flex-1 mt-3 bg-white dark:bg-[#0C0E11] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#1E2229] flex flex-col">
-              <div className="flex items-center gap-2 mb-3">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    isMicOn && !controlsDisabled ? "live-dot" : "bg-[#9AA1AC]"
-                  }`}
-                  style={
-                    isMicOn && !controlsDisabled
-                      ? { backgroundColor: activePersona.accent }
-                      : undefined
-                  }
-                />
-                <span className="font-mono-studio text-[11px] tracking-wide text-[#8B92A0] uppercase">
-                  {isMicOn && !controlsDisabled ? "Listening..." : "Mic paused"}
+            <div className="flex-1 mt-3 flex flex-col min-h-95">
+              <div className="flex items-center justify-between px-1 pb-2">
+                <span className="font-mono-studio text-[10px] tracking-[0.25em] uppercase text-[#8B92A0]">
+                  Your answer
+                </span>
+                <span className="font-mono-studio text-[10px] tracking-[0.15em] text-[#565D68] tabular-nums">
+                  {answer.trim() ? answer.trim().split(/\s+/).length : 0} words
                 </span>
               </div>
-              <p className="text-[#1C1F24] dark:text-[#EDEEF0] text-base leading-relaxed">
-                {answer || interimText ? (
-                  <>
-                    {answer}
-                    {interimText && (
-                      <span className="text-[#9AA1AC] dark:text-[#565D68]">
-                        {answer ? " " : ""}
-                        {interimText}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-[#9AA1AC] dark:text-[#565D68]">
-                    Just start speaking whenever you're ready, the panel will
-                    pick it up automatically. Say "repeat" if you missed the
-                    question, or "wait" if you need a moment.
-                  </span>
-                )}
-              </p>
+              <textarea
+                placeholder="Type your answer here…"
+                onChange={(e) => setAnswer(e.target.value)}
+                value={answer}
+                disabled={controlsDisabled}
+                className="flex-1 bg-white dark:bg-[#0C0E11] rounded-2xl p-5 sm:p-6 border border-[#E5E4E0] dark:border-[#1E2229] text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] text-base leading-relaxed resize-none outline-none focus:border-[#E8A94C]/60 focus:ring-4 focus:ring-[#E8A94C]/15 focus:shadow-[0_0_50px_-12px_rgba(232,169,76,0.4)] transition-all duration-200 disabled:opacity-60"
+              />
             </div>
           )}
 
@@ -1793,18 +2499,12 @@ function Step2PanelInterview({ interviewData, onFinish }) {
           </AnimatePresence>
 
           {!feedback ? (
+            answerMode === "voice" && !isCodingQuestion ? (
+              /* voice-to-voice: pure voice — every control is a spoken
+                 command ("repeat" / "skip" / "wait"). No buttons by design. */
+              null
+            ) : (
             <div className="flex items-center gap-3 mt-6">
-              {!isCodingQuestion && (
-                <motion.button
-                  type="button"
-                  onClick={toggleTypingMode}
-                  whileTap={{ scale: 0.95 }}
-                  className="shrink-0 font-mono-studio text-[10px] sm:text-[11px] tracking-wide px-2.5 sm:px-3 py-2 rounded-xl border border-[#E5E4E0] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] hover:bg-white dark:hover:bg-[#181B20] transition"
-                >
-                  {showAnswerBox ? "USE VOICE" : "TYPE INSTEAD"}
-                </motion.button>
-              )}
-
               {!isCodingQuestion && (
                 <motion.button
                   onClick={toggleMic}
@@ -1838,7 +2538,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
                 disabled={controlsDisabled}
                 whileTap={{ scale: 0.97 }}
                 whileHover={{ y: -1 }}
-                className="flex-1 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] font-semibold py-3 sm:py-4 rounded-2xl shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] hover:shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4)] transition-all duration-200 disabled:opacity-70 flex items-center justify-center gap-2"
+                className="flex-1 bg-linear-to-r from-[#F2C063] via-[#E8A94C] to-[#D89A3D] text-[#0A0B0D] font-semibold py-3 sm:py-4 rounded-2xl shadow-[0_10px_30px_-8px_rgba(232,169,76,0.5)] hover:shadow-[0_14px_36px_-8px_rgba(232,169,76,0.6)] hover:brightness-[1.04] active:brightness-95 transition-all duration-200 disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -1867,6 +2567,7 @@ function Step2PanelInterview({ interviewData, onFinish }) {
                 <span className="hidden sm:inline">Skip</span>
               </motion.button>
             </div>
+            )
           ) : (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
@@ -1874,9 +2575,33 @@ function Step2PanelInterview({ interviewData, onFinish }) {
               className="mt-6 bg-white dark:bg-[#131519] border p-5 rounded-2xl shadow-[0_12px_30px_-16px_rgba(0,0,0,0.2)]"
               style={{ borderColor: `${activePersona.accent}4D` }}
             >
-              <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium mb-4 leading-relaxed">
-                {feedback}
-              </p>
+              {answerMode === "voice" && !isCodingQuestion ? (
+                /* voice mode is pure voice: the acknowledgement is SPOKEN,
+                   never shown as text — this is just the "on air" light so
+                   the candidate knows the interviewer is responding */
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="relative flex h-3 w-3 shrink-0">
+                    <span
+                      className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+                      style={{ backgroundColor: activePersona.accent }}
+                    />
+                    <span
+                      className="relative inline-flex rounded-full h-3 w-3"
+                      style={{ backgroundColor: activePersona.accent }}
+                    />
+                  </span>
+                  <p
+                    className="font-mono-studio text-xs tracking-[0.2em] uppercase"
+                    style={{ color: activePersona.accent }}
+                  >
+                    {activePersona.label} is speaking…
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium mb-4 leading-relaxed">
+                  {feedback}
+                </p>
+              )}
               <div
                 className="flex items-center gap-2 font-mono-studio text-xs tracking-wide"
                 style={{ color: activePersona.accent }}

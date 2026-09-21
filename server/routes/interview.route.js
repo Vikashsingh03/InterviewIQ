@@ -19,6 +19,10 @@ import {
 
 } from '../controllers/interview.controller.js';
 import { clearCoachChat } from '../controllers/coachChat.controller.js';
+import { getTtsConfig, synthesizeSpeech } from '../controllers/tts.controller.js';
+// voice-to-voice answer transcription (Deepgram Nova) — the recorded answer
+// is transcribed server-side, then fed into the normal submit pipeline
+import { transcribeUpload, transcribeAudio } from "../controllers/transcribe.controller.js";
 
 
 
@@ -36,6 +40,12 @@ interviewRouter.post("/run-code", isAuth, runCode)
 interviewRouter.post("/finish", isAuth, finishInterview)
 // short-lived token so the browser can stream the mic to Deepgram (falls back to browser STT)
 interviewRouter.get("/stt-token", isAuth, getSttToken)
+// neural interviewer voice (Deepgram Aura TTS); the client falls back to the
+// browser's built-in voice when the server has no Deepgram key
+interviewRouter.get("/tts-config", isAuth, getTtsConfig)
+interviewRouter.post("/tts", isAuth, synthesizeSpeech)
+// voice-to-voice: transcribe the candidate's recorded answer (multipart field "audio")
+interviewRouter.post("/transcribe", isAuth, transcribeUpload, transcribeAudio)
 
 interviewRouter.get("/get-interviews", isAuth, getMyInterviews)
 interviewRouter.get("/report/:id", isAuth, getInterviewReport)
