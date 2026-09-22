@@ -622,46 +622,38 @@ const decideNextStep = async (interview) => {
     };
   }
 
-  // ---- follow-ups: how a real interviewer probes ----
-  // "followup": the answer was thin, push for something concrete.
-  // "probe":    the answer was solid, dig deeper into something specific the
-  //             candidate actually said (why X over Y, what breaks at scale...).
-  // Both stay on the SAME topic and each topic gets at most one of them.
+  // ---- rapid-fire grilling: every substantive answer gets a counter ----
+  // "rapidfire": the answer had substance (10+ words, scored) — fire one
+  //              sharp counter-question grounded in what they actually said.
+  // "followup":  the answer was thin — push for something concrete.
+  // A counter never spawns another counter (no infinite chains); the
+  // interview's maxQuestions budget still bounds total length.
   const lastAnswerText =
     !wasSkipped && typeof lastQuestion?.answer === "string"
       ? lastQuestion.answer.trim()
       : "";
   const lastAnswerWords = lastAnswerText.split(/\s+/).filter(Boolean).length;
+  const lastIsFollowUp = !!lastQuestion?.isFollowUp;
 
-  // a probe must never crowd out topics still waiting to be covered, so it
-  // only happens when the interview budget has spare room after them
-  const hasSpareSlot =
-    remainingSlots - 1 >=
-    uncoveredOrdered.length + (canAskCodingQuestion ? 1 : 0);
+  const eligibleRapidFire =
+    !wasSkipped && !lastIsFollowUp && lastScore > 0 && lastAnswerWords >= 10;
 
   const eligibleFollowUp =
     !wasSkipped &&
+    !lastIsFollowUp &&
     isRealTopic &&
     topicUseCount === 1 &&
     lastScore > 0 &&
-    lastScore < 6;
-
-  const eligibleProbe =
-    !wasSkipped &&
-    isRealTopic &&
-    topicUseCount === 1 &&
-    lastScore >= 6 &&
-    lastAnswerWords >= 25 &&
-    hasSpareSlot;
+    lastAnswerWords < 10;
 
   let action;
   let targetTopic = null;
 
-  if (eligibleFollowUp) {
-    action = "followup";
+  if (eligibleRapidFire) {
+    action = "rapidfire";
     targetTopic = lastTopic;
-  } else if (eligibleProbe) {
-    action = "probe";
+  } else if (eligibleFollowUp) {
+    action = "followup";
     targetTopic = lastTopic;
   } else if (uncoveredOrdered.length > 0) {
     action = "nextTopic";
@@ -736,20 +728,21 @@ const decideNextStep = async (interview) => {
     : "";
 
   const instructionLine =
-    action === "followup"
-      ? `The candidate's last answer (topic: "${lastTopic}") scored low (${lastScore}/10) and felt
-         thin or vague. Ask ONE follow-up question that pushes for something concrete — a specific
-         example, a number, or exactly what THEY personally did. Anchor it in something they
-         actually said so it is clear you listened. Stay on this SAME topic.
-         Do not introduce a new subject.
+    action === "rapidfire"
+      ? `RAPID-FIRE ROUND: the candidate just answered about "${lastTopic}". Fire ONE sharp
+         counter-question that grills something SPECIFIC they actually said — pick a concrete
+         claim, tool, number, or decision from their answer (quote or closely paraphrase it)
+         and press them on it: why this over the alternatives, what was the trade-off, what
+         breaks at scale, or demand a concrete example. Be direct and pointed, like a real
+         interviewer in a grilling round — no soft setup, no preamble. Stay on this SAME
+         topic; do not introduce a new subject.
          Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""`
-      : action === "probe"
-        ? `The candidate just gave a solid answer about "${lastTopic}". Ask ONE natural cross-question
-           that digs deeper into something SPECIFIC they actually said: pick a concrete claim, tool,
-           or decision from their last answer (quote or closely paraphrase it) and ask why they chose
-           it over the alternatives, what the trade-off was, what could go wrong, or how it would
-           change at larger scale. It must clearly build on their own words, the way a real
-           interviewer probes. Stay on this SAME topic; do not introduce a new subject.
+      : action === "followup"
+        ? `The candidate's last answer (topic: "${lastTopic}") was thin — only a few words.
+           Ask ONE follow-up question that pushes for something concrete: a specific example,
+           a number, or exactly what THEY personally did. Anchor it in something they actually
+           said so it is clear you listened. Stay on this SAME topic. Do not introduce a
+           new subject.
          Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""`
       : action === "general"
         ? `All resume topics are already covered, but the interview hasn't hit its minimum length
@@ -812,6 +805,8 @@ const decideNextStep = async (interview) => {
 
   const timeLimitByDifficulty = { easy: 60, medium: 90, hard: 120 };
   const finalTopicHint = targetTopic || "general";
+  // marks counters so a counter never spawns another counter (no chains)
+  const isFollowUpAction = action === "rapidfire" || action === "followup";
 
   let parsed;
   try {
@@ -825,6 +820,7 @@ const decideNextStep = async (interview) => {
         timeLimit: 90,
         topicHint: finalTopicHint,
         askedBy: nextAskedBy,
+        isFollowUp: isFollowUpAction,
       },
     };
   }
@@ -838,6 +834,7 @@ const decideNextStep = async (interview) => {
         timeLimit: 90,
         topicHint: finalTopicHint,
         askedBy: nextAskedBy,
+        isFollowUp: isFollowUpAction,
       },
     };
   }
@@ -847,9 +844,14 @@ const decideNextStep = async (interview) => {
     nextQuestion: {
       question: parsed.question.trim(),
       difficulty: parsed.difficulty || "medium",
-      timeLimit: timeLimitByDifficulty[parsed.difficulty] || 90,
+      // rapid-fire counters get a tight 60s clock — grilling pace
+      timeLimit:
+        action === "rapidfire"
+          ? 60
+          : timeLimitByDifficulty[parsed.difficulty] || 90,
       topicHint: finalTopicHint,
       askedBy: nextAskedBy,
+      isFollowUp: isFollowUpAction,
     },
   };
 };

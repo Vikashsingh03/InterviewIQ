@@ -1,10 +1,3 @@
-// ====================================================================
-// InterviewIQ voice-to-voice — FINAL BUILD 2026-09-22-D
-// New in D: instant commands (first-interim fire, utterance-anchored
-// matching via ../utils/voiceCommands), pure-voice UI — no transcript text,
-// no AI reply text, no subtitles in voice mode (speaking indicator instead).
-// If you do NOT see this header, you are looking at an OLD cached copy.
-// ====================================================================
 import React, { useEffect, useRef, useState } from "react";
 import maleVideo from "../assets/Videos/male-ai.mp4";
 import femaleVideo from "../assets/Videos/female-ai.mp4";
@@ -27,13 +20,11 @@ import {
   BsXCircleFill,
   BsChevronDown,
   BsFullscreen,
+  BsLightningCharge,
 } from "react-icons/bs";
 import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
 import Editor from "@monaco-editor/react";
 
-// must exactly match what the backend (codeExecution.service.js +
-// dsaQuestions.js starterCode) actually supports — adding a language here
-// without backend support will silently fail on submit
 const CODE_LANGUAGES = [
   { value: "javascript", label: "JavaScript" },
   { value: "python", label: "Python" },
@@ -44,16 +35,8 @@ const CODE_LANGUAGES = [
 // leaving fullscreen this many times ends the interview
 const MAX_FULLSCREEN_EXITS = 3;
 
-// A real interviewer never shows a live scorecard (pace / filler words)
-// after each answer, so it is hidden by default. The numbers are still
-// saved and appear in the final report. Set to true to bring the card back.
 const SHOW_LIVE_DELIVERY_CARD = false;
 
-// A real interviewer doesn't read out a verdict after every answer. They
-// react briefly ("okay, got it") and move straight on; detailed feedback
-// lives in the final report. `ack` comes from the server (it references
-// something the candidate actually said); the fallbacks cover paths where
-// the server sends none (skips, empty answers, coding questions).
 const buildSpokenReply = ({ ack, isLast, isCodingQuestion, userName }) => {
   const base =
     ack ||
@@ -65,16 +48,9 @@ const buildSpokenReply = ({ ack, isLast, isCodingQuestion, userName }) => {
     : base;
 };
 
-// ---- conversational voice engine tuning ----
-// how long to wait, after the candidate's last spoken word, before treating
-// their answer as "finished" and auto-submitting it. Lower = snappier but
-// risks cutting someone off mid-thought; higher = safer but slower to advance.
-// A normal answer waits this long after the last word. Short answers
-// (under SHORT_ANSWER_WORDS) wait longer, because people pause to think
-// after a sentence or two and shouldn't be cut off.
 const SILENCE_AUTO_SUBMIT_MS = 5000;
 const SHORT_ANSWER_WORDS = 15;
-const SILENCE_AUTO_SUBMIT_SHORT_MS = 9000;
+const SILENCE_AUTO_SUBMIT_SHORT_MS = 3000;
 // total silence (no speech at all) before the AI checks in
 const INACTIVITY_WARNING_MS = 10000;
 // grace window after the check-in before the AI moves on by itself
@@ -96,42 +72,22 @@ const SKIP_COMMAND_REGEX =
   /\b(skip(?:ped|ping)?(?!\s*list)|next question|move on|pass (on )?this|go to (the )?next|(just|scape|skit|ski) (give )?(this|the) question|leave this question)\b/i;
 const COMMAND_MAX_WORDS = 8;
 
-// analysis beat after every submitted answer: the AI visibly "thinks" for
-// nine seconds while the evaluation runs, then responds and moves on
-const ANALYSIS_MS = 9000;
+const ANALYSIS_MS = 3000;
 
-// post-transcription safety net for voice commands — imported from
-// ../utils/voiceCommands so the real-time spotter and this check always agree.
-// The hook's spotter catches "repeat" / "skip" / "wait" on the first interim
-// result when the browser's speech recognition cooperates — but on machines
-// where it doesn't, the command would otherwise be transcribed and submitted
-// as a real answer (exactly the "repeat this question got submitted" bug).
-// So after Deepgram returns the transcript we check once more: a short,
-// command-shaped utterance is NEVER submitted — it is handled as a command
-// instead. Deterministic, no browser dependency.
-
-// ---------------------------------------------------------------------------
-// Voice-to-voice answer panel — premium dark-glass UI for the
-// record -> Deepgram-transcribe pipeline. Rendered when answerMode === "voice".
-// headerChips lets panel mode show its interviewer avatars above the orb.
-// ---------------------------------------------------------------------------
-// premium 9-second "the interviewer is thinking" moment — gold progress ring
-// with a live countdown, shown after every submitted answer while the
-// evaluation runs. The interview always advances when the ring completes.
 function AnalysisOverlay({ progress = 0 }) {
   const R = 54;
   const C = 2 * Math.PI * R;
-  const secondsLeft = Math.max(1, Math.ceil((1 - progress) * 9));
+  const secondsLeft = Math.max(1, Math.ceil((1 - progress) * 3));
   return (
     <div className="relative z-10 flex flex-col items-center justify-center py-8 select-none">
       <div className="relative w-40 h-40">
         <div className="absolute inset-0 rounded-full bg-[#E8A94C]/15 blur-2xl animate-pulse" />
         <svg viewBox="0 0 128 128" className="relative w-40 h-40 -rotate-90">
           <defs>
-            <linearlinear id="analysisGold" x1="0" y1="0" x2="1" y2="1">
+            <linearGradient id="analysisGold" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#F6D68A" />
               <stop offset="100%" stopColor="#E8A94C" />
-            </linearlinear>
+            </linearGradient>
           </defs>
           <circle cx="64" cy="64" r={R} fill="none" stroke="#262B34" strokeWidth="8" />
           <circle
@@ -167,9 +123,7 @@ function AnalysisOverlay({ progress = 0 }) {
 }
 
 function VoiceAnswerPanel({ voice, onRepeat, onSwitchToType, headerChips = null, analyzing = false, analysisProgress = 0 }) {
-  // NOTE: voice mode is pure voice — the candidate's transcribed words are
-  // deliberately NEVER shown as text (no "You said" box). They speak, the
-  // interviewer speaks back. lastTranscript is intentionally not rendered.
+  
   const { status, level, notice, lastCommand } = voice;
   const listening = status === "listening" || status === "countdown";
   const busy = listening || status === "requesting" || status === "transcribing";
@@ -193,7 +147,7 @@ function VoiceAnswerPanel({ voice, onRepeat, onSwitchToType, headerChips = null,
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-linear(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
+              "radial-gradient(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
           }}
         />
         <AnalysisOverlay progress={analysisProgress} />
@@ -208,7 +162,7 @@ function VoiceAnswerPanel({ voice, onRepeat, onSwitchToType, headerChips = null,
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-linear(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
+            "radial-gradient(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
         }}
       />
       {headerChips}
@@ -298,7 +252,7 @@ function VoiceAnswerPanel({ voice, onRepeat, onSwitchToType, headerChips = null,
                 height: `${busy ? h : 6}px`,
                 opacity: busy ? 0.95 : 0.22,
                 background: busy
-                  ? "linear-linear(to top, #B27E2E, #E8A94C 60%, #F6D68A)"
+                  ? "linear-gradient(to top, #B27E2E, #E8A94C 60%, #F6D68A)"
                   : "#2A2F38",
               }}
             />
@@ -2403,6 +2357,11 @@ function Step2Interview({ interviewData, onFinish }) {
                       <BsCode size={10} /> Coding Round
                     </span>
                   )}
+                  {currentQuestion?.isFollowUp && (
+                    <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F59E0B]/10 text-[#B45309] dark:text-[#FBBF24] text-[10px] tracking-wide">
+                      <BsLightningCharge size={10} /> Follow-up
+                    </span>
+                  )}
                 </div>
                 <div className="font-serif-display text-xl sm:text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-snug tracking-tight">
                   {currentQuestion?.question}
@@ -2549,7 +2508,7 @@ function Step2Interview({ interviewData, onFinish }) {
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   background:
-                    "radial-linear(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
+                    "radial-gradient(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)",
                 }}
               />
               <AnalysisOverlay progress={analysisProgress} />

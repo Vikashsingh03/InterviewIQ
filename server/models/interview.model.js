@@ -47,6 +47,10 @@ const questionSchema = new mongoose.Schema({
 
     skipped: { type: Boolean, default: false },
 
+    // rapid-fire grilling: true when this question is a counter-question
+    // reacting to the candidate's previous answer (prevents chains)
+    isFollowUp: { type: Boolean, default: false },
+
     coaching: { type: coachingSchema, default: undefined },
 
     type: { type: String, enum: ["verbal", "coding"], default: "verbal" },
