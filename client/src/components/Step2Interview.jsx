@@ -21,8 +21,13 @@ import {
   BsChevronDown,
   BsFullscreen,
   BsLightningCharge,
+  BsEyeSlash,
 } from "react-icons/bs";
 import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
+import {
+  useEyeContactTracking,
+  EYE_CONTACT_WARNING_MS,
+} from "../hooks/useEyeContactTracking";
 import Editor from "@monaco-editor/react";
 
 const CODE_LANGUAGES = [
@@ -452,6 +457,8 @@ function Step2Interview({ interviewData, onFinish }) {
   const pipVideoRef = useRef(null);
   const screenStreamRef = useRef(null);
   const wasFullscreenRef = useRef(false);
+  const eyeContactTracking = useEyeContactTracking(pipVideoRef, { active: proctoringReady && !!cameraStream });
+
 
   // refs mirror state for use inside the native fullscreen listener, which
   // otherwise closes over stale values
@@ -2066,6 +2073,32 @@ function Step2Interview({ interviewData, onFinish }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+<AnimatePresence>
+  {cameraStream &&
+    !fullscreenWarning &&
+    !isTerminated &&
+    eyeContactTracking.awayStreakMs >= EYE_CONTACT_WARNING_MS && (
+      <motion.div
+        key="eye-contact-nudge"
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="fixed top-4 inset-x-0 z-500 flex justify-center px-4 pointer-events-none"
+      >
+        <div className="pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/10 bg-[#0D0F12]/95 py-2.5 pl-3 pr-5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/10">
+            <BsEyeSlash size={16} className="text-amber-300" />
+          </span>
+          <p className="text-[13px] leading-snug text-zinc-300">
+            <span className="font-semibold text-zinc-100">Eye contact — </span>
+            please look toward the camera. Sustained eye contact is part of your delivery score.
+          </p>
+        </div>
+      </motion.div>
+    )}
+</AnimatePresence>
 
       <div className="studio-root w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] flex flex-col lg:flex-row overflow-hidden relative">
         {/* ============ LEFT: broadcast monitor panel ============ */}

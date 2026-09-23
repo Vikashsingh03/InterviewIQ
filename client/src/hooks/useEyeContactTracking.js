@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 
-// Served from client/public/models/ (see README-eye-contact.md for the
-// download step). Loaded once and cached across every component that uses
-// this hook, so switching between Step2Interview / Step2PanelInterview
-// never re-downloads the weights.
 const MODEL_URL = "/models";
 let modelsLoadPromise = null;
 
@@ -21,12 +17,6 @@ function loadModels() {
 const avgX = (pts) => pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
 const avgY = (pts) => pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
 
-// Honest note: face-api.js's 68-point model has no iris landmarks, so this
-// is a head-pose proxy ("is the face turned toward the camera"), not true
-// gaze/iris tracking. It's a reasonable free, client-side approximation —
-// if real gaze tracking is ever needed, swap this function for one built on
-// MediaPipe's FaceLandmarker (478 points, includes both irises); nothing
-// else in this hook or its callers would need to change.
 function isLookingAtCamera(landmarks) {
   const nose = landmarks.getNose();
   const jaw = landmarks.getJawOutline();
@@ -56,11 +46,7 @@ function isLookingAtCamera(landmarks) {
 
 const DETECTION_INTERVAL_MS = 400;
 
-// how long the candidate has to be continuously looking away (or have no
-// face detected at all) before the UI surfaces a real-time nudge. Long
-// enough that a normal glance down at notes / the keyboard doesn't trigger
-// it, short enough to still feel "real-time".
-export const EYE_CONTACT_WARNING_MS = 4000;
+export const EYE_CONTACT_WARNING_MS = 3000;
 
 /**
  * Runs client-side face-tracking against a <video> element and reports
@@ -74,9 +60,6 @@ export function useEyeContactTracking(videoRef, { active }) {
   const [modelsFailed, setModelsFailed] = useState(false);
   // null = no reading yet, true/false = last sampled frame's verdict
   const [liveLookingAtCamera, setLiveLookingAtCamera] = useState(null);
-  // how long (ms) the candidate has been continuously looking away / not
-  // detected, right up to the current instant. Resets to 0 the moment they
-  // look back at the camera.
   const [awayStreakMs, setAwayStreakMs] = useState(0);
   const framesRef = useRef({ total: 0, onCamera: 0 });
   const busyRef = useRef(false);

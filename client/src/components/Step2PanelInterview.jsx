@@ -1,10 +1,4 @@
-// ====================================================================
-// InterviewIQ voice-to-voice — FINAL BUILD 2026-09-22-D
-// New in D: instant commands (first-interim fire, utterance-anchored
-// matching via ../utils/voiceCommands), pure-voice UI — no transcript text,
-// no AI reply text, no subtitles in voice mode (speaking indicator instead).
-// If you do NOT see this header, you are looking at an OLD cached copy.
-// ====================================================================
+
 import React, { useEffect, useRef, useState } from "react";
 import maleVideo from "../assets/Videos/male-ai.mp4";
 import femaleVideo from "../assets/Videos/female-ai.mp4";
@@ -45,11 +39,6 @@ const CODE_LANGUAGES = [
 
 const MAX_FULLSCREEN_EXITS = 3;
 
-// A real interviewer doesn't read out a verdict after every answer. They
-// react briefly ("okay, got it") and move straight on; detailed feedback
-// lives in the final report. `ack` comes from the server (it references
-// something the candidate actually said); the fallbacks cover paths where
-// the server sends none (skips, empty answers, coding questions).
 const buildSpokenReply = ({ ack, isLast, isCodingQuestion, userName }) => {
   const base =
     ack ||
@@ -61,12 +50,6 @@ const buildSpokenReply = ({ ack, isLast, isCodingQuestion, userName }) => {
     : base;
 };
 
-// ---- conversational voice engine tuning ----
-// pause after the candidate's last spoken words before the answer is
-// treated as "finished" and auto-submitted
-// A normal answer waits this long after the last word. Short answers
-// (under SHORT_ANSWER_WORDS) wait longer, because people pause to think
-// after a sentence or two and shouldn't be cut off.
 const SILENCE_AUTO_SUBMIT_MS = 5000;
 const SHORT_ANSWER_WORDS = 15;
 const SILENCE_AUTO_SUBMIT_SHORT_MS = 9000;
@@ -95,19 +78,6 @@ const COMMAND_MAX_WORDS = 8;
 // nine seconds while the evaluation runs, then responds and moves on
 const ANALYSIS_MS = 3000;
 
-// post-transcription safety net for voice commands — imported from
-// ../utils/voiceCommands so the real-time spotter and this check always agree.
-// The hook's spotter catches "repeat" / "skip" / "wait" on the first interim
-// result when the browser's speech recognition cooperates — but on machines
-// where it doesn't, the command would otherwise be transcribed and submitted
-// as a real answer (exactly the "repeat this question got submitted" bug).
-// So after Deepgram returns the transcript we check once more: a short,
-// command-shaped utterance is NEVER submitted — it is handled as a command
-// instead. Deterministic, no browser dependency.
-
-// client-side mirror of the backend's INTERVIEWER_PERSONAS — only the
-// presentation bits (video, label, accent) live here, the actual grading
-// persona lives server-side
 const PANEL_PERSONAS = {
   interviewerA: {
     label: "Interviewer A",
@@ -125,14 +95,6 @@ const PANEL_PERSONAS = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Voice-to-voice answer panel — premium dark-glass UI for the
-// record -> Deepgram-transcribe pipeline. Rendered when answerMode === "voice".
-// headerChips lets panel mode show its interviewer avatars above the orb.
-// ---------------------------------------------------------------------------
-// premium 9-second "the interviewer is thinking" moment — gold progress ring
-// with a live countdown, shown after every submitted answer while the
-// evaluation runs. The interview always advances when the ring completes.
 function AnalysisOverlay({ progress = 0 }) {
   const R = 54;
   const C = 2 * Math.PI * R;
@@ -468,11 +430,6 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   const maleVoiceRef = useRef(null);
   const femaleVoiceRef = useRef(null);
 
-  // ---- voice-to-voice answer capture (record -> Deepgram transcribe) ----
-  // The transcript flows into the EXISTING submit pipeline through
-  // submitAnswerRef, so evaluation / ack speech / auto-advance are untouched.
-  // The active interviewer is read from activeSpeakerRef at submit time, so
-  // the transcript is always attributed to whoever asked the question.
   const handleVoiceNoSpeechRef = useRef(() => {});
   const handleVoiceCommandRef = useRef(() => {});
   const voiceAnswer = useVoiceAnswer({
