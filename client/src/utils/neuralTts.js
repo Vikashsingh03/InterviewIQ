@@ -80,9 +80,9 @@ export const createTts = ({
     if (myGeneration !== generation) return;
     await playBlob(blob);
   };
-  const speakChunk = async (chunk, voiceGender, myGeneration) => {
+  const speakChunk = async (chunk, voiceGender, voiceOpts, myGeneration) => {
     if (provider !== "deepgram") {
-      await browser.speak(chunk, voiceGender);
+      await browser.speak(chunk, voiceGender, voiceOpts);
       return;
     }
     try {
@@ -96,10 +96,10 @@ export const createTts = ({
         console.warn("[tts] neural voice keeps failing — using browser voice from here on");
         setProvider("browser");
       }
-      await browser.speak(chunk, voiceGender);
+      await browser.speak(chunk, voiceGender, voiceOpts);
     }
   };
-  const speak = async (text, voiceGender = "female") => {
+  const speak = async (text, voiceGender = "female", voiceOpts = {}) => {
     const myGeneration = ++generation;
     const cleaned = cleanTextForSpeech(text);
     if (!cleaned) return;
@@ -107,7 +107,7 @@ export const createTts = ({
     const chunks = splitIntoChunks(cleaned);
     for (const chunk of chunks) {
       if (myGeneration !== generation) return;
-      await speakChunk(chunk, voiceGender, myGeneration);
+      await speakChunk(chunk, voiceGender, voiceOpts, myGeneration);
       if (myGeneration !== generation) return;
     }
   };

@@ -1303,6 +1303,8 @@ function Step2Interview({
           .corner-br::after { height: 2px; width: 100%; bottom: 0; right: 0; }
           @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
           .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
+          @keyframes speakPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.028); } }
+          .speaking-card { animation: speakPulse 1.15s ease-in-out infinite; }
         `}</style>
 
         <motion.div initial={{
@@ -1596,12 +1598,13 @@ function Step2Interview({
           </div>
 
           {}
-          <div className="relative rounded-2xl overflow-hidden bg-black ring-1 ring-black/40">
+          <div className={`relative rounded-2xl overflow-hidden bg-black ring-1 ring-black/40${isAIPlaying ? " speaking-card" : ""}`}>
             <div className="viewfinder-corner corner-tl" />
             <div className="viewfinder-corner corner-tr" />
             <div className="viewfinder-corner corner-bl" />
             <div className="viewfinder-corner corner-br" />
             <video src={videoSource} key={videoSource} ref={videoRef} muted playsInline preload="auto" className="w-full h-auto object-cover" />
+            {isAIPlaying && <div className="absolute inset-0 rounded-2xl animate-pulse pointer-events-none" style={{ boxShadow: "inset 0 0 30px rgba(232,169,76,0.35), 0 0 26px rgba(232,169,76,0.4)" }} />}
 
             {}
             {cameraStream && <div className="absolute bottom-2.5 right-2.5 w-16 sm:w-20 aspect-video rounded-lg overflow-hidden ring-1 ring-white/20 shadow-lg">

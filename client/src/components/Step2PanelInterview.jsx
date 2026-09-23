@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import maleVideo from "../assets/Videos/male-ai.mp4";
 import femaleVideo from "../assets/Videos/female-ai.mp4";
+import femaleVideo2 from "../assets/Videos/female-ai-2.mp4";
 import Timer from "./Timer";
 import { motion, AnimatePresence } from "motion/react";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
@@ -258,6 +259,13 @@ function Step2PanelInterview({
   } = interviewData;
   const interviewLanguage = interviewData.language || "english";
   const useHindiVoice = interviewLanguage !== "english";
+  const getPersona = key => {
+    const base = PANEL_PERSONAS[key];
+    if (useHindiVoice && key === "interviewerA") {
+      return { ...base, video: femaleVideo2, voiceGender: "female", pitch: 1.0, name: "Ananya" };
+    }
+    return { ...base, pitch: base.voiceGender === "male" ? 0.82 : useHindiVoice ? 1.15 : 1.12, name: key === "interviewerA" ? "Marcus" : "Elena" };
+  };
   const useHindiStt = interviewLanguage === "hindi";
   const STILL_THERE_SPEECH = interviewLanguage === "hindi" ? "क्या आप अभी भी हैं?" : interviewLanguage === "hinglish" ? "Kya tum abhi bhi ho?" : "Are you still there?";
   const STILL_THERE_TEXT = interviewLanguage === "hindi" ? "क्या आप अभी भी हैं? जब तैयार हों तो जवाब बोलिए — या typing पर switch कर लीजिए।" : interviewLanguage === "hinglish" ? "Kya tum abhi bhi ho? Jab ready ho to jawab bolo — ya typing pe switch kar lo." : "Are you still there? Please speak your answer whenever you're ready — or switch to typing if you prefer.";
@@ -368,7 +376,7 @@ function Step2PanelInterview({
   const currentQuestion = questions[currentIndex];
   const isCodingQuestion = currentQuestion?.type === "coding";
   const activeSpeaker = currentQuestion?.askedBy || "interviewerA";
-  const activePersona = PANEL_PERSONAS[activeSpeaker];
+  const activePersona = getPersona(activeSpeaker);
   const controlsDisabled = isSubmitting || isIntroPhase || isAIPlaying || !!fullscreenWarning || isTerminated;
   useEffect(() => {
     proctoringReadyRef.current = proctoringReady;
@@ -726,7 +734,7 @@ function Step2PanelInterview({
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
-  const browserSpeakText = (chunk, voiceGenderParam) => {
+  const browserSpeakText = (chunk, voiceGenderParam, voiceOpts = {}) => {
     return new Promise(resolve => {
       const voice = voiceGenderParam === "male" ? maleVoiceRef.current : femaleVoiceRef.current;
       if (!window.speechSynthesis || !voice) {
@@ -739,7 +747,7 @@ function Step2PanelInterview({
       utterance.voice = voice;
       utterance.lang = useHindiVoice ? "hi-IN" : "en-IN";
       utterance.rate = 0.92;
-      utterance.pitch = voiceGenderParam === "male" ? 0.82 : 1.12;
+      utterance.pitch = voiceOpts.pitch ?? (voiceGenderParam === "male" ? 0.82 : 1.12);
       utterance.volume = 1;
       utterance.onend = () => resolve();
       utterance.onerror = () => resolve();
@@ -770,7 +778,7 @@ function Step2PanelInterview({
         return res.data;
       },
       browser: {
-        speak: (chunk, voiceGenderParam) => browserSpeakRef.current(chunk, voiceGenderParam),
+        speak: (chunk, voiceGenderParam, voiceOpts) => browserSpeakRef.current(chunk, voiceGenderParam, voiceOpts),
         cancel: () => {
           try {
             if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -793,7 +801,8 @@ function Step2PanelInterview({
   const speakText = (text, askedBy) => {
     return new Promise(async resolve => {
       ttsRef.current.cancel();
-      const voiceGender = PANEL_PERSONAS[askedBy]?.voiceGender === "male" ? "male" : "female";
+      const persona = getPersona(askedBy);
+      const voiceGender = persona.voiceGender === "male" ? "male" : "female";
       const speakingRef = askedBy === "interviewerA" ? videoRefA : videoRefB;
       setSubtitle(text);
       setIsAIPlaying(true);
@@ -801,7 +810,7 @@ function Step2PanelInterview({
       voiceAnswer.stop();
       speakingRef.current?.play();
       try {
-        await Promise.race([ttsRef.current.speak(text, voiceGender), new Promise(res => setTimeout(() => res("tts-timeout"), 25000))]);
+        await Promise.race([ttsRef.current.speak(text, voiceGender, { pitch: persona.pitch }), new Promise(res => setTimeout(() => res("tts-timeout"), 25000))]);
       } catch {}
       if (speakingRef.current) {
         speakingRef.current.pause();
@@ -819,8 +828,8 @@ function Step2PanelInterview({
     if (terminatedRef.current) return;
     const runIntro = async () => {
       if (isIntroPhase) {
-        await speakText(`Hi, I'm Marcus — I'll be handling the technical side of today's interview. I've spent several years working on systems like the ones we'll be discussing.`, "interviewerA");
-        await speakText(`And I'm Elena — I'll be focusing on communication, ownership, and how you work with others. Great to have you with us today.`, "interviewerB");
+        await speakText(`Hi, I'm ${getPersona("interviewerA").name} — I'll be handling the technical side of today's interview. I've spent several years working on systems like the ones we'll be discussing.`, "interviewerA");
+        await speakText(`And I'm ${getPersona("interviewerB").name} — I'll be focusing on communication, ownership, and how you work with others. Great to have you with us today.`, "interviewerB");
         await speakText(`We'll take turns asking questions, so just answer naturally and take your time. Let's begin.`, "interviewerA");
         setIsIntroPhase(false);
       } else if (currentQuestion) {
@@ -1302,6 +1311,8 @@ function Step2PanelInterview({
           .corner-br { bottom: 10px; right: 10px; } .corner-br::before { width: 2px; height: 100%; bottom: 0; right: 0; } .corner-br::after { height: 2px; width: 100%; bottom: 0; right: 0; }
           @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
           .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
+          @keyframes speakPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.028); } }
+          .speaking-card { animation: speakPulse 1.15s ease-in-out infinite; }
         `}</style>
 
         <motion.div initial={{
@@ -1565,12 +1576,14 @@ function Step2PanelInterview({
           {}
           <div className="grid grid-cols-2 gap-3">
             {["interviewerA", "interviewerB"].map(key => {
-            const persona = PANEL_PERSONAS[key];
+            const persona = getPersona(key);
             const isActive = activeSpeaker === key;
-            return <div key={key} className={`relative rounded-xl overflow-hidden bg-black ring-1 transition-all duration-300 ${isActive ? "ring-2 opacity-100" : "ring-black/40 opacity-45 grayscale-30"}`} style={isActive ? {
+            const speaking = isActive && isAIPlaying;
+            return <div key={key} className={`relative rounded-xl overflow-hidden bg-black ring-1 transition-all duration-300 ${isActive ? "ring-2 opacity-100" : "ring-black/40 opacity-45 grayscale-30"}${speaking ? " speaking-card" : ""}`} style={isActive ? {
               boxShadow: `0 0 0 2px ${persona.accent}`
             } : undefined}>
                   <video src={persona.video} key={persona.video} ref={key === "interviewerA" ? videoRefA : videoRefB} muted playsInline preload="auto" className="w-full h-auto object-cover aspect-4/5" />
+                  {speaking && <div className="absolute inset-0 rounded-xl animate-pulse pointer-events-none" style={{ boxShadow: `inset 0 0 30px ${persona.accent}55, 0 0 26px ${persona.accent}66` }} />}
                   <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent px-2 py-1.5">
                     <p className="font-mono-studio text-[9px] tracking-wide truncate" style={{
                   color: isActive ? persona.accent : "#8B92A0"
@@ -1808,12 +1821,12 @@ function Step2PanelInterview({
                 </div>}
             </div> : answerMode === "voice" ? <VoiceAnswerPanel voice={voiceAnswer} onRepeat={handleRepeatQuestion} onSwitchToType={() => switchAnswerMode("type")} analyzing={isAnalyzing && !isCodingQuestion} analysisProgress={analysisProgress} headerChips={<div className="relative z-10 flex items-center gap-3 mb-6">
                   {["interviewerA", "interviewerB"].map(key => {
-            const p = PANEL_PERSONAS[key];
+            const p = getPersona(key);
             const isActive = activeSpeaker === key;
             return <div key={key} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10" style={isActive ? {
               borderColor: p.accent
             } : undefined}>
-                        <span className="w-2 h-2 rounded-full" style={{
+                        <span className={`w-2 h-2 rounded-full${isActive && isAIPlaying ? " animate-pulse" : ""}`} style={{
                 backgroundColor: p.accent
               }} />
                         <span className="font-mono-studio text-[10px] tracking-[0.08em] text-[#C7CBD1] uppercase">
