@@ -17,7 +17,7 @@ function loadModels() {
 const avgX = (pts) => pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
 const avgY = (pts) => pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
 
-function isLookingAtCamera(landmarks) {
+export function isLookingAtCamera(landmarks) {
   const nose = landmarks.getNose();
   const jaw = landmarks.getJawOutline();
   const leftEye = landmarks.getLeftEye();
@@ -44,23 +44,30 @@ function isLookingAtCamera(landmarks) {
   );
 }
 
+export function pickPrimaryFace(detections) {
+  let best = null;
+  let bestArea = -1;
+  for (const d of detections) {
+    const box = d.detection.box;
+    const area = box.width * box.height;
+    if (area > bestArea) {
+      bestArea = area;
+      best = d;
+    }
+  }
+  return best;
+}
+
 const DETECTION_INTERVAL_MS = 400;
 
-export const EYE_CONTACT_WARNING_MS = 3000;
+export const EYE_CONTACT_WARNING_MS = 2000;
 
-/**
- * Runs client-side face-tracking against a <video> element and reports
- * what fraction of sampled frames looked toward the camera.
- *
- * @param {React.RefObject<HTMLVideoElement>} videoRef
- * @param {{ active: boolean }} options - only samples frames while active
- */
 export function useEyeContactTracking(videoRef, { active }) {
   const [modelsReady, setModelsReady] = useState(false);
   const [modelsFailed, setModelsFailed] = useState(false);
-  // null = no reading yet, true/false = last sampled frame's verdict
   const [liveLookingAtCamera, setLiveLookingAtCamera] = useState(null);
   const [awayStreakMs, setAwayStreakMs] = useState(0);
+  const [faceCount, setFaceCount] = useState(0);
   const framesRef = useRef({ total: 0, onCamera: 0 });
   const busyRef = useRef(false);
   const awayStartedAtRef = useRef(null);
@@ -90,20 +97,24 @@ export function useEyeContactTracking(videoRef, { active }) {
 
       busyRef.current = true;
       try {
-        const detection = await faceapi
-          .detectSingleFace(
+        const detections = await faceapi
+          .detectAllFaces(
             video,
             new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }),
           )
           .withFaceLandmarks();
 
+        setFaceCount((prev) =>
+          prev === detections.length ? prev : detections.length,
+        );
+
+        const primary = pickPrimaryFace(detections);
+
         framesRef.current.total += 1;
 
-        // no face in frame counts as "away" too — the candidate has either
-        // looked far off-camera or stepped out of view entirely
-        const looking = !!detection && isLookingAtCamera(detection.landmarks);
+        const looking = !!primary && isLookingAtCamera(primary.landmarks);
 
-        if (!detection) {
+        if (!primary) {
           setLiveLookingAtCamera(null);
         } else {
           setLiveLookingAtCamera(looking);
@@ -119,9 +130,7 @@ export function useEyeContactTracking(videoRef, { active }) {
           }
           setAwayStreakMs(Date.now() - awayStartedAtRef.current);
         }
-      } catch (err) {
-        // face-api occasionally throws on a mid-decode video frame —
-        // skip this sample and try again on the next tick
+      } catch {
       } finally {
         busyRef.current = false;
       }
@@ -131,18 +140,15 @@ export function useEyeContactTracking(videoRef, { active }) {
     return () => clearInterval(intervalId);
   }, [active, modelsReady, videoRef]);
 
-  // whenever tracking stops being active (camera off, intro phase, question
-  // transition, interview ended) drop any in-progress away streak so a
-  // stale warning can't linger or reappear a beat later
   useEffect(() => {
     if (!active) {
       awayStartedAtRef.current = null;
       setAwayStreakMs(0);
       setLiveLookingAtCamera(null);
+      setFaceCount(0);
     }
   }, [active]);
 
-  // call when a new answer window starts, so each question's % is its own
   const resetWindow = useCallback(() => {
     framesRef.current = { total: 0, onCamera: 0 };
     awayStartedAtRef.current = null;
@@ -150,7 +156,6 @@ export function useEyeContactTracking(videoRef, { active }) {
     setLiveLookingAtCamera(null);
   }, []);
 
-  // call right before submitting an answer to read that window's result
   const getWindowPercent = useCallback(() => {
     const { total, onCamera } = framesRef.current;
     if (!total) return null;
@@ -162,6 +167,7 @@ export function useEyeContactTracking(videoRef, { active }) {
     modelsFailed,
     liveLookingAtCamera,
     awayStreakMs,
+    faceCount,
     resetWindow,
     getWindowPercent,
   };
