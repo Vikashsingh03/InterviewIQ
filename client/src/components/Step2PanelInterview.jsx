@@ -30,6 +30,10 @@ import {
   BsLightningCharge,
 } from "react-icons/bs";
 import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
+import {
+  useEyeContactTracking,
+  EYE_CONTACT_WARNING_MS,
+} from "../hooks/useEyeContactTracking";
 import Editor from "@monaco-editor/react";
 
 const CODE_LANGUAGES = [
@@ -89,7 +93,7 @@ const COMMAND_MAX_WORDS = 8;
 
 // analysis beat after every submitted answer: the AI visibly "thinks" for
 // nine seconds while the evaluation runs, then responds and moves on
-const ANALYSIS_MS = 9000;
+const ANALYSIS_MS = 3000;
 
 // post-transcription safety net for voice commands — imported from
 // ../utils/voiceCommands so the real-time spotter and this check always agree.
@@ -132,7 +136,7 @@ const PANEL_PERSONAS = {
 function AnalysisOverlay({ progress = 0 }) {
   const R = 54;
   const C = 2 * Math.PI * R;
-  const secondsLeft = Math.max(1, Math.ceil((1 - progress) * 9));
+  const secondsLeft = Math.max(1, Math.ceil((1 - progress) * 3));
   return (
     <div className="relative z-10 flex flex-col items-center justify-center py-8 select-none">
       <div className="relative w-40 h-40">
@@ -520,6 +524,8 @@ function Step2PanelInterview({ interviewData, onFinish }) {
   const videoRefA = useRef(null);
   const videoRefB = useRef(null);
   const answerWindowStartRef = useRef(null);
+  const eyeContactTracking = useEyeContactTracking(pipVideoRef, { active: proctoringReady && !!cameraStream });
+
 
   const currentQuestion = questions[currentIndex];
   const isCodingQuestion = currentQuestion?.type === "coding";
@@ -2020,6 +2026,37 @@ function Step2PanelInterview({ interviewData, onFinish }) {
           </motion.div>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+  {cameraStream &&
+    !fullscreenWarning &&
+    !isTerminated &&
+    eyeContactTracking.awayStreakMs >= EYE_CONTACT_WARNING_MS && (
+      <motion.div
+        key="eye-contact-nudge"
+        initial={{ opacity: 0, y: -18, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -14, scale: 0.97 }}
+        transition={{ duration: 0.28, ease: "easeOut" }}
+        className="fixed top-5 inset-x-0 z-500 flex justify-center px-4 pointer-events-none"
+      >
+        <div className="pointer-events-auto flex items-start gap-3 w-full max-w-sm rounded-2xl border border-[#E8A94C]/25 bg-[#14110B]/95 backdrop-blur-md px-4 py-3.5 shadow-[0_20px_50px_-15px_rgba(232,169,76,0.35)]">
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E8A94C]/15">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-[#E8A94C]/25 animate-ping" />
+            <IoWarningOutline size={16} className="relative text-[#E8A94C]" />
+          </span>
+          <div className="flex-1 min-w-0 pt-0.5">
+            <p className="font-mono-studio text-[10px] tracking-[0.08em] text-[#E8A94C] mb-0.5">
+              EYE CONTACT
+            </p>
+            <p className="text-[13px] leading-snug text-[#EDEEF0]">
+              Try to look at the camera while you answer — it's being
+              factored into your delivery score.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    )}
+</AnimatePresence>
 
       <div className="studio-root w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] flex flex-col lg:flex-row overflow-hidden relative">
         {/* ============ LEFT: dual-panel broadcast monitor ============ */}
