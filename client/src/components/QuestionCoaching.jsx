@@ -22,7 +22,7 @@ const LANGUAGES = [
 function SolutionBadge({ solution }) {
   if (solution.verified === true) {
     return (
-      <span className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-widest px-2.5 py-1 rounded-md bg-[#4ADE80]/10 text-[#2E9C5A] dark:text-[#4ADE80] border border-[#4ADE80]/25">
+      <span className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-widest px-2.5 py-1 rounded-md bg-[#4ADE80]/10 text-[#2E9C5A] dark:text-[#4ADE80] border border-[#2E9C5A]/25 dark:border-[#4ADE80]/25">
         <BsCheckCircleFill size={10} />
         PASSED {solution.total}/{solution.total} TEST CASES
       </span>
@@ -32,7 +32,7 @@ function SolutionBadge({ solution }) {
     return (
       <span
         title="This solution didn't pass every test case when we ran it. Read it as a guide, not the final word."
-        className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-widest   px-2.5 py-1 rounded-md bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] border border-[#E8A94C]/25"
+        className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-widest   px-2.5 py-1 rounded-md bg-[#9A7B24]/10 dark:bg-[#E8A94C]/10 text-[#9A7B24] dark:text-[#E8A94C] border border-[#9A7B24]/25 dark:border-[#E8A94C]/25"
       >
         <BsExclamationTriangleFill size={10} />
         PASSED {solution.passed}/{solution.total} · USE AS A GUIDE
@@ -42,7 +42,7 @@ function SolutionBadge({ solution }) {
   return (
     <span
       title="The code runner wasn't reachable, so this solution wasn't tested."
-      className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-widest px-2.5 py-1 rounded-md bg-[#8B92A0]/10 text-[#8B92A0] border border-[#8B92A0]/20"
+      className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-widest px-2.5 py-1 rounded-md bg-[#8A929C]/10 dark:bg-[#8B92A0]/10 text-[#8A929C] dark:text-[#8B92A0] border border-[#8A929C]/20 dark:border-[#8B92A0]/20"
     >
       <BsInfoCircle size={10} />
       NOT AUTO-TESTED
@@ -53,13 +53,13 @@ function SolutionBadge({ solution }) {
 function SectionLabel({ num, text, accent }) {
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <span className="font-mono-studio text-[10px] font-bold tracking-[0.18em]" style={{ color: accent }}>
+      <span className={`font-mono-studio text-[10px] font-bold tracking-[0.18em] ${accent}`}>
         {num}
       </span>
-      <span className="font-mono-studio text-[10px] tracking-[0.16em] uppercase" style={{ color: accent }}>
+      <span className={`font-mono-studio text-[10px] tracking-[0.16em] uppercase ${accent}`}>
         {text}
       </span>
-      <span className="flex-1 h-px bg-[#EAE9E5] dark:bg-[#1E2229]" />
+      <span className="flex-1 h-px bg-[#E8E6E1] dark:bg-[#232830]" />
     </div>
   );
 }
@@ -152,7 +152,7 @@ function QuestionCoaching({ question }) {
     <button
       type="button"
       onClick={() => copy(text, id)}
-      className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-[0.12em] text-[#8B92A0] hover:text-[#B27E2E] dark:hover:text-[#E8A94C] transition cursor-pointer"
+      className="font-mono-studio inline-flex items-center gap-1.5 text-[10px] tracking-[0.12em] text-[#8A929C] dark:text-[#8B92A0] hover:text-[#9A7B24] dark:hover:text-[#E8A94C] transition cursor-pointer"
     >
       {copied === id ? (
         <>
@@ -192,9 +192,9 @@ function QuestionCoaching({ question }) {
         onClick={handleToggle}
         whileHover={{ y: -1 }}
         whileTap={{ scale: 0.98 }}
-        className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl border-2 border-[#1C1F24] dark:border-[#EDEEF0] font-mono-studio text-[11px] font-bold tracking-[0.14em] uppercase text-[#1C1F24] dark:text-[#EDEEF0] hover:bg-[#1C1F24] hover:text-white dark:hover:bg-[#EDEEF0] dark:hover:text-[#0A0B0D] transition-colors cursor-pointer"
+        className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full border-2 border-[#14171B] dark:border-[#EDEEF0] font-mono-studio text-[11px] font-bold tracking-[0.14em] uppercase text-[#14171B] dark:text-[#EDEEF0] hover:bg-[#14171B] hover:text-[#FAFAF9] dark:hover:bg-[#EDEEF0] dark:hover:text-[#0A0B0D] transition-colors cursor-pointer"
       >
-        <span className="w-2 h-2 rotate-45 bg-[#E8A94C] shrink-0" />
+        <span className="w-2 h-2 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
         {buttonLabel}
         <BsChevronDown
           size={11}
@@ -213,15 +213,15 @@ function QuestionCoaching({ question }) {
           >
             <div className="pt-4">
               {loading && (
-                <div className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl p-5 animate-pulse space-y-2.5">
-                  <p className="font-mono-studio text-[10px] tracking-[0.16em] text-[#B27E2E] dark:text-[#E8A94C] uppercase">
+                <div className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl p-5 animate-pulse space-y-2.5">
+                  <p className="font-mono-studio text-[10px] tracking-[0.16em] text-[#9A7B24] dark:text-[#E8A94C] uppercase">
                     {isCoding
                       ? "Writing and testing a solution... this can take up to 20 seconds"
                       : "Preparing your coaching..."}
                   </p>
-                  <div className="h-3 rounded bg-[#E8A94C]/10 w-full" />
-                  <div className="h-3 rounded bg-[#E8A94C]/10 w-11/12" />
-                  <div className="h-3 rounded bg-[#E8A94C]/10 w-9/12" />
+                  <div className="h-3 rounded bg-[#C99E41]/10 dark:bg-[#E8A94C]/10 w-full" />
+                  <div className="h-3 rounded bg-[#C99E41]/10 dark:bg-[#E8A94C]/10 w-11/12" />
+                  <div className="h-3 rounded bg-[#C99E41]/10 dark:bg-[#E8A94C]/10 w-9/12" />
                 </div>
               )}
 
@@ -248,30 +248,30 @@ function QuestionCoaching({ question }) {
 
               {!loading && coaching && (
                 <div className="space-y-4">
-                  <div className="bg-white dark:bg-[#111318] border-2 border-[#E8A94C]/30 rounded-2xl p-4 sm:p-5 relative overflow-hidden">
-                    <span className="pointer-events-none absolute top-0 left-8 right-8 h-0.5 bg-[#E8A94C]" />
+                  <div className="bg-white dark:bg-[#0C0E11] border-2 border-[#9A7B24]/30 dark:border-[#E8A94C]/30 rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]">
+                    <span className="pointer-events-none absolute top-0 left-8 right-8 h-0.5 bg-[#C99E41] dark:bg-[#E8A94C]" />
                     <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                       <div className="flex-1 min-w-40">
                         <SectionLabel
                           num="01"
                           text={isCoding ? "How to approach it" : "A stronger answer"}
-                          accent="#B27E2E"
+                          accent="text-[#9A7B24] dark:text-[#E8A94C]"
                         />
                       </div>
                       <div className="flex items-center gap-3 -mt-3">
                         {isCoding && coaching.complexity && (
-                          <span className="font-mono-studio text-[10px] tracking-widest px-2.5 py-1 rounded-md bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] border border-[#5EC8D8]/25">
+                          <span className="font-mono-studio text-[10px] tracking-widest px-2.5 py-1 rounded-md bg-[#2E8494]/10 dark:bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] border border-[#2E8494]/25 dark:border-[#5EC8D8]/25">
                             {coaching.complexity}
                           </span>
                         )}
                         {renderCopyButton(coaching.idealAnswer, "answer")}
                       </div>
                     </div>
-                    <p className="font-serif-display text-[16px] sm:text-[17px] text-[#1C1F24] dark:text-[#EDEEF0] leading-relaxed">
+                    <p className="font-serif-display text-[16px] sm:text-[17px] text-[#14171B] dark:text-[#EDEEF0] leading-relaxed">
                       {coaching.idealAnswer}
                     </p>
                     {hasPlaceholders && (
-                      <p className="text-xs text-[#8B92A0] mt-3">
+                      <p className="text-xs text-[#5B636E] dark:text-[#8B92A0] mt-3">
                         Replace anything in [brackets] with your own real
                         details.
                       </p>
@@ -279,10 +279,10 @@ function QuestionCoaching({ question }) {
                   </div>
 
                   {isCoding && (
-                    <div className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl p-4 sm:p-5">
+                    <div className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl p-4 sm:p-5">
                       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                         <div className="flex-1 min-w-40">
-                          <SectionLabel num="02" text="Reference solution" accent="#B27E2E" />
+                          <SectionLabel num="02" text="Reference solution" accent="text-[#9A7B24] dark:text-[#E8A94C]" />
                         </div>
                         <div className="flex items-center gap-3 -mt-3">
                           {solution && !codeLoading && (
@@ -301,10 +301,10 @@ function QuestionCoaching({ question }) {
                             type="button"
                             disabled={codeLoading}
                             onClick={() => selectLanguage(l.value)}
-                            className={`font-mono-studio text-[11px] tracking-[0.08em] px-3.5 py-2 rounded-xl border transition cursor-pointer disabled:opacity-60 disabled:cursor-wait ${
+                            className={`font-mono-studio text-[11px] tracking-[0.08em] px-3.5 py-2 rounded-full border transition cursor-pointer disabled:opacity-60 disabled:cursor-wait ${
                               activeLang === l.value
-                                ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] border-transparent font-bold"
-                                : "border-[#EAE9E5] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] hover:border-[#E8A94C]/50"
+                                ? "bg-[#14171B] dark:bg-[#EDEEF0] text-[#FAFAF9] dark:text-[#0A0B0D] border-transparent font-bold"
+                                : "border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#8B92A0] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
                             }`}
                           >
                             {l.label}
@@ -313,20 +313,20 @@ function QuestionCoaching({ question }) {
                       </div>
 
                       {codeLoading && (
-                        <div className="bg-[#0C0E11] border border-[#1E2229] rounded-xl p-4 animate-pulse space-y-2.5">
-                          <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#5EC8D8] uppercase">
+                        <div className="bg-[#F5F4F1] dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-xl p-4 animate-pulse space-y-2.5">
+                          <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#2E8494] dark:text-[#5EC8D8] uppercase">
                             Writing and testing{" "}
                             {LANGUAGES.find((l) => l.value === activeLang)?.label}
                             ...
                           </p>
-                          <div className="h-3 rounded bg-white/5 w-10/12" />
-                          <div className="h-3 rounded bg-white/5 w-8/12" />
-                          <div className="h-3 rounded bg-white/5 w-9/12" />
+                          <div className="h-3 rounded bg-[#14171B]/5 dark:bg-white/5 w-10/12" />
+                          <div className="h-3 rounded bg-[#14171B]/5 dark:bg-white/5 w-8/12" />
+                          <div className="h-3 rounded bg-[#14171B]/5 dark:bg-white/5 w-9/12" />
                         </div>
                       )}
 
                       {!codeLoading && solution && (
-                        <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto border border-[#1E2229]">
+                        <pre className="font-mono-studio bg-[#F5F4F1] dark:bg-[#0C0E11] text-[#14171B] dark:text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto border border-[#E8E6E1] dark:border-[#232830]">
                           <code>{solution.code}</code>
                         </pre>
                       )}
@@ -350,15 +350,15 @@ function QuestionCoaching({ question }) {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     {coaching.gaps?.length > 0 && (
-                      <div className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl p-4 sm:p-5">
-                        <SectionLabel num="03" text={gapsLabel} accent="#B27E2E" />
+                      <div className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl p-4 sm:p-5">
+                        <SectionLabel num="03" text={gapsLabel} accent="text-[#9A7B24] dark:text-[#E8A94C]" />
                         <ul className="space-y-2.5">
                           {coaching.gaps.map((gap, i) => (
                             <li
                               key={i}
-                              className="flex items-start gap-2.5 text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed"
+                              className="flex items-start gap-2.5 text-sm text-[#3E4650] dark:text-[#9AA1AC] leading-relaxed"
                             >
-                              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] mt-1.5 shrink-0" />
+                              <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] mt-1.5 shrink-0" />
                               {gap}
                             </li>
                           ))}
@@ -367,15 +367,15 @@ function QuestionCoaching({ question }) {
                     )}
 
                     {coaching.tips?.length > 0 && (
-                      <div className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl p-4 sm:p-5">
-                        <SectionLabel num={coaching.gaps?.length > 0 ? "04" : "03"} text="Try this next time" accent="#2E8494" />
+                      <div className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl p-4 sm:p-5">
+                        <SectionLabel num={coaching.gaps?.length > 0 ? "04" : "03"} text="Try this next time" accent="text-[#2E8494] dark:text-[#5EC8D8]" />
                         <ul className="space-y-2.5">
                           {coaching.tips.map((tip, i) => (
                             <li
                               key={i}
-                              className="flex items-start gap-2.5 text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed"
+                              className="flex items-start gap-2.5 text-sm text-[#3E4650] dark:text-[#9AA1AC] leading-relaxed"
                             >
-                              <span className="w-1.5 h-1.5 rotate-45 bg-[#5EC8D8] mt-1.5 shrink-0" />
+                              <span className="w-1.5 h-1.5 rotate-45 bg-[#2E8494] dark:bg-[#5EC8D8] mt-1.5 shrink-0" />
                               {tip}
                             </li>
                           ))}

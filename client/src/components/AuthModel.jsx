@@ -19,7 +19,7 @@ function AuthModel({onclose}) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className='fixed inset-0 bg-black/55 backdrop-blur-md flex justify-center items-center z-999 px-4'
+        className='fixed inset-0 bg-[#14171B]/40 dark:bg-black/60 backdrop-blur-sm flex justify-center items-center z-999 px-4'
         onClick={onclose}
     >
         <motion.div
@@ -30,11 +30,11 @@ function AuthModel({onclose}) {
             onClick={(e) => e.stopPropagation()}
             className='relative w-full max-w-md'
         >
-            <span className='pointer-events-none absolute -top-px left-10 right-10 h-0.5 bg-[#E8A94C] z-10' />
+            <span className='pointer-events-none absolute -top-px left-10 right-10 h-px bg-linear-to-r from-transparent via-[#9A7B24]/40 dark:via-[#E8A94C]/30 to-transparent z-10' />
             <button
                 onClick={onclose}
                 aria-label="Close"
-                className='absolute top-5 right-5 z-10 w-9 h-9 flex items-center justify-center rounded-xl border border-[#EAE9E5] dark:border-[#262B34] text-[#8B92A0] hover:text-[#1C1F24] dark:hover:text-white hover:border-[#E8A94C]/50 transition cursor-pointer bg-white/70 dark:bg-[#111318]/70 backdrop-blur'>
+                className='absolute top-5 right-5 z-10 w-9 h-9 flex items-center justify-center rounded-xl border border-[#E8E6E1] dark:border-[#232830] text-[#5B636E] dark:text-[#8B92A0] hover:text-[#14171B] dark:hover:text-white hover:border-[#9A7B24]/50 transition cursor-pointer bg-white/70 dark:bg-[#111318]/70 backdrop-blur'>
                 <FaTimes size={14}/>
             </button>
             <Auth isModel={true}/>

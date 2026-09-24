@@ -14,7 +14,7 @@ const formatScore = (value) => {
 const scoreTone = (value) => {
   const n = Number(value) || 0;
   if (n >= 7) return "text-[#2E9C5A] dark:text-[#4ADE80]";
-  if (n >= 4) return "text-[#B27E2E] dark:text-[#E8A94C]";
+  if (n >= 4) return "text-[#9A7B24] dark:text-[#E8A94C]";
   return "text-[#E05252] dark:text-[#F87171]";
 };
 
@@ -111,7 +111,7 @@ const InterviewHistory = () => {
   ];
 
   return (
-    <div className="relative min-h-screen bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300 overflow-hidden">
+    <div className="relative min-h-screen bg-[#FAFAF9] dark:bg-[#0A0B0D] transition-colors duration-300 overflow-hidden">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         .history-root, .history-root * { font-family: 'Manrope', sans-serif; }
@@ -142,22 +142,22 @@ const InterviewHistory = () => {
             whileHover={{ scale: 1.06, y: -1 }}
             whileTap={{ scale: 0.94 }}
             onClick={() => navigate("/")}
-            className="mt-1 w-12 h-12 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] transition-all duration-200 cursor-pointer"
+            className="mt-1 w-12 h-12 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#9AA1AC] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 transition-all duration-200 cursor-pointer"
           >
-            <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
+            <FaArrowLeft size={14} />
           </motion.button>
 
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-              <span className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C]">
+              <span className="w-1 h-1 rotate-45 bg-[#9A7B24] dark:bg-[#E8A94C] shrink-0" />
+              <span className="font-mono-studio text-[10px] tracking-[0.22em] text-[#9A7B24] dark:text-[#E8A94C]">
                 YOUR PROGRESS
               </span>
             </div>
-            <h1 className="font-serif-display text-3xl md:text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+            <h1 className="font-serif-display text-3xl md:text-4xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
               Interview History
             </h1>
-            <p className="text-[#5C6472] dark:text-[#8B92A0] mt-2 text-sm">
+            <p className="text-[#5B636E] dark:text-[#9AA1AC] mt-2 text-sm">
               Track your past interviews and performance reports
             </p>
           </div>
@@ -168,17 +168,17 @@ const InterviewHistory = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
-            className="grid grid-cols-1 sm:grid-cols-3 rounded-3xl border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden mb-8 divide-y sm:divide-y-0 sm:divide-x divide-[#EAE9E5] dark:divide-[#1E2229]"
+            className="grid grid-cols-1 sm:grid-cols-3 rounded-3xl border border-[#E8E6E1] dark:border-[#232830] overflow-hidden mb-8 divide-y sm:divide-y-0 sm:divide-x divide-[#E8E6E1] dark:divide-[#232830] shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]"
           >
             {stats.map((stat, i) => (
               <div
                 key={stat.label}
-                className="bg-white dark:bg-[#111318] p-6"
+                className="bg-white dark:bg-[#0C0E11] p-6"
               >
-                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8B92A0] mb-4">
+                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8A929C] dark:text-[#565D68] mb-4">
                   {String(i + 1).padStart(2, "0")} · {stat.label.toUpperCase()}
                 </p>
-                <p className="font-serif-display text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+                <p className="font-serif-display text-4xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
                   {stat.value}
                 </p>
               </div>
@@ -192,7 +192,7 @@ const InterviewHistory = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-2xl p-4 flex items-start gap-3"
           >
-            <span className="w-1.5 h-1.5 rotate-45 bg-red-500 shrink-0 mt-1.5" />
+            <span className="w-1 h-1 rotate-45 bg-red-500 shrink-0 mt-1.5" />
             <p className="text-red-700 dark:text-red-400 text-sm">{deleteError}</p>
           </motion.div>
         )}
@@ -202,7 +202,7 @@ const InterviewHistory = () => {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-28 rounded-3xl bg-white/60 dark:bg-[#111318]/60 border border-[#EAE9E5] dark:border-[#1E2229] animate-pulse"
+                className="h-28 rounded-3xl bg-white/60 dark:bg-[#0C0E11]/60 border border-[#E8E6E1] dark:border-[#232830] animate-pulse"
               ></div>
             ))}
           </div>
@@ -211,22 +211,22 @@ const InterviewHistory = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] p-10 rounded-[28px] text-center"
+            className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] p-10 rounded-[28px] text-center shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]"
           >
             <div className="flex items-center justify-center gap-2.5 mb-4">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#F87171] shrink-0" />
-              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#F87171]">
+              <span className="w-1 h-1 rotate-45 bg-[#F87171] shrink-0" />
+              <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#F87171]">
                 LOAD FAILED
               </p>
             </div>
-            <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium">
+            <p className="text-[#14171B] dark:text-[#EDEEF0] font-medium">
               {error}
             </p>
             <motion.button
               whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => window.location.reload()}
-              className="mt-6 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-medium text-sm cursor-pointer"
+              className="mt-6 bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-semibold text-sm hover:opacity-90 transition cursor-pointer"
             >
               Retry
             </motion.button>
@@ -236,25 +236,25 @@ const InterviewHistory = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] p-14 rounded-[28px] text-center"
+            className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] p-14 rounded-[28px] text-center shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]"
           >
             <div className="flex items-center justify-center gap-2.5 mb-5">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C]">
+              <span className="w-1 h-1 rotate-45 bg-[#9A7B24] dark:bg-[#E8A94C] shrink-0" />
+              <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#9A7B24] dark:text-[#E8A94C]">
                 ARCHIVE EMPTY
               </p>
             </div>
-            <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-2">
+            <p className="font-serif-display text-2xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight mb-2">
               No interviews found yet
             </p>
-            <p className="text-[#9AA1AC] text-sm">
+            <p className="text-[#8A929C] dark:text-[#9AA1AC] text-sm">
               Start your first interview to see it here.
             </p>
             <motion.button
               whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => navigate("/interview")}
-              className="mt-6 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-medium text-sm cursor-pointer"
+              className="mt-6 bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-semibold text-sm hover:opacity-90 transition cursor-pointer"
             >
               Start Interview
             </motion.button>
@@ -280,19 +280,20 @@ const InterviewHistory = () => {
                       ? undefined
                       : "This interview wasn't finished, so no report is available."
                   }
-                  className={`group relative bg-white dark:bg-[#111318] p-6 rounded-3xl transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] ${
+                  className={`group relative bg-white dark:bg-[#0C0E11] p-6 rounded-3xl transition-all duration-300 border border-[#E8E6E1] dark:border-[#232830] overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)] ${
                     isCompleted
-                      ? "cursor-pointer hover:border-[#E8A94C]/50"
+                      ? "cursor-pointer hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
                       : "cursor-not-allowed opacity-80"
                   } ${isDeleting ? "opacity-40 pointer-events-none" : ""}`}
                 >
+                  <span className="absolute top-0 left-6 right-6 h-px bg-linear-to-r from-transparent via-[#9A7B24]/40 to-transparent dark:via-[#E8A94C]/30 pointer-events-none" />
                   <div className="relative flex flex-col md:flex-row md:items-center gap-5">
-                    <span className="font-mono-studio text-[11px] tracking-[0.18em] text-[#8B92A0] shrink-0">
+                    <span className="font-mono-studio text-[11px] tracking-[0.18em] text-[#8A929C] dark:text-[#565D68] shrink-0">
                       {String(index + 1).padStart(2, "0")}
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight truncate">
+                      <h3 className="font-serif-display text-xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight truncate">
                         {item.role}
                       </h3>
 
@@ -300,7 +301,7 @@ const InterviewHistory = () => {
                         <span
                           className={`font-mono-studio text-[10px] tracking-[0.14em] ${
                             item.mode === "Technical"
-                              ? "text-[#B27E2E] dark:text-[#E8A94C]"
+                              ? "text-[#9A7B24] dark:text-[#E8A94C]"
                               : "text-emerald-600 dark:text-emerald-400"
                           }`}
                         >
@@ -312,11 +313,11 @@ const InterviewHistory = () => {
                           </span>
                         )}
                         {item.company && (
-                          <span className="text-sm text-[#5C6472] dark:text-[#9AA1AC]">
+                          <span className="text-sm text-[#5B636E] dark:text-[#9AA1AC]">
                             {item.company}
                           </span>
                         )}
-                        <span className="font-mono-studio text-[11px] text-[#9AA1AC] dark:text-[#565D68]">
+                        <span className="font-mono-studio text-[11px] text-[#8A929C] dark:text-[#565D68]">
                           {new Date(item.createdAt).toLocaleDateString()}
                         </span>
                       </div>
@@ -324,7 +325,7 @@ const InterviewHistory = () => {
                       {item.experience && (
                         <p
                           title={item.experience}
-                          className="mt-2 text-[13px] text-[#8B92A0] dark:text-[#7A828F] line-clamp-1"
+                          className="mt-2 text-[13px] text-[#8A929C] dark:text-[#8B92A0] line-clamp-1"
                         >
                           {item.experience}
                         </p>
@@ -338,11 +339,11 @@ const InterviewHistory = () => {
                             className={`font-mono-studio text-2xl font-bold ${scoreTone(item.finalScore)}`}
                           >
                             {formatScore(item.finalScore)}
-                            <span className="text-sm text-[#9AA1AC] font-medium">
+                            <span className="text-sm text-[#8A929C] dark:text-[#9AA1AC] font-medium">
                               /10
                             </span>
                           </p>
-                          <p className="font-mono-studio text-[9px] text-[#9AA1AC] mt-1 tracking-[0.18em]">
+                          <p className="font-mono-studio text-[9px] text-[#8A929C] dark:text-[#9AA1AC] mt-1 tracking-[0.18em]">
                             OVERALL SCORE
                           </p>
                         </div>
@@ -352,7 +353,7 @@ const InterviewHistory = () => {
                         className={`font-mono-studio px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wide whitespace-nowrap ${
                           isCompleted
                             ? "bg-[#4ADE80]/10 text-[#2E9C5A] dark:text-[#4ADE80]"
-                            : "bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C]"
+                            : "bg-[#E8A94C]/10 text-[#9A7B24] dark:text-[#E8A94C]"
                         }`}
                       >
                         {String(item.status || "").toUpperCase()}
@@ -364,7 +365,7 @@ const InterviewHistory = () => {
                         onClick={(e) => requestDelete(e, item._id)}
                         disabled={isDeleting}
                         title="Delete this interview"
-                        className="w-9 h-9 flex items-center justify-center rounded-full border border-[#EAE9E5] dark:border-[#262B34] text-[#9AA1AC] hover:text-[#F87171] hover:border-[#F87171]/40 hover:bg-[#F87171]/5 transition-all duration-200 disabled:opacity-50 cursor-pointer"
+                        className="w-9 h-9 flex items-center justify-center rounded-full border border-[#E8E6E1] dark:border-[#232830] text-[#8A929C] dark:text-[#9AA1AC] hover:text-[#F87171] hover:border-[#F87171]/40 hover:bg-[#F87171]/5 transition-all duration-200 disabled:opacity-50 cursor-pointer"
                       >
                         <FaTrashAlt size={13} />
                       </motion.button>
@@ -392,19 +393,19 @@ const InterviewHistory = () => {
                 exit={{ opacity: 0, y: 12, scale: 0.96 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm bg-white dark:bg-[#15181D] border border-[#EAE9E5] dark:border-[#262B34] rounded-3xl p-6"
+                className="w-full max-w-sm bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-3xl p-6 shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]"
               >
                 <div className="flex items-center gap-2.5 mb-4">
-                  <span className="w-1.5 h-1.5 rotate-45 bg-[#F87171] shrink-0" />
-                  <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#F87171]">
+                  <span className="w-1 h-1 rotate-45 bg-[#F87171] shrink-0" />
+                  <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#F87171]">
                     CONFIRM DELETION
                   </p>
                 </div>
 
-                <h3 className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-2">
+                <h3 className="font-serif-display text-xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight mb-2">
                   Delete this interview?
                 </h3>
-                <p className="text-sm text-[#5C6472] dark:text-[#9AA1AC] leading-relaxed mb-6">
+                <p className="text-sm text-[#5B636E] dark:text-[#9AA1AC] leading-relaxed mb-6">
                   This will permanently remove it from your history, including
                   its report and score. This can't be undone.
                 </p>
@@ -412,14 +413,14 @@ const InterviewHistory = () => {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={cancelDelete}
-                    className="flex-1 border border-[#EAE9E5] dark:border-[#262B34] text-[#3D4148] dark:text-[#C7CBD1] text-sm font-semibold py-2.5 rounded-xl hover:bg-[#F5F5F3] dark:hover:bg-[#1B1E24] transition-colors cursor-pointer"
+                    className="flex-1 border border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#9AA1AC] text-sm font-semibold py-2.5 rounded-full hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={(e) => confirmDelete(e, confirmDeleteId)}
                     disabled={deletingId === confirmDeleteId}
-                    className="flex-1 bg-[#F87171] hover:bg-[#F05C5C] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-70 cursor-pointer"
+                    className="flex-1 bg-[#F87171] hover:bg-[#F05C5C] text-white text-sm font-semibold py-2.5 rounded-full transition-colors disabled:opacity-70 cursor-pointer"
                   >
                     {deletingId === confirmDeleteId ? "Deleting..." : "Delete"}
                   </button>

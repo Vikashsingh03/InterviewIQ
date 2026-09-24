@@ -41,7 +41,7 @@ const renderInline = (text, keyPrefix = "i") => {
       nodes.push(
         <code
           key={key}
-          className="font-mono-studio text-[12px] px-1.5 py-0.5 rounded-md bg-[#E8A94C]/12 text-[#8A6A2F] dark:text-[#E8B96A]"
+          className="font-mono-studio text-[12px] px-1.5 py-0.5 rounded-md bg-[#9A7B24]/12 dark:bg-[#E8A94C]/12 text-[#8A6A2F] dark:text-[#E8B96A]"
         >
           {match[1].slice(1, -1)}
         </code>,
@@ -50,7 +50,7 @@ const renderInline = (text, keyPrefix = "i") => {
       nodes.push(
         <strong
           key={key}
-          className="font-semibold text-[#1C1F24] dark:text-white"
+          className="font-semibold text-[#14171B] dark:text-[#EDEEF0]"
         >
           {renderInline(match[2].slice(2, -2), key)}
         </strong>,
@@ -138,7 +138,7 @@ export function CoachMarkdown({ text }) {
           return (
             <p
               key={i}
-              className="font-serif-display text-[15px] text-[#1C1F24] dark:text-white"
+              className="font-serif-display text-[15px] text-[#14171B] dark:text-[#EDEEF0]"
             >
               {renderInline(block.text, `h${i}`)}
             </p>
@@ -150,7 +150,7 @@ export function CoachMarkdown({ text }) {
             <List
               key={i}
               start={block.type === "ol" ? block.start : undefined}
-              className={`space-y-1.5 pl-5 marker:text-[#E8A94C] marker:font-semibold ${
+              className={`space-y-1.5 pl-5 marker:text-[#9A7B24] dark:marker:text-[#E8A94C] marker:font-semibold ${
                 block.type === "ul" ? "list-disc" : "list-decimal"
               }`}
             >
@@ -188,9 +188,9 @@ function CoachAvatar({ size = 28 }) {
   return (
     <div
       style={{ width: size, height: size }}
-      className="shrink-0 rounded-xl bg-[#1C1F24] dark:bg-[#EDEEF0] flex items-center justify-center"
+      className="shrink-0 rounded-xl bg-[#14171B] dark:bg-[#EDEEF0] flex items-center justify-center"
     >
-      <span className="rotate-45 bg-[#E8A94C] block" style={{ width: d, height: d }} />
+      <span className="rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] block" style={{ width: d, height: d }} />
     </div>
   );
 }
@@ -372,19 +372,19 @@ function CoachChat({ interviewId, onClose }) {
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="coach-root fixed top-0 right-0 h-full w-full sm:w-110 bg-[#F7F6F3] dark:bg-[#0A0B0D] z-999 flex flex-col border-l-2 border-[#E8A94C]/40 overflow-hidden"
+        className="coach-root fixed top-0 right-0 h-full w-full sm:w-110 bg-[#FAFAF9] dark:bg-[#0A0B0D] z-999 flex flex-col border-l-2 border-[#9A7B24]/40 dark:border-[#E8A94C]/40 overflow-hidden"
       >
-        <div className="relative z-10 flex items-center justify-between px-5 py-4 border-b border-[#EAE9E5] dark:border-[#1E2229] bg-white/80 dark:bg-[#0F1115]/80 backdrop-blur-xl shrink-0">
+        <div className="relative z-10 flex items-center justify-between px-5 py-4 border-b border-[#E8E6E1] dark:border-[#232830] bg-white/80 dark:bg-[#0C0E11]/80 backdrop-blur-xl shrink-0">
           <div className="flex items-center gap-3">
             <div className="relative">
               <CoachAvatar size={40} />
-              <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rotate-45 bg-[#4ADE80] border-2 border-white dark:border-[#0F1115]" />
+              <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rotate-45 bg-[#4ADE80] border-2 border-white dark:border-[#0C0E11]" />
             </div>
             <div>
-              <p className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] leading-none tracking-tight">
+              <p className="font-serif-display text-xl text-[#14171B] dark:text-[#EDEEF0] leading-none tracking-tight">
                 AI Coach
               </p>
-              <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8B92A0] mt-1.5">
+              <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8A929C] dark:text-[#8B92A0] mt-1.5">
                 READS YOUR INTERVIEW · READY TO HELP
               </p>
             </div>
@@ -397,7 +397,7 @@ function CoachChat({ interviewId, onClose }) {
               title="Clear chat"
               onClick={() => setConfirmClear((v) => !v)}
               disabled={loading || clearing}
-              className="w-9 h-9 flex items-center justify-center rounded-full text-[#8B92A0] hover:text-[#F87171] hover:bg-[#F87171]/8 transition disabled:opacity-40 cursor-pointer"
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A929C] dark:text-[#8B92A0] hover:text-[#B3261E] dark:hover:text-[#F87171] hover:bg-[#B3261E]/8 dark:hover:bg-[#F87171]/8 transition disabled:opacity-40 cursor-pointer"
             >
               <IoTrashOutline size={17} />
             </button>
@@ -405,7 +405,7 @@ function CoachChat({ interviewId, onClose }) {
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full text-[#8B92A0] hover:bg-[#EFEEEA] dark:hover:bg-[#181B20] transition cursor-pointer"
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[#8A929C] dark:text-[#8B92A0] hover:bg-[#F5F4F1] dark:hover:bg-[#14171C] transition cursor-pointer"
             >
               <IoClose size={19} />
             </button>
@@ -421,11 +421,11 @@ function CoachChat({ interviewId, onClose }) {
               transition={{ duration: 0.2 }}
               className="relative z-10 overflow-hidden shrink-0"
             >
-              <div className="mx-4 mt-3 rounded-2xl border border-[#F87171]/30 bg-[#F87171]/8 p-4">
-                <p className="text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">
+              <div className="mx-4 mt-3 rounded-2xl border border-[#B3261E]/30 dark:border-[#F87171]/30 bg-[#B3261E]/8 dark:bg-[#F87171]/8 p-4">
+                <p className="text-sm font-semibold text-[#14171B] dark:text-[#EDEEF0]">
                   Clear this conversation?
                 </p>
-                <p className="text-xs text-[#5C6472] dark:text-[#8B92A0] mt-1 leading-relaxed">
+                <p className="text-xs text-[#3E4650] dark:text-[#8B92A0] mt-1 leading-relaxed">
                   Only the chat is removed. Your report and scores stay as they
                   are, and the coach will start a fresh conversation.
                 </p>
@@ -434,7 +434,7 @@ function CoachChat({ interviewId, onClose }) {
                     type="button"
                     onClick={() => setConfirmClear(false)}
                     disabled={clearing}
-                    className="flex-1 text-sm font-semibold py-2 rounded-xl border border-[#EAE9E5] dark:border-[#262B34] text-[#3D4148] dark:text-[#C7CBD1] hover:bg-white dark:hover:bg-[#181B20] transition cursor-pointer disabled:opacity-60"
+                    className="flex-1 text-sm font-semibold py-2 rounded-full border border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#9AA1AC] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 transition cursor-pointer disabled:opacity-60"
                   >
                     Cancel
                   </button>
@@ -442,7 +442,7 @@ function CoachChat({ interviewId, onClose }) {
                     type="button"
                     onClick={clearChat}
                     disabled={clearing}
-                    className="flex-1 text-sm font-semibold py-2 rounded-xl bg-[#F87171] hover:bg-[#F05C5C] text-white transition cursor-pointer disabled:opacity-70"
+                    className="flex-1 text-sm font-semibold py-2 rounded-full bg-[#B3261E] dark:bg-[#F87171] hover:opacity-90 text-white transition cursor-pointer disabled:opacity-70"
                   >
                     {clearing ? "Clearing..." : "Clear chat"}
                   </button>
@@ -460,13 +460,13 @@ function CoachChat({ interviewId, onClose }) {
             <div className="space-y-4">
               <div className="flex items-end gap-2.5">
                 <CoachAvatar />
-                <div className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl rounded-bl-md px-4 py-3.5 w-64 space-y-2 animate-pulse">
-                  <div className="h-2.5 rounded bg-[#E8A94C]/20 w-full" />
-                  <div className="h-2.5 rounded bg-[#E8A94C]/15 w-10/12" />
-                  <div className="h-2.5 rounded bg-[#E8A94C]/10 w-7/12" />
+                <div className="bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl rounded-bl-md px-4 py-3.5 w-64 space-y-2 animate-pulse">
+                  <div className="h-2.5 rounded bg-[#C99E41]/20 dark:bg-[#E8A94C]/20 w-full" />
+                  <div className="h-2.5 rounded bg-[#C99E41]/15 dark:bg-[#E8A94C]/15 w-10/12" />
+                  <div className="h-2.5 rounded bg-[#C99E41]/10 dark:bg-[#E8A94C]/10 w-7/12" />
                 </div>
               </div>
-              <p className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] pl-10">
+              <p className="font-mono-studio text-[10px] tracking-wide text-[#8A929C] dark:text-[#8B92A0] pl-10">
                 READING YOUR INTERVIEW...
               </p>
             </div>
@@ -490,15 +490,15 @@ function CoachChat({ interviewId, onClose }) {
                       <div
                         className={`text-sm leading-relaxed px-4 py-3 ${
                           isUser
-                            ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] rounded-2xl rounded-br-md whitespace-pre-wrap wrap-break-word shadow-[0_10px_24px_-14px_rgba(0,0,0,0.5)]"
-                            : "bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] text-[#2B2F36] dark:text-[#D8DCE3] rounded-2xl rounded-bl-md shadow-[0_10px_24px_-18px_rgba(0,0,0,0.25)] wrap-break-word"
+                            ? "bg-[#14171B] dark:bg-[#EDEEF0] text-[#FAFAF9] dark:text-[#0A0B0D] rounded-2xl rounded-br-md whitespace-pre-wrap wrap-break-word shadow-[0_10px_24px_-14px_rgba(0,0,0,0.5)]"
+                            : "bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#9AA1AC] rounded-2xl rounded-bl-md shadow-[0_10px_24px_-18px_rgba(0,0,0,0.25)] wrap-break-word"
                         }`}
                       >
                         {isUser ? m.content : <CoachMarkdown text={m.content} />}
                       </div>
 
                       <div className="flex items-center gap-2 mt-1.5 px-1">
-                        <span className="font-mono-studio text-[9px] tracking-wide text-[#9AA1AC] dark:text-[#565D68]">
+                        <span className="font-mono-studio text-[9px] tracking-wide text-[#8A929C] dark:text-[#565D68]">
                           {isUser ? "YOU" : "COACH"}
                           {formatTime(m.createdAt) &&
                             ` · ${formatTime(m.createdAt)}`}
@@ -508,7 +508,7 @@ function CoachChat({ interviewId, onClose }) {
                             type="button"
                             aria-label="Copy message"
                             onClick={() => copyMessage(m.content, i)}
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-[#9AA1AC] hover:text-[#B27E2E] dark:hover:text-[#E8A94C] cursor-pointer"
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-[#8A929C] dark:text-[#9AA1AC] hover:text-[#9A7B24] dark:hover:text-[#E8A94C] cursor-pointer"
                           >
                             {copiedIndex === i ? (
                               <IoCheckmark size={13} />
@@ -530,7 +530,7 @@ function CoachChat({ interviewId, onClose }) {
                   transition={{ delay: 0.15 }}
                   className="pl-10"
                 >
-                  <p className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] mb-2.5">
+                  <p className="font-mono-studio text-[10px] tracking-wide text-[#8A929C] dark:text-[#8B92A0] mb-2.5">
                     TRY ASKING
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -539,7 +539,7 @@ function CoachChat({ interviewId, onClose }) {
                         key={s}
                         type="button"
                         onClick={() => send(s)}
-                        className="text-xs font-medium text-[#8A6A2F] dark:text-[#E8B96A] bg-[#E8A94C]/8 hover:bg-[#E8A94C]/16 border border-[#E8A94C]/30 rounded-full px-3.5 py-2 transition cursor-pointer text-left"
+                        className="text-xs font-medium text-[#9A7B24] dark:text-[#E8A94C] bg-[#9A7B24]/8 dark:bg-[#E8A94C]/8 hover:bg-[#9A7B24]/16 dark:hover:bg-[#E8A94C]/16 border border-[#9A7B24]/30 dark:border-[#E8A94C]/30 rounded-full px-3.5 py-2 transition cursor-pointer text-left"
                       >
                         {s}
                       </button>
@@ -555,13 +555,13 @@ function CoachChat({ interviewId, onClose }) {
                   className="flex items-end gap-2.5"
                 >
                   <CoachAvatar />
-                  <div className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl rounded-bl-md px-4 py-3.5 flex items-center gap-3">
+                  <div className="bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl rounded-bl-md px-4 py-3.5 flex items-center gap-3">
                     <div className="coach-typing flex gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C99E41] dark:bg-[#E8A94C]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C99E41] dark:bg-[#E8A94C]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C99E41] dark:bg-[#E8A94C]" />
                     </div>
-                    <span className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0]">
+                    <span className="font-mono-studio text-[10px] tracking-wide text-[#8A929C] dark:text-[#8B92A0]">
                       COACH IS THINKING
                     </span>
                   </div>
@@ -599,8 +599,8 @@ function CoachChat({ interviewId, onClose }) {
           )}
         </AnimatePresence>
 
-        <div className="relative z-10 px-4 pt-3 pb-4 border-t border-[#EAE9E5] dark:border-[#1E2229] bg-white/85 dark:bg-[#0F1115]/85 backdrop-blur-xl shrink-0">
-          <div className="flex items-end gap-2 bg-[#F7F6F3] dark:bg-[#0C0E11] border border-[#E5E4E0] dark:border-[#1E2229] rounded-2xl pl-4 pr-2 py-2 focus-within:border-[#E8A94C]/60 focus-within:ring-4 focus-within:ring-[#E8A94C]/10 transition-all">
+        <div className="relative z-10 px-4 pt-3 pb-4 border-t border-[#E8E6E1] dark:border-[#232830] bg-white/85 dark:bg-[#0C0E11]/85 backdrop-blur-xl shrink-0">
+          <div className="flex items-end gap-2 bg-[#F5F4F1] dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl pl-4 pr-2 py-2 focus-within:border-[#9A7B24]/60 dark:focus-within:border-[#E8A94C]/60 focus-within:ring-4 focus-within:ring-[#9A7B24]/10 dark:focus-within:ring-[#E8A94C]/10 transition-all">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -610,25 +610,25 @@ function CoachChat({ interviewId, onClose }) {
               onKeyDown={handleKeyDown}
               disabled={loading || clearing}
               placeholder="Ask about a question, or how to improve..."
-              className="flex-1 bg-transparent outline-none resize-none text-sm text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] py-2 max-h-32 leading-relaxed"
+              className="flex-1 bg-transparent outline-none resize-none text-sm text-[#14171B] dark:text-[#EDEEF0] placeholder:text-[#8A929C] dark:placeholder:text-[#565D68] py-2 max-h-32 leading-relaxed"
             />
             <button
               type="button"
               aria-label="Send message"
               onClick={() => send()}
               disabled={!input.trim() || sending || loading || clearing}
-              className="w-10 h-10 shrink-0 rounded-xl bg-[#E8A94C] hover:bg-[#F0B865] text-[#1C1F24] flex items-center justify-center active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              className="w-10 h-10 shrink-0 rounded-full bg-[#C99E41] dark:bg-[#E8A94C] hover:opacity-90 text-[#14171B] dark:text-[#0A0B0D] flex items-center justify-center active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
             >
               <IoSendSharp size={15} />
             </button>
           </div>
 
           <div className="flex items-center justify-between mt-2 px-1">
-            <p className="font-mono-studio text-[9px] tracking-wide text-[#9AA1AC] dark:text-[#565D68]">
+            <p className="font-mono-studio text-[9px] tracking-wide text-[#8A929C] dark:text-[#565D68]">
               ENTER TO SEND · SHIFT + ENTER FOR A NEW LINE
             </p>
             {nearLimit && (
-              <p className="font-mono-studio text-[9px] tracking-wide text-[#B27E2E] dark:text-[#E8A94C]">
+              <p className="font-mono-studio text-[9px] tracking-wide text-[#9A7B24] dark:text-[#E8A94C]">
                 {input.length}/{MAX_MESSAGE_LENGTH}
               </p>
             )}

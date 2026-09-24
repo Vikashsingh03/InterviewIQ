@@ -60,7 +60,7 @@ const FILTERS = [
 ];
 
 const CARD =
-  "bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl";
+  "bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-3xl shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]";
 
 function useCountUp(target, duration, active, delay) {
   const [val, setVal] = useState(0);
@@ -87,13 +87,13 @@ function useCountUp(target, duration, active, delay) {
 function SectionHead({ num, label }) {
   return (
     <div className="flex items-center gap-3 mb-7">
-      <span className="font-mono-studio text-[11px] font-bold tracking-[0.2em] text-[#B27E2E] dark:text-[#E8A94C]">
+      <span className="font-serif-display italic text-2xl leading-none text-[#9A7B24] dark:text-[#E8A94C]">
         {num}
       </span>
-      <span className="font-mono-studio text-[11px] tracking-[0.18em] text-[#8B92A0] uppercase">
+      <span className="font-mono-studio text-[10px] tracking-[0.22em] text-[#5B636E] dark:text-[#8B92A0] uppercase">
         {label}
       </span>
-      <span className="flex-1 h-px bg-[#EAE9E5] dark:bg-[#1E2229]" />
+      <span className="flex-1 h-px bg-linear-to-r from-transparent via-[#9A7B24]/40 dark:via-[#E8A94C]/30 to-transparent" />
     </div>
   );
 }
@@ -120,7 +120,7 @@ function ScoreRing({ value, color }) {
           r={radius}
           fill="none"
           strokeWidth={stroke}
-          className="stroke-[#EFEEEA] dark:stroke-[#1E2229]"
+          className="stroke-[#E8E6E1] dark:stroke-[#232830]"
         />
         <motion.circle
           cx={size / 2}
@@ -138,12 +138,12 @@ function ScoreRing({ value, color }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className="font-serif-display text-6xl tracking-tight leading-none"
+          className="font-serif-display text-7xl tracking-tight leading-none"
           style={{ color }}
         >
           {formatScore(display)}
         </span>
-        <span className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8B92A0] mt-2.5">
+        <span className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8A929C] dark:text-[#565D68] mt-2.5">
           OUT OF 10
         </span>
       </div>
@@ -157,22 +157,22 @@ function StatTile({ label, value, sub, onClick, accent }) {
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={`text-left bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl p-4 ${
+      className={`text-left bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-2xl p-4 ${
         onClick
-          ? "hover:-translate-y-0.5 hover:border-[#E8A94C]/40 transition-all duration-200 cursor-pointer"
+          ? "hover:-translate-y-0.5 hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/40 transition-all duration-200 cursor-pointer"
           : ""
       }`}
     >
-      <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8B92A0] uppercase">
+      <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8A929C] dark:text-[#565D68] uppercase">
         {label}
       </p>
       <p
-        className="font-serif-display text-2xl mt-1.5 text-[#1C1F24] dark:text-[#EDEEF0]"
+        className="font-serif-display text-2xl mt-1.5 text-[#14171B] dark:text-[#EDEEF0]"
         style={accent ? { color: accent } : undefined}
       >
         {value}
       </p>
-      {sub && <p className="text-[11px] text-[#8B92A0] mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] text-[#5B636E] dark:text-[#8B92A0] mt-0.5">{sub}</p>}
     </Tag>
   );
 }
@@ -183,20 +183,20 @@ function SkillRow({ s, index }) {
   return (
     <div>
       <div className="flex justify-between items-baseline mb-2 text-sm">
-        <span className="text-[#3D4148] dark:text-[#C7CBD1]">
+        <span className="text-[#3E4650] dark:text-[#9AA1AC]">
           {s.label}
         </span>
         <span
           className={`font-mono-studio font-semibold ${skillTier.text}`}
         >
           {formatScore(barVal)}
-          <span className="text-[10px] text-[#8B92A0] font-normal">
+          <span className="text-[10px] text-[#8A929C] dark:text-[#565D68] font-normal">
             /10
           </span>
         </span>
       </div>
 
-      <div className="bg-[#EFEEEA] dark:bg-[#1B1E24] h-2 rounded-full overflow-hidden">
+      <div className="bg-[#E8E6E1] dark:bg-[#232830] h-2 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-[width] duration-1000 ease-out"
           style={{
@@ -212,11 +212,11 @@ function SkillRow({ s, index }) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-[#EAE9E5] dark:border-[#262B34] bg-white dark:bg-[#15181D] px-3 py-2 shadow-lg">
-      <p className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0]">
+    <div className="rounded-xl border border-[#E8E6E1] dark:border-[#232830] bg-white dark:bg-[#0C0E11] px-3 py-2 shadow-lg">
+      <p className="font-mono-studio text-[10px] tracking-wide text-[#8A929C] dark:text-[#565D68]">
         {label}
       </p>
-      <p className="font-mono-studio text-sm font-semibold text-[#B27E2E] dark:text-[#E8A94C]">
+      <p className="font-mono-studio text-sm font-semibold text-[#9A7B24] dark:text-[#E8A94C]">
         {formatScore(payload[0].value)}/10
       </p>
     </div>
@@ -230,8 +230,8 @@ function Step3Report({ report, showBackButton = true }) {
 
   if (!report) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300">
-        <p className="text-[#8B92A0] text-lg font-['Manrope',sans-serif]">
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9] dark:bg-[#0A0B0D] transition-colors duration-300">
+        <p className="text-[#8A929C] dark:text-[#565D68] text-lg">
           Loading Report...
         </p>
       </div>
@@ -709,13 +709,8 @@ function Step3Report({ report, showBackButton = true }) {
   };
 
   return (
-    <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] px-4 sm:px-6 lg:px-10 py-8 transition-colors duration-300 overflow-hidden">
+    <div className="min-h-screen relative bg-[#FAFAF9] dark:bg-[#0A0B0D] text-[#14171B] dark:text-[#EDEEF0] px-4 sm:px-6 lg:px-10 py-8 transition-colors duration-300 overflow-hidden">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-        .report-root, .report-root * { font-family: 'Manrope', sans-serif; }
-        .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
-        .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
-
         .film-grain {
           position: fixed;
           inset: 0;
@@ -736,9 +731,9 @@ function Step3Report({ report, showBackButton = true }) {
               <button
                 onClick={() => navigate("/history")}
                 aria-label="Back to history"
-                className="mt-1 w-11 h-11 shrink-0 cursor-pointer flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] hover:-translate-y-0.5 transition-all duration-200"
+                className="mt-1 w-11 h-11 shrink-0 cursor-pointer flex items-center justify-center rounded-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] hover:-translate-y-0.5 transition-all duration-200"
               >
-                <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
+                <FaArrowLeft className="text-[#5B636E] dark:text-[#8B92A0]" size={14} />
               </button>
             )}
 
@@ -748,18 +743,18 @@ function Step3Report({ report, showBackButton = true }) {
               transition={{ duration: 0.5, ease: "easeOut" }}
               className="min-w-0"
             >
-              <div className="inline-flex items-center gap-2 bg-[#E8A94C]/8 border border-[#E8A94C]/20 px-3 py-1.5 rounded-full mb-4">
-                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-                <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#B27E2E] dark:text-[#E8A94C]">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-1 h-1 rotate-45 bg-[#9A7B24] dark:bg-[#E8A94C] shrink-0" />
+                <span className="font-mono-studio text-[10px] tracking-[0.22em] text-[#9A7B24] dark:text-[#E8A94C]">
                   AI-POWERED PERFORMANCE INSIGHTS
                 </span>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="font-serif-display text-4xl sm:text-5xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight leading-[1.05]">
+                <h1 className="font-serif-display text-4xl sm:text-5xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-[1.05]">
                   {isPanel ? "Panel Interview Analytics" : "Interview Analytics"}
                 </h1>
                 {isPanel && (
-                  <span className="font-mono-studio text-[10px] tracking-[0.12em] px-2.5 py-1 rounded-md bg-[#8B7FD6]/10 text-[#6A5FBF] dark:text-[#B3A9F5] border border-[#8B7FD6]/20">
+                  <span className="font-mono-studio text-[10px] tracking-[0.18em] px-2.5 py-1 rounded-full bg-white dark:bg-[#111318] text-[#5B636E] dark:text-[#8B92A0] border border-[#E8E6E1] dark:border-[#232830]">
                     2 INTERVIEWERS
                   </span>
                 )}
@@ -767,7 +762,7 @@ function Step3Report({ report, showBackButton = true }) {
 
               <div className="flex items-center flex-wrap gap-2.5 mt-3.5">
                 {role && (
-                  <span className="font-mono-studio text-xs tracking-[0.06em] text-[#5C6472] dark:text-[#8B92A0]">
+                  <span className="font-mono-studio text-xs tracking-[0.06em] text-[#5B636E] dark:text-[#8B92A0]">
                     {role}
                     {company ? ` @ ${company}` : ""}
                   </span>
@@ -789,7 +784,7 @@ function Step3Report({ report, showBackButton = true }) {
           >
             <button
               onClick={downloadPDF}
-              className="flex items-center gap-2 bg-[#1C1F24] dark:bg-[#EDEEF0] hover:-translate-y-0.5 text-white dark:text-[#0A0B0D] px-6 py-3 rounded-2xl transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
+              className="flex items-center gap-2 bg-[#C99E41] dark:bg-[#E8A94C] hover:opacity-90 text-[#14171B] dark:text-[#0A0B0D] px-6 py-3 rounded-full transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
             >
               <FaDownload size={13} />
               Download PDF
@@ -799,7 +794,7 @@ function Step3Report({ report, showBackButton = true }) {
                 onClick={() => setShowCoach(true)}
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-2 bg-[#E8A94C] hover:bg-[#F0B865] text-[#1C1F24] px-6 py-3 rounded-2xl transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
+                className="flex items-center gap-2 border border-[#E8E6E1] dark:border-[#232830] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 text-[#3E4650] dark:text-[#9AA1AC] px-6 py-3 rounded-full transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
               >
                 <BsChatDots size={14} />
                 Talk to AI Coach
@@ -812,17 +807,18 @@ function Step3Report({ report, showBackButton = true }) {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 rounded-3xl border-2 border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-6 sm:p-7"
+            className="mb-8 rounded-3xl border-2 border-red-300 dark:border-red-900/60 bg-white dark:bg-[#0C0E11] p-6 sm:p-7 relative overflow-hidden"
           >
+            <span className="absolute top-0 left-10 right-10 h-0.5 bg-red-400 dark:bg-red-500/70" />
             <div className="flex items-start gap-4">
               <div className="w-11 h-11 shrink-0 rounded-2xl bg-red-500/15 flex items-center justify-center">
                 <IoWarningOutline className="text-red-600 dark:text-red-400" size={22} />
               </div>
               <div>
-                <p className="font-mono-studio text-[10px] tracking-[0.2em] text-red-500 dark:text-red-400 mb-2">
+                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-red-500 dark:text-red-400 mb-2">
                   PROCTOR NOTICE
                 </p>
-                <h2 className="font-serif-display text-xl sm:text-2xl text-red-700 dark:text-red-300 mb-1.5">
+                <h2 className="font-serif-display tracking-tight text-xl sm:text-2xl text-red-700 dark:text-red-300 mb-1.5">
                   Interview was not successful
                 </h2>
                 <p className="text-sm text-red-700/80 dark:text-red-300/80 leading-relaxed">
@@ -857,14 +853,14 @@ function Step3Report({ report, showBackButton = true }) {
 
               <div className="mt-7">
                 <span
-                  className={`font-mono-studio inline-block text-[10px] tracking-[0.14em] px-3.5 py-1.5 rounded-md border-2 mb-4 ${tier.pill} border-current`}
+                  className={`font-mono-studio inline-block text-[10px] tracking-[0.18em] px-3.5 py-1.5 rounded-full border mb-4 ${tier.pill} border-current`}
                 >
                   {tier.label}
                 </span>
-                <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] text-xl leading-snug">
+                <p className="font-serif-display text-[#14171B] dark:text-[#EDEEF0] text-xl leading-snug tracking-tight">
                   {performanceText}
                 </p>
-                <p className="text-[#8B92A0] text-sm mt-2 leading-relaxed">
+                <p className="text-[#5B636E] dark:text-[#8B92A0] text-sm mt-2 leading-relaxed">
                   {shortTagline}
                 </p>
               </div>
@@ -875,17 +871,18 @@ function Step3Report({ report, showBackButton = true }) {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.02 }}
-                className={`${CARD} p-6 sm:p-8`}
+                className={`${CARD} p-6 sm:p-8 relative overflow-hidden`}
               >
-                <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C] mb-2">
+                <span className="absolute top-0 left-10 right-10 h-0.5 bg-linear-to-r from-transparent via-[#9A7B24]/40 dark:via-[#E8A94C]/30 to-transparent" />
+                <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#9A7B24] dark:text-[#E8A94C] mb-2">
                   COMPANY LOOP · {(company || "").toUpperCase()}
                 </p>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                  <h3 className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+                  <h3 className="font-serif-display text-2xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
                     {company} Report Card
                   </h3>
                   <span
-                    className="font-mono-studio text-xs tracking-[0.18em] px-4 py-2 rounded-md border-2 w-fit"
+                    className="font-mono-studio text-xs tracking-[0.18em] px-4 py-2 rounded-full border w-fit"
                     style={{
                       color: VERDICT_STYLES[companyVerdict.signal]?.text,
                       borderColor: VERDICT_STYLES[companyVerdict.signal]?.border,
@@ -895,19 +892,19 @@ function Step3Report({ report, showBackButton = true }) {
                     {companyVerdict.signal}
                   </span>
                 </div>
-                <div className="divide-y divide-[#EAE9E5] dark:divide-[#1E2229] border-y border-[#EAE9E5] dark:border-[#1E2229] mb-6">
+                <div className="divide-y divide-[#E8E6E1] dark:divide-[#232830] border-y border-[#E8E6E1] dark:border-[#232830] mb-6">
                   {(companyVerdict.roundSignals || []).map((r, i) => (
                     <div key={r.roundId || i} className="flex items-center justify-between gap-3 py-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono-studio text-[10px] text-[#9AA1AC] dark:text-[#565D68] w-6 shrink-0">
+                        <span className="font-mono-studio text-[10px] text-[#8A929C] dark:text-[#565D68] w-6 shrink-0">
                           {String(i + 1).padStart(2, "0")}
                         </span>
-                        <span className="text-sm text-[#1C1F24] dark:text-[#EDEEF0] truncate">{r.label}</span>
+                        <span className="text-sm text-[#14171B] dark:text-[#EDEEF0] truncate">{r.label}</span>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className="font-mono-studio text-xs text-[#8B92A0]">{round1(r.avgScore)}/10</span>
+                        <span className="font-mono-studio text-xs text-[#5B636E] dark:text-[#8B92A0]">{round1(r.avgScore)}/10</span>
                         <span
-                          className="font-mono-studio text-[10px] tracking-[0.12em] px-2 py-1 rounded"
+                          className="font-mono-studio text-[10px] tracking-[0.12em] px-2 py-1 rounded-full"
                           style={{
                             color: VERDICT_STYLES[r.signal]?.text,
                             backgroundColor: VERDICT_STYLES[r.signal]?.bg,
@@ -920,7 +917,7 @@ function Step3Report({ report, showBackButton = true }) {
                   ))}
                 </div>
                 {companyVerdict.summary && (
-                  <p className="font-serif-display italic text-[#1C1F24] dark:text-[#EDEEF0] text-base leading-relaxed">
+                  <p className="font-serif-display italic text-[#14171B] dark:text-[#EDEEF0] text-base leading-relaxed">
                     “{companyVerdict.summary}”
                   </p>
                 )}
@@ -942,7 +939,7 @@ function Step3Report({ report, showBackButton = true }) {
                     return (
                       <div
                         key={key}
-                        className="rounded-2xl p-4 text-center border-2"
+                        className="rounded-2xl p-4 text-center border bg-[#F5F4F1] dark:bg-[#14171C]"
                         style={{ borderColor: `${persona.accent}44` }}
                       >
                         <BsPersonFill
@@ -950,11 +947,11 @@ function Step3Report({ report, showBackButton = true }) {
                           style={{ color: persona.accent }}
                           className="mx-auto mb-1.5"
                         />
-                        <p className="font-serif-display text-3xl text-[#1C1F24] dark:text-[#EDEEF0] leading-none">
+                        <p className="font-serif-display text-3xl text-[#14171B] dark:text-[#EDEEF0] leading-none">
                           {formatScore(val)}
-                          <span className="text-xs text-[#8B92A0]">/10</span>
+                          <span className="text-xs text-[#8A929C] dark:text-[#565D68]">/10</span>
                         </p>
-                        <div className="h-1 rounded-full bg-black/5 dark:bg-white/8 mt-3 overflow-hidden">
+                        <div className="h-1 rounded-full bg-[#E8E6E1] dark:bg-[#232830] mt-3 overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${val * 10}%` }}
@@ -969,7 +966,7 @@ function Step3Report({ report, showBackButton = true }) {
                         >
                           {persona.label.toUpperCase()}
                         </p>
-                        <p className="text-[10px] text-[#8B92A0]">{persona.subtitle}</p>
+                        <p className="text-[10px] text-[#8A929C] dark:text-[#565D68]">{persona.subtitle}</p>
                       </div>
                     );
                   })}
@@ -1001,31 +998,31 @@ function Step3Report({ report, showBackButton = true }) {
                 <SectionHead num={isPanel ? "04" : "03"} label="Speaking Delivery" />
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
+                    <p className="font-serif-display text-2xl text-[#14171B] dark:text-[#EDEEF0]">
                       {formatScore(avgDeliveryScore)}
                     </p>
-                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8B92A0] mt-1">
+                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8A929C] dark:text-[#565D68] mt-1">
                       DELIVERY /10
                     </p>
                   </div>
                   <div>
-                    <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
+                    <p className="font-serif-display text-2xl text-[#14171B] dark:text-[#EDEEF0]">
                       {wpm}
                     </p>
-                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8B92A0] mt-1">
+                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8A929C] dark:text-[#565D68] mt-1">
                       WORDS / MIN
                     </p>
                   </div>
                   <div>
-                    <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
+                    <p className="font-serif-display text-2xl text-[#14171B] dark:text-[#EDEEF0]">
                       {totalFillerWords}
                     </p>
-                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8B92A0] mt-1">
+                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8A929C] dark:text-[#565D68] mt-1">
                       FILLER WORDS
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-[#8B92A0] mt-5 text-center">
+                <p className="text-xs text-[#5B636E] dark:text-[#8B92A0] mt-5 text-center">
                   {paceLabel}. A steady pace is roughly 90 to 190 words a minute.
                 </p>
               </motion.div>
@@ -1047,30 +1044,30 @@ function Step3Report({ report, showBackButton = true }) {
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">Confidence score</p>
-                      <p className="text-xs text-[#8B92A0] mt-0.5 leading-relaxed">Blends eye contact, filler words and speaking pace.</p>
+                      <p className="text-sm font-semibold text-[#14171B] dark:text-[#EDEEF0]">Confidence score</p>
+                      <p className="text-xs text-[#5B636E] dark:text-[#8B92A0] mt-0.5 leading-relaxed">Blends eye contact, filler words and speaking pace.</p>
                     </div>
                   </div>
                 )}
                 {avgEyeContactPct != null && (
                   <div className="mb-5">
                     <div className="flex justify-between items-baseline mb-2 text-sm">
-                      <span className="text-[#3D4148] dark:text-[#C7CBD1]">Eye contact</span>
-                      <span className="font-mono-studio font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">
+                      <span className="text-[#3E4650] dark:text-[#9AA1AC]">Eye contact</span>
+                      <span className="font-mono-studio font-semibold text-[#14171B] dark:text-[#EDEEF0]">
                         {avgEyeContactPct}
-                        <span className="text-[10px] text-[#8B92A0] font-normal">% of the time</span>
+                        <span className="text-[10px] text-[#8A929C] dark:text-[#565D68] font-normal">% of the time</span>
                       </span>
                     </div>
-                    <div className="bg-[#EFEEEA] dark:bg-[#1B1E24] h-2 rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${avgEyeContactPct}%` }} transition={{ duration: 0.9, ease: "easeOut" }} className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${confTier.color}99, ${confTier.color})` }} />
+                    <div className="bg-[#E8E6E1] dark:bg-[#232830] h-2 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${avgEyeContactPct}%` }} transition={{ duration: 0.9, ease: "easeOut" }} className="h-full rounded-full" style={{ backgroundColor: confTier.color }} />
                     </div>
                   </div>
                 )}
                 {confidenceSummaryLines.length > 0 && (
                   <ul className="space-y-2">
                     {confidenceSummaryLines.map((line, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px] text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">
-                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: confTier.color }} />
+                      <li key={i} className="flex items-start gap-2.5 text-[13px] text-[#3E4650] dark:text-[#9AA1AC] leading-relaxed">
+                        <span className="mt-1.5 w-1 h-1 rotate-45 shrink-0" style={{ backgroundColor: confTier.color }} />
                         {line}
                       </li>
                     ))}
@@ -1130,18 +1127,18 @@ function Step3Report({ report, showBackButton = true }) {
                       key={row.label}
                       className="flex items-center justify-between gap-3"
                     >
-                      <span className="text-[#3D4148] dark:text-[#C7CBD1]">
+                      <span className="text-[#3E4650] dark:text-[#9AA1AC]">
                         {row.label}
                       </span>
                       <span
-                        className={`font-mono-studio inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md ${
+                        className={`font-mono-studio inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
                           row.ok
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                             : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rotate-45 ${row.ok ? "bg-emerald-500" : "bg-amber-500"}`}
+                          className={`w-1 h-1 rotate-45 ${row.ok ? "bg-emerald-500" : "bg-amber-500"}`}
                         />
                         {row.value}
                       </span>
@@ -1189,8 +1186,9 @@ function Step3Report({ report, showBackButton = true }) {
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className={`${CARD} p-6 sm:p-8`}
+              className={`${CARD} p-6 sm:p-8 relative overflow-hidden`}
             >
+              <span className="absolute top-0 left-10 right-10 h-0.5 bg-linear-to-r from-transparent via-[#9A7B24]/40 dark:via-[#E8A94C]/30 to-transparent" />
               <SectionHead num={isPanel ? (hasDelivery ? (hasConfidence ? "07" : "06") : (hasConfidence ? "06" : "05")) : (hasDelivery ? (hasConfidence ? "06" : "05") : (hasConfidence ? "05" : "04"))} label="Performance Trend" />
 
               <div className="h-64 sm:h-72">
@@ -1201,8 +1199,8 @@ function Step3Report({ report, showBackButton = true }) {
                   >
                     <defs>
                       <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#E8A94C" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="#E8A94C" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#C99E41" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#C99E41" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid
@@ -1212,29 +1210,29 @@ function Step3Report({ report, showBackButton = true }) {
                     />
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: "#8B92A0", fontFamily: "JetBrains Mono", fontSize: 11 }}
+                      tick={{ fill: "#8A929C", fontFamily: "IBM Plex Mono", fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <YAxis
                       domain={[0, 10]}
                       ticks={[0, 2, 4, 6, 8, 10]}
-                      tick={{ fill: "#8B92A0", fontFamily: "JetBrains Mono", fontSize: 11 }}
+                      tick={{ fill: "#8A929C", fontFamily: "IBM Plex Mono", fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <Tooltip
                       content={<ChartTooltip />}
-                      cursor={{ stroke: "#E8A94C", strokeOpacity: 0.35, strokeDasharray: "3 3" }}
+                      cursor={{ stroke: "#C99E41", strokeOpacity: 0.35, strokeDasharray: "3 3" }}
                     />
                     <Area
                       type="monotone"
                       dataKey="score"
-                      stroke="#E8A94C"
+                      stroke="#C99E41"
                       strokeWidth={2.5}
                       fill="url(#scoreFill)"
-                      dot={{ r: 3, fill: "#E8A94C", strokeWidth: 0 }}
-                      activeDot={{ r: 5.5, fill: "#E8A94C", stroke: "#fff", strokeWidth: 2 }}
+                      dot={{ r: 3, fill: "#C99E41", strokeWidth: 0 }}
+                      activeDot={{ r: 5.5, fill: "#C99E41", stroke: "#fff", strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -1245,8 +1243,9 @@ function Step3Report({ report, showBackButton = true }) {
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className={`${CARD} p-6 sm:p-8`}
+              className={`${CARD} p-6 sm:p-8 relative overflow-hidden`}
             >
+              <span className="absolute top-0 left-10 right-10 h-0.5 bg-linear-to-r from-transparent via-[#9A7B24]/40 dark:via-[#E8A94C]/30 to-transparent" />
               <div className="mb-6">
                 <SectionHead num={isPanel ? (hasDelivery ? (hasConfidence ? "08" : "07") : (hasConfidence ? "07" : "06")) : (hasDelivery ? (hasConfidence ? "07" : "06") : (hasConfidence ? "06" : "05"))} label="Questions Breakdown" />
                 <div className="flex flex-wrap gap-2 -mt-2">
@@ -1261,8 +1260,8 @@ function Step3Report({ report, showBackButton = true }) {
                         disabled={f.id !== "all" && count === 0}
                         className={`font-mono-studio text-[11px] tracking-[0.08em] px-3 py-1.5 rounded-full border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                           active
-                            ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] border-transparent"
-                            : "border-[#EAE9E5] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] hover:bg-[#F5F5F3] dark:hover:bg-[#181B20]"
+                            ? "bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] border-transparent font-semibold"
+                            : "border-[#E8E6E1] dark:border-[#232830] text-[#5B636E] dark:text-[#8B92A0] hover:border-[#9A7B24]/40 dark:hover:border-[#E8A94C]/40"
                         }`}
                       >
                         {f.label} · {count}
@@ -1273,7 +1272,7 @@ function Step3Report({ report, showBackButton = true }) {
               </div>
 
               {visibleCount === 0 && (
-                <p className="text-sm text-[#8B92A0] text-center py-8">
+                <p className="text-sm text-[#8A929C] dark:text-[#565D68] text-center py-8">
                   No questions match this filter.
                 </p>
               )}
@@ -1283,12 +1282,12 @@ function Step3Report({ report, showBackButton = true }) {
                   const persona = q.askedBy ? PANEL_LABELS[q.askedBy] : null;
                   const qScore = round1(q.score ?? 0);
                   const qTier = TIERS[tierFor(qScore)];
-                  const accentColor = q.skipped ? "#8B92A0" : qTier.color;
+                  const accentColor = q.skipped ? "#8A929C" : qTier.color;
                   return (
                     <div
                       key={q._id || i}
                       id={`question-${i + 1}`}
-                      className={`relative bg-[#FAFAF8] dark:bg-[#0C0E11] p-4 sm:p-6 pl-5 sm:pl-7 rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] ${
+                      className={`relative bg-[#F5F4F1] dark:bg-[#14171C] p-4 sm:p-6 pl-5 sm:pl-7 rounded-2xl border border-[#E8E6E1] dark:border-[#232830] ${
                         matchesFilter(q) ? "" : "hidden"
                       }`}
                     >
@@ -1299,12 +1298,12 @@ function Step3Report({ report, showBackButton = true }) {
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <p className="font-mono-studio text-[11px] tracking-[0.14em] text-[#B27E2E] dark:text-[#E8A94C]">
+                            <p className="font-mono-studio text-[11px] tracking-[0.14em] text-[#9A7B24] dark:text-[#E8A94C]">
                               Q.{String(i + 1).padStart(2, "0")}
                             </p>
                             {persona && (
                               <span
-                                className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide"
+                                className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] tracking-wide"
                                 style={{
                                   backgroundColor: `${persona.accent}1A`,
                                   color: persona.accent,
@@ -1314,33 +1313,33 @@ function Step3Report({ report, showBackButton = true }) {
                               </span>
                             )}
                             {q.type === "coding" && (
-                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8]">
+                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] tracking-wide bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8]">
                                 <BsCode size={9} /> CODING
                               </span>
                             )}
                             {q.type === "sql" && (
-                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide bg-[#A78BFA]/10 text-[#6D4FC2] dark:text-[#A78BFA]">
+                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] tracking-wide bg-[#14171B]/5 dark:bg-white/10 text-[#5B636E] dark:text-[#9AA1AC]">
                                 <BsTable size={9} /> SQL
                               </span>
                             )}
                             {q.roundLabel && (
-                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C]">
+                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] tracking-wide bg-[#C99E41]/10 dark:bg-[#E8A94C]/10 text-[#9A7B24] dark:text-[#E8A94C]">
                                 {q.roundLabel.toUpperCase()}
                               </span>
                             )}
                           </div>
-                          <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] text-base sm:text-lg leading-relaxed mt-0.5 wrap-break-word">
+                          <p className="font-serif-display text-[#14171B] dark:text-[#EDEEF0] text-base sm:text-lg leading-relaxed tracking-tight mt-0.5 wrap-break-word">
                             {q.question || "Question not available"}
                           </p>
                         </div>
 
                         {q.skipped ? (
-                          <div className="font-mono-studio bg-[#8B92A0]/12 text-[#8B92A0] px-3 py-1 rounded-md font-bold text-xs w-fit shrink-0 tracking-[0.12em]">
+                          <div className="font-mono-studio bg-[#8A929C]/12 text-[#5B636E] dark:text-[#8B92A0] px-3 py-1 rounded-full font-bold text-xs w-fit shrink-0 tracking-[0.12em]">
                             SKIPPED
                           </div>
                         ) : (
                           <div
-                            className={`font-mono-studio px-3 py-1 rounded-md font-bold text-xs sm:text-sm w-fit shrink-0 ${qTier.pill}`}
+                            className={`font-mono-studio px-3 py-1 rounded-full font-bold text-xs sm:text-sm w-fit shrink-0 ${qTier.pill}`}
                           >
                             {formatScore(qScore)}/10
                           </div>
@@ -1349,10 +1348,10 @@ function Step3Report({ report, showBackButton = true }) {
 
                       {q.type === "sql" && q.answer && (
                         <div className="mb-4">
-                          <p className="font-mono-studio text-[11px] tracking-widest text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
+                          <p className="font-mono-studio text-[11px] tracking-[0.22em] text-[#8A929C] dark:text-[#565D68] mb-1.5 flex items-center gap-1.5">
                             <BsTable size={11} /> SUBMITTED QUERY
                           </p>
-                          <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#1E2229]">
+                          <pre className="font-mono-studio bg-[#F5F4F1] dark:bg-[#0C0E11] text-[#3E4650] dark:text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#E8E6E1] dark:border-[#232830]">
                             <code>{q.answer}</code>
                           </pre>
                         </div>
@@ -1360,21 +1359,21 @@ function Step3Report({ report, showBackButton = true }) {
 
                       {q.type === "coding" && q.answer && (
                         <div className="mb-4">
-                          <p className="font-mono-studio text-[11px] tracking-widest text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
+                          <p className="font-mono-studio text-[11px] tracking-[0.22em] text-[#8A929C] dark:text-[#565D68] mb-1.5 flex items-center gap-1.5">
                             <BsCode size={11} /> SUBMITTED CODE
                             {q.language ? ` · ${q.language.toUpperCase()}` : ""}
                           </p>
-                          <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#1E2229]">
+                          <pre className="font-mono-studio bg-[#F5F4F1] dark:bg-[#0C0E11] text-[#3E4650] dark:text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#E8E6E1] dark:border-[#232830]">
                             <code>{q.answer}</code>
                           </pre>
                         </div>
                       )}
 
-                      <div className="bg-white dark:bg-[#111318] border border-[#E8A94C]/25 p-4 rounded-xl">
-                        <p className="font-mono-studio text-[10px] tracking-[0.16em] text-[#B27E2E] dark:text-[#E8A94C] uppercase mb-1.5">
+                      <div className="bg-white dark:bg-[#0C0E11] border border-[#9A7B24]/30 dark:border-[#E8A94C]/25 p-4 rounded-xl">
+                        <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#9A7B24] dark:text-[#E8A94C] uppercase mb-1.5">
                           AI feedback
                         </p>
-                        <p className="text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">
+                        <p className="text-sm text-[#3E4650] dark:text-[#9AA1AC] leading-relaxed">
                           {q.feedback && q.feedback.trim() !== ""
                             ? q.feedback
                             : "No feedback available for this question."}
@@ -1384,7 +1383,7 @@ function Step3Report({ report, showBackButton = true }) {
                       {q.confidenceMetrics && (
                         <div className="mt-3 rounded-xl border border-[#5EC8D8]/25 bg-[#5EC8D8]/5 px-3.5 py-2.5">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="font-mono-studio text-[10px] text-[#2E8494] dark:text-[#5EC8D8] tracking-wide uppercase">Body language</p>
+                            <p className="font-mono-studio text-[10px] text-[#2E8494] dark:text-[#5EC8D8] tracking-[0.18em] uppercase">Body language</p>
                             {q.confidenceMetrics.confidenceScore != null && (
                               <span className="font-mono-studio text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${TIERS[tierFor(q.confidenceMetrics.confidenceScore)].color}1A`, color: TIERS[tierFor(q.confidenceMetrics.confidenceScore)].color }}>
                                 {formatScore(q.confidenceMetrics.confidenceScore)}/10
@@ -1392,7 +1391,7 @@ function Step3Report({ report, showBackButton = true }) {
                             )}
                           </div>
                           {(q.confidenceMetrics.notes || []).map((note, ni) => (
-                            <p key={ni} className="text-[13px] text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">{note}</p>
+                            <p key={ni} className="text-[13px] text-[#3E4650] dark:text-[#9AA1AC] leading-relaxed">{note}</p>
                           ))}
                         </div>
                       )}

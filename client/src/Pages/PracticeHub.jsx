@@ -9,7 +9,7 @@ import { ServerUrl } from "../App";
 const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" };
 
 const CARD_BASE =
-  "bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229]";
+  "bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830]";
 
 function useCountUp(target, duration, active) {
   const [val, setVal] = useState(0);
@@ -41,39 +41,39 @@ function QuestionCard({ q, onClick, index }) {
       transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3) }}
       whileHover={{ y: -5 }}
       whileTap={{ scale: 0.98 }}
-      className={`group text-left ${CARD_BASE} rounded-2xl p-5 sm:p-6 hover:border-[#E8A94C]/50 transition-all duration-200 flex flex-col gap-4 cursor-pointer`}
+      className={`group text-left ${CARD_BASE} rounded-2xl p-5 sm:p-6 hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 transition-all duration-200 flex flex-col gap-4 cursor-pointer shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]`}
     >
       <div className="flex items-center justify-between">
-        <span className="font-mono-studio text-xs tracking-[0.2em] text-[#B27E2E] dark:text-[#E8A94C]">
+        <span className="font-mono-studio text-xs tracking-[0.2em] text-[#9A7B24] dark:text-[#E8A94C]">
           Q.{num}
         </span>
         <div className="flex items-center gap-2">
           <span
             className={`font-mono-studio text-[10px] tracking-[0.16em] border px-2 py-1 rounded-md ${
               isCoding
-                ? "text-[#2E8494] dark:text-[#5EC8D8] border-[#5EC8D8]/30"
-                : "text-[#6A5FBF] dark:text-[#B3A9F5] border-[#8B7FD6]/30"
+                ? "text-[#2E8494] dark:text-[#5EC8D8] border-[#2E8494]/30 dark:border-[#5EC8D8]/30"
+                : "text-[#6A5FBF] dark:text-[#B3A9F5] border-[#6A5FBF]/30 dark:border-[#8B7FD6]/30"
             }`}
           >
             {isCoding ? "CODING" : "HR"}
           </span>
           {q.difficulty && (
-            <span className="font-mono-studio text-[10px] tracking-[0.16em] text-[#8B92A0]">
+            <span className="font-mono-studio text-[10px] tracking-[0.16em] text-[#8A929C] dark:text-[#8B92A0]">
               {(DIFFICULTY_LABEL[q.difficulty] || q.difficulty).toUpperCase()}
             </span>
           )}
         </div>
       </div>
 
-      <p className="font-serif-display text-lg text-[#1C1F24] dark:text-[#EDEEF0] leading-snug line-clamp-3">
+      <p className="font-serif-display text-lg text-[#14171B] dark:text-[#EDEEF0] leading-snug line-clamp-3">
         {q.title}
       </p>
 
-      <div className="flex items-center justify-between mt-auto pt-2 border-t border-[#EAE9E5] dark:border-[#1E2229]">
-        <span className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] capitalize">
+      <div className="flex items-center justify-between mt-auto pt-2 border-t border-[#E8E6E1] dark:border-[#232830]">
+        <span className="font-mono-studio text-[10px] tracking-wide text-[#8A929C] dark:text-[#8B92A0] capitalize">
           {q.category}
         </span>
-        <span className="font-mono-studio text-xs tracking-[0.14em] text-[#9AA1AC] group-hover:text-[#E8A94C] transition-colors duration-200">
+        <span className="font-mono-studio text-xs tracking-[0.14em] text-[#8A929C] dark:text-[#9AA1AC] group-hover:text-[#9A7B24] dark:group-hover:text-[#E8A94C] transition-colors duration-200">
           OPEN <span className="inline-block group-hover:translate-x-1 transition-transform duration-200">→</span>
         </span>
       </div>
@@ -99,58 +99,58 @@ function DailyChallengeCard({ daily, onClick }) {
       transition={{ duration: 0.4 }}
       whileHover={{ y: -3 }}
       onClick={onClick}
-      className="relative w-full text-left bg-[#0C0E11] border border-[#232830] rounded-3xl p-7 sm:p-10 mb-8 group transition-all duration-200 hover:border-[#E8A94C]/60 cursor-pointer overflow-hidden"
+      className="relative w-full text-left bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-3xl p-7 sm:p-10 mb-8 group transition-all duration-200 hover:border-[#9A7B24]/60 dark:hover:border-[#E8A94C]/60 cursor-pointer overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]"
     >
-      <span className="pointer-events-none absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-[#E8A94C]/70 group-hover:border-[#E8A94C] transition-colors duration-300" />
-      <span className="pointer-events-none absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-[#E8A94C]/70 group-hover:border-[#E8A94C] transition-colors duration-300" />
-      <span className="pointer-events-none absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-[#E8A94C]/70 group-hover:border-[#E8A94C] transition-colors duration-300" />
-      <span className="pointer-events-none absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-[#E8A94C]/70 group-hover:border-[#E8A94C] transition-colors duration-300" />
+      <span className="pointer-events-none absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-[#9A7B24]/70 dark:border-[#E8A94C]/70 group-hover:border-[#9A7B24] dark:group-hover:border-[#E8A94C] transition-colors duration-300" />
+      <span className="pointer-events-none absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-[#9A7B24]/70 dark:border-[#E8A94C]/70 group-hover:border-[#9A7B24] dark:group-hover:border-[#E8A94C] transition-colors duration-300" />
+      <span className="pointer-events-none absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-[#9A7B24]/70 dark:border-[#E8A94C]/70 group-hover:border-[#9A7B24] dark:group-hover:border-[#E8A94C] transition-colors duration-300" />
+      <span className="pointer-events-none absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-[#9A7B24]/70 dark:border-[#E8A94C]/70 group-hover:border-[#9A7B24] dark:group-hover:border-[#E8A94C] transition-colors duration-300" />
 
-      <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-linear-to-r from-transparent via-[#E8A94C]/[0.07] to-transparent shine-sweep" />
+      <span className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-linear-to-r from-transparent via-[#9A7B24]/[0.07] dark:via-[#E8A94C]/[0.07] to-transparent shine-sweep" />
 
-      <span className="pointer-events-none absolute right-8 bottom-4 font-serif-display text-[8rem] sm:text-[9rem] leading-none text-white/5 select-none hidden sm:block float-soft">
+      <span className="pointer-events-none absolute right-8 bottom-4 font-serif-display italic text-[8rem] sm:text-[9rem] leading-none text-[#14171B]/5 dark:text-white/5 select-none hidden sm:block float-soft">
         01
       </span>
 
       <div className="relative">
         <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-2.5">
-            <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-            <span className="font-mono-studio text-[11px] tracking-[0.24em] text-[#E8A94C]">
+            <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
+            <span className="font-mono-studio text-[11px] tracking-[0.24em] text-[#9A7B24] dark:text-[#E8A94C]">
               DAILY CHALLENGE
             </span>
             <span
               className={`font-mono-studio text-[10px] tracking-[0.16em] border px-2 py-1 rounded-md ${
                 daily.type === "coding"
-                  ? "text-[#5EC8D8] border-[#5EC8D8]/30"
-                  : "text-[#B3A9F5] border-[#8B7FD6]/30"
+                  ? "text-[#2E8494] dark:text-[#5EC8D8] border-[#2E8494]/30 dark:border-[#5EC8D8]/30"
+                  : "text-[#6A5FBF] dark:text-[#B3A9F5] border-[#6A5FBF]/30 dark:border-[#8B7FD6]/30"
               }`}
             >
               {daily.type === "coding" ? "CODING" : "HR"}
             </span>
           </div>
-          <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8B92A0]">
+          <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#8B92A0]">
             {today}
           </span>
         </div>
 
-        <h3 className="font-serif-display text-2xl sm:text-4xl text-[#EDEEF0] tracking-tight leading-[1.15] line-clamp-3 max-w-3xl">
+        <h3 className="font-serif-display text-2xl sm:text-4xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-[1.15] line-clamp-3 max-w-3xl">
           {daily.title}
         </h3>
 
-        <p className="text-xs text-[#8B92A0] mt-3 max-w-xl leading-relaxed">
+        <p className="text-xs text-[#5B636E] dark:text-[#8B92A0] mt-3 max-w-xl leading-relaxed">
           Same question for everyone today — solve it before midnight and keep
           the streak alive.
         </p>
 
         <div className="mt-7">
           {daily.completed ? (
-            <span className="font-mono-studio inline-flex items-center gap-2.5 text-[#4ADE80] text-xs tracking-[0.14em] border border-[#4ADE80]/30 px-5 py-3 rounded-xl">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#4ADE80] shrink-0" />
+            <span className="font-mono-studio inline-flex items-center gap-2.5 text-[#2E9C5A] dark:text-[#4ADE80] text-xs tracking-[0.14em] border border-[#2E9C5A]/30 dark:border-[#4ADE80]/30 px-5 py-3 rounded-full">
+              <span className="w-1.5 h-1.5 rotate-45 bg-[#2E9C5A] dark:bg-[#4ADE80] shrink-0" />
               DONE — STREAK SAFE
             </span>
           ) : (
-            <span className="font-mono-studio inline-flex items-center gap-3 bg-[#E8A94C] text-[#1C1F24] text-sm font-bold tracking-[0.08em] px-7 py-4 rounded-xl group-hover:gap-4.5 transition-all duration-200">
+            <span className="font-mono-studio inline-flex items-center gap-3 bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] text-sm font-bold tracking-[0.08em] px-7 py-4 rounded-full group-hover:opacity-90 group-hover:gap-4.5 transition-all duration-200">
               START CHALLENGE
               <span>→</span>
             </span>
@@ -174,17 +174,17 @@ function Ticker() {
   return (
     <div
       aria-hidden="true"
-      className="overflow-hidden border-y border-[#EAE9E5] dark:border-[#1E2229] mb-8 py-3 select-none"
+      className="overflow-hidden border-y border-[#E8E6E1] dark:border-[#232830] mb-8 py-3 select-none"
     >
       <div className="ticker-track flex whitespace-nowrap w-max">
         {[0, 1].map((copy) => (
           <div key={copy} className="flex items-center shrink-0">
             {TICKER_ITEMS.map((t) => (
               <span key={`${copy}-${t}`} className="flex items-center shrink-0">
-                <span className="font-mono-studio text-[10px] tracking-[0.32em] text-[#8B92A0] px-7">
+                <span className="font-mono-studio text-[10px] tracking-[0.32em] text-[#8A929C] dark:text-[#8B92A0] px-7">
                   {t}
                 </span>
-                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C]/60 shrink-0" />
+                <span className="w-1.5 h-1.5 rotate-45 bg-[#9A7B24]/60 dark:bg-[#E8A94C]/60 shrink-0" />
               </span>
             ))}
           </div>
@@ -308,7 +308,7 @@ function PracticeHub() {
     : [];
 
   return (
-    <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300 px-4 sm:px-6 pb-16 overflow-hidden">
+    <div className="min-h-screen relative bg-[#FAFAF9] dark:bg-[#0A0B0D] transition-colors duration-300 px-4 sm:px-6 pb-16 overflow-hidden">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
@@ -375,17 +375,17 @@ function PracticeHub() {
               whileTap={{ scale: 0.94 }}
               onClick={() => navigate("/")}
               aria-label="Go back to home"
-              className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] transition-all duration-200 cursor-pointer"
+              className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] transition-all duration-200 cursor-pointer"
             >
               <FaArrowLeft
-                className="text-[#5C6472] dark:text-[#9AA1AC]"
+                className="text-[#5B636E] dark:text-[#9AA1AC]"
                 size={14}
               />
             </motion.button>
 
-            <div className="flex items-center gap-2 min-w-0 bg-[#E8A94C]/8 border border-[#E8A94C]/20 px-3 py-1.5 rounded-full">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-              <span className="font-mono-studio text-[9px] sm:text-[11px] tracking-[0.08em] text-[#B27E2E] dark:text-[#E8A94C] whitespace-nowrap">
+            <div className="flex items-center gap-2 min-w-0 bg-[#9A7B24]/8 dark:bg-[#E8A94C]/8 border border-[#9A7B24]/20 dark:border-[#E8A94C]/20 px-3 py-1.5 rounded-full">
+              <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
+              <span className="font-mono-studio text-[9px] sm:text-[11px] tracking-[0.08em] text-[#9A7B24] dark:text-[#E8A94C] whitespace-nowrap">
                 PRACTICE HUB · FREE · UNLIMITED
               </span>
             </div>
@@ -401,14 +401,14 @@ function PracticeHub() {
               className="min-w-0"
             >
 
-              <h1 className="font-serif-display text-4xl sm:text-6xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-4 leading-[1.04]">
+              <h1 className="font-serif-display text-4xl sm:text-6xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight mb-4 leading-[1.04]">
                 Sharpen one question{" "}
-                <em className="text-[#B27E2E] dark:text-[#E8A94C]">
+                <em className="text-[#9A7B24] dark:text-[#E8A94C]">
                   at a time.
                 </em>
               </h1>
 
-              <p className="text-sm text-[#5C6472] dark:text-[#8B92A0] max-w-xl leading-relaxed">
+              <p className="text-sm text-[#3E4650] dark:text-[#8B92A0] max-w-xl leading-relaxed">
                 No credits, no full mock interview — just pick a question and
                 get instant AI feedback. Daily reps build interview muscle.
               </p>
@@ -423,7 +423,7 @@ function PracticeHub() {
               whileHover={{ scale: 1.03, y: -2 }}
               whileTap={{ scale: 0.97 }}
               disabled={!allQuestions.length}
-              className="shrink-0 w-full sm:w-auto bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] font-mono-studio text-xs font-bold tracking-[0.14em] px-7 py-4 rounded-2xl disabled:opacity-60 transition-all duration-200 cursor-pointer"
+              className="shrink-0 w-full sm:w-auto bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] font-mono-studio text-xs font-bold tracking-[0.14em] px-7 py-4 rounded-full disabled:opacity-60 hover:opacity-90 transition-all duration-200 cursor-pointer"
             >
               SURPRISE ME →
             </motion.button>
@@ -447,20 +447,20 @@ function PracticeHub() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: i * 0.08 }}
                 whileHover={{ y: -3 }}
-                className={`${CARD_BASE} relative rounded-3xl p-6 sm:p-7 overflow-hidden`}
+                className={`${CARD_BASE} relative rounded-3xl p-6 sm:p-7 overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]`}
               >
                 <motion.span
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
                   transition={{ duration: 0.6, delay: 0.2 + i * 0.08, ease: "easeOut" }}
-                  className="absolute top-0 left-6 right-6 h-0.5 bg-[#E8A94C] origin-left"
+                  className="absolute top-0 left-6 right-6 h-0.5 bg-[#C99E41] dark:bg-[#E8A94C] origin-left"
                 />
-                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8B92A0] mb-3">
+                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8A929C] dark:text-[#8B92A0] mb-3">
                   {s.label.toUpperCase()}
                 </p>
-                <p className="font-serif-display text-5xl sm:text-6xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight leading-none">
+                <p className="font-serif-display text-5xl sm:text-6xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-none">
                   {s.value}
-                  <span className="font-mono-studio text-xs tracking-[0.14em] text-[#8B92A0] ml-2 align-middle">
+                  <span className="font-mono-studio text-xs tracking-[0.14em] text-[#8A929C] dark:text-[#8B92A0] ml-2 align-middle">
                     {s.suffix.toUpperCase()}
                   </span>
                 </p>
@@ -469,11 +469,15 @@ function PracticeHub() {
           </div>
         )}
 
-        <div className="flex items-end justify-between gap-4 mb-5 pb-4 border-b-2 border-[#1C1F24] dark:border-[#EDEEF0]">
-          <h2 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+        <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#9A7B24] dark:text-[#E8A94C] mb-3">
+          02 · THE BANK
+        </p>
+
+        <div className="flex items-end justify-between gap-4 mb-5 pb-4 border-b-2 border-[#14171B] dark:border-[#EDEEF0]">
+          <h2 className="font-serif-display text-2xl sm:text-3xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
             The question bank
           </h2>
-          <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8B92A0] shrink-0">
+          <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#8B92A0] shrink-0">
             {String(filtered.length).padStart(2, "0")} QUESTIONS
           </span>
         </div>
@@ -484,14 +488,14 @@ function PracticeHub() {
 
             <BsSearch
               size={14}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9AA1AC]"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A929C] dark:text-[#9AA1AC]"
             />
 
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search questions or topics..."
-              className="w-full bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] outline-none focus:border-[#E8A94C]/50 transition"
+              className="w-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] placeholder:text-[#8A929C] dark:placeholder:text-[#565D68] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition"
             />
 
           </div>
@@ -504,8 +508,8 @@ function PracticeHub() {
                 onClick={() => setTypeFilter(t)}
                 className={`shrink-0 font-mono-studio text-xs px-3.5 py-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
                   typeFilter === t
-                    ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] border-transparent"
-                    : "bg-white dark:bg-[#0F1115] text-[#5C6472] dark:text-[#8B92A0] border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/40"
+                    ? "bg-[#14171B] dark:bg-[#EDEEF0] text-[#FAFAF9] dark:text-[#0A0B0D] border-transparent"
+                    : "bg-white dark:bg-[#0C0E11] text-[#3E4650] dark:text-[#8B92A0] border-[#E8E6E1] dark:border-[#232830] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
                 }`}
               >
                 {t === "all" ? "All" : t === "coding" ? "Coding" : "HR"}
@@ -520,7 +524,7 @@ function PracticeHub() {
             onChange={(e) =>
               setDifficultyFilter(e.target.value)
             }
-            className="w-full sm:w-auto bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229] rounded-xl px-3.5 py-2.5 text-sm text-[#1C1F24] dark:text-[#EDEEF0] outline-none focus:border-[#E8A94C]/50 transition cursor-pointer"
+            className="w-full sm:w-auto bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl px-3.5 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition cursor-pointer"
           >
             <option value="all">Any difficulty</option>
             <option value="easy">Easy</option>
@@ -542,7 +546,7 @@ function PracticeHub() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="h-44 rounded-2xl bg-white dark:bg-[#0F1115] border border-[#EAE9E5] dark:border-[#1E2229] animate-pulse"
+                className="h-44 rounded-2xl bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] animate-pulse"
               />
             ))}
 
@@ -562,13 +566,13 @@ function PracticeHub() {
           <div className="text-center py-20">
 
             <div className="flex items-center justify-center gap-2.5 mb-4">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C]">
+              <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
+              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#9A7B24] dark:text-[#E8A94C]">
                 NO MATCHES
               </p>
             </div>
 
-            <p className="text-[#5C6472] dark:text-[#8B92A0] text-sm">
+            <p className="text-[#3E4650] dark:text-[#8B92A0] text-sm">
               No questions match those filters. Try clearing them.
             </p>
 

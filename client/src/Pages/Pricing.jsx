@@ -118,17 +118,17 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
   const animPrice = useCountUp(plan.price, 1000, true, 0.45 + index * 0.12);
 
   const title = featured
-    ? "text-white"
-    : "text-[#1C1F24] dark:text-[#EDEEF0]";
+    ? "text-[#14171B] dark:text-white"
+    : "text-[#14171B] dark:text-[#EDEEF0]";
   const muted = featured
-    ? "text-[#9AA1AC]"
-    : "text-[#5C6472] dark:text-[#8B92A0]";
+    ? "text-[#5B636E] dark:text-[#9AA1AC]"
+    : "text-[#5B636E] dark:text-[#9AA1AC]";
   const divider = featured
-    ? "border-white/10"
-    : "border-[#EAE9E5] dark:border-[#1E2229]";
+    ? "border-[#E8E6E1] dark:border-white/10"
+    : "border-[#E8E6E1] dark:border-[#232830]";
   const featureText = featured
-    ? "text-[#D8DCE3]"
-    : "text-[#3D4148] dark:text-[#C7CBD1]";
+    ? "text-[#3E4650] dark:text-[#D8DCE3]"
+    : "text-[#3E4650] dark:text-[#9AA1AC]";
 
   return (
     <motion.div
@@ -136,17 +136,17 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
       whileHover={plan.isDefault ? {} : { y: -8 }}
-      className={`relative flex flex-col rounded-3xl p-7 sm:p-8 border transition-all duration-300 overflow-hidden ${
+      className={`relative flex flex-col rounded-3xl p-7 sm:p-8 border transition-all duration-300 overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)] ${
         featured
-          ? "bg-[#0C0E11] border-2 border-[#E8A94C]/70 md:scale-[1.045] z-10"
-          : "bg-white dark:bg-[#111318] border-[#EAE9E5] dark:border-[#1E2229] hover:border-[#E8A94C]/40"
+          ? "bg-white dark:bg-[#0C0E11] border-2 border-[#C99E41]/70 dark:border-[#E8A94C]/70 md:scale-[1.045] z-10"
+          : "bg-white dark:bg-[#0C0E11] border-[#E8E6E1] dark:border-[#232830] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/40"
       }`}
     >
       <motion.span
         initial={{ scaleX: 0 }}
         animate={{ scaleX: 1 }}
         transition={{ duration: 0.7, delay: 0.35 + index * 0.1, ease: "easeOut" }}
-        className="absolute top-0 left-8 right-8 h-0.5 bg-[#E8A94C] origin-left"
+        className="absolute top-0 left-8 right-8 h-0.5 bg-linear-to-r from-transparent via-[#9A7B24]/40 to-transparent dark:via-[#E8A94C]/30 origin-left"
       />
 
       {featured && (
@@ -160,16 +160,16 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
       )}
 
       <div className="relative flex items-start justify-between mb-7">
-        <span className="font-mono-studio text-sm font-bold tracking-[0.2em] text-[#B27E2E] dark:text-[#E8A94C]">
+        <span className="font-mono-studio text-sm font-bold tracking-[0.2em] text-[#9A7B24] dark:text-[#E8A94C]">
           {num}
         </span>
         {plan.badge && (
-          <span className="font-mono-studio text-[10px] tracking-wide font-semibold px-3 py-1 rounded-full bg-[#E8A94C] text-[#1C1F24]">
+          <span className="font-mono-studio text-[10px] tracking-wide font-semibold px-3 py-1 rounded-full bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D]">
             {plan.badge}
           </span>
         )}
         {plan.isDefault && (
-          <span className="font-mono-studio text-[10px] tracking-wide px-3 py-1 rounded-full border border-[#EAE9E5] dark:border-[#262B34] text-[#8B92A0]">
+          <span className="font-mono-studio text-[10px] tracking-wide px-3 py-1 rounded-full border border-[#E8E6E1] dark:border-[#232830] text-[#8A929C] dark:text-[#565D68]">
             DEFAULT
           </span>
         )}
@@ -192,8 +192,8 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
         <span
           className={`font-mono-studio text-[11px] tracking-[0.14em] px-2.5 py-1 rounded-md border ${
             featured
-              ? "bg-[#E8A94C]/15 border-[#E8A94C]/30 text-[#E8A94C]"
-              : "bg-[#E8A94C]/10 border-[#E8A94C]/25 text-[#B27E2E] dark:text-[#E8A94C]"
+              ? "bg-[#C99E41]/10 border-[#C99E41]/25 text-[#9A7B24] dark:bg-[#E8A94C]/15 dark:border-[#E8A94C]/30 dark:text-[#E8A94C]"
+              : "bg-[#C99E41]/10 border-[#C99E41]/25 text-[#9A7B24] dark:bg-[#E8A94C]/10 dark:border-[#E8A94C]/25 dark:text-[#E8A94C]"
           }`}
         >
           {plan.credits} CREDITS
@@ -212,7 +212,7 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
       <ul className="relative space-y-3.5">
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-3">
-            <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0 mt-1.5" />
+            <span className="w-1 h-1 rotate-45 bg-[#9A7B24] dark:bg-[#E8A94C] shrink-0 mt-1.5" />
             <span className={`text-sm ${featureText}`}>{feature}</span>
           </li>
         ))}
@@ -220,7 +220,7 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
 
       <div className="relative mt-auto pt-8">
         {plan.isDefault ? (
-          <div className="w-full py-4 rounded-2xl text-center text-sm font-semibold border border-[#EAE9E5] dark:border-[#262B34] text-[#8B92A0] cursor-default">
+          <div className="w-full py-4 rounded-2xl text-center text-sm font-semibold border border-[#E8E6E1] dark:border-[#232830] text-[#8A929C] dark:text-[#565D68] cursor-default">
             Included with your account
           </div>
         ) : (
@@ -231,8 +231,8 @@ function PlanCard({ plan, index, loadingPlan, onPay }) {
             onClick={() => onPay(plan)}
             className={`relative w-full py-4 rounded-2xl font-semibold text-sm cursor-pointer transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden ${
               featured
-                ? "bg-[#E8A94C] hover:bg-[#F0B865] text-[#1C1F24]"
-                : "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D]"
+                ? "bg-[#C99E41] dark:bg-[#E8A94C] hover:opacity-90 text-[#14171B] dark:text-[#0A0B0D]"
+                : "border border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#EDEEF0] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
             }`}
           >
             {featured && !isLoading && (
@@ -363,7 +363,7 @@ function Pricing() {
   const balance = userData?.credits;
 
   return (
-    <div className="relative min-h-screen bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300 overflow-hidden">
+    <div className="relative min-h-screen bg-[#FAFAF9] dark:bg-[#0A0B0D] transition-colors duration-300 overflow-hidden">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         .pricing-root, .pricing-root * { font-family: 'Manrope', sans-serif; }
@@ -398,12 +398,9 @@ function Pricing() {
             whileTap={{ scale: 0.94 }}
             onClick={() => navigate("/")}
             aria-label="Go back to home"
-            className="absolute left-0 top-0 w-12 h-12 flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] transition-all duration-200 cursor-pointer"
+            className="absolute left-0 top-0 w-12 h-12 flex items-center justify-center rounded-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] text-[#3E4650] dark:text-[#9AA1AC] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 transition-all duration-200 cursor-pointer"
           >
-            <FaArrowLeft
-              className="text-[#5C6472] dark:text-[#9AA1AC]"
-              size={14}
-            />
+            <FaArrowLeft size={14} />
           </motion.button>
 
           <motion.div
@@ -413,29 +410,29 @@ function Pricing() {
             className="text-center px-14"
           >
             <div className="inline-flex items-center gap-2 bg-[#E8A94C]/8 border border-[#E8A94C]/20 px-3 py-1.5 rounded-full mb-6">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-              <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#B27E2E] dark:text-[#E8A94C]">
+              <span className="w-1 h-1 rotate-45 bg-[#9A7B24] dark:bg-[#E8A94C] shrink-0" />
+              <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#9A7B24] dark:text-[#E8A94C]">
                 SIMPLE, TRANSPARENT PRICING
               </span>
             </div>
-            <h1 className="font-serif-display text-4xl sm:text-6xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight leading-[1.05]">
+            <h1 className="font-serif-display text-4xl sm:text-6xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-[1.05]">
               Choose your plan
             </h1>
-            <p className="text-[#5C6472] dark:text-[#8B92A0] mt-4 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+            <p className="text-[#5B636E] dark:text-[#9AA1AC] mt-4 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
               Pay once, practise as much as you need. Every mock interview uses{" "}
               {CREDITS_PER_INTERVIEW} credits.
             </p>
 
             {typeof balance === "number" && (
-              <div className="mt-7 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-full px-5 py-2.5">
-                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-                <span className="text-sm text-[#5C6472] dark:text-[#9AA1AC] whitespace-nowrap">
+              <div className="mt-7 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] rounded-full px-5 py-2.5 shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]">
+                <span className="w-1 h-1 rotate-45 bg-[#9A7B24] dark:bg-[#E8A94C] shrink-0" />
+                <span className="text-sm text-[#5B636E] dark:text-[#9AA1AC] whitespace-nowrap">
                   Your balance
                 </span>
-                <span className="font-mono-studio text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0] whitespace-nowrap">
+                <span className="font-mono-studio text-sm font-semibold text-[#14171B] dark:text-[#EDEEF0] whitespace-nowrap">
                   {balance} credits
                 </span>
-                <span className="text-xs text-[#9AA1AC] dark:text-[#565D68] whitespace-nowrap">
+                <span className="text-xs text-[#8A929C] dark:text-[#565D68] whitespace-nowrap">
                   ≈ {interviewsFor(balance)} interviews
                 </span>
               </div>
@@ -457,7 +454,7 @@ function Pricing() {
             >
               <div className="flex items-start gap-2.5">
                 {notice.type === "success" ? (
-                  <span className="w-1.5 h-1.5 rotate-45 bg-[#4ADE80] shrink-0 mt-1.5" />
+                  <span className="w-1 h-1 rotate-45 bg-[#4ADE80] shrink-0 mt-1.5" />
                 ) : (
                   <IoWarningOutline
                     size={17}
@@ -476,7 +473,7 @@ function Pricing() {
               </div>
               <button
                 onClick={() => setNotice(null)}
-                className="text-xs font-semibold text-[#5C6472] dark:text-[#9AA1AC] shrink-0 cursor-pointer"
+                className="text-xs font-semibold text-[#5B636E] dark:text-[#9AA1AC] shrink-0 cursor-pointer"
               >
                 Dismiss
               </button>
@@ -500,14 +497,14 @@ function Pricing() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-14 grid sm:grid-cols-3 rounded-3xl border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-[#EAE9E5] dark:divide-[#1E2229]"
+          className="mt-14 grid sm:grid-cols-3 rounded-3xl border border-[#E8E6E1] dark:border-[#232830] overflow-hidden divide-y sm:divide-y-0 sm:divide-x divide-[#E8E6E1] dark:divide-[#232830] shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]"
         >
           {TRUST.map((t, i) => (
-            <div key={t.title} className="bg-white dark:bg-[#111318] p-6">
-              <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8B92A0] mb-3">
+            <div key={t.title} className="bg-white dark:bg-[#0C0E11] p-6">
+              <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8A929C] dark:text-[#565D68] mb-3">
                 {String(i + 1).padStart(2, "0")} · {t.title.toUpperCase()}
               </p>
-              <p className="text-sm leading-relaxed text-[#3D4148] dark:text-[#C7CBD1]">
+              <p className="text-sm leading-relaxed text-[#3E4650] dark:text-[#9AA1AC]">
                 {t.text}
               </p>
             </div>
