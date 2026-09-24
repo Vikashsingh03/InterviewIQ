@@ -4,25 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ServerUrl } from "../App";
 import { FaArrowLeft, FaTrashAlt } from "react-icons/fa";
-import {
-  BsClipboardData,
-  BsCalendar3,
-  BsBriefcase,
-  BsChatDots,
-  BsTrophy,
-  BsGraphUp,
-  BsCalendarCheck,
-} from "react-icons/bs";
-import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
 
-// 4.666666666666667 -> "4.7", 7 -> "7", 2.4 -> "2.4"
 const formatScore = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0";
   return String(Math.round(n * 10) / 10);
 };
 
-// colour tells you at a glance how the interview went
 const scoreTone = (value) => {
   const n = Number(value) || 0;
   if (n >= 7) return "text-[#2E9C5A] dark:text-[#4ADE80]";
@@ -65,7 +53,6 @@ const InterviewHistory = () => {
     getMyInterviews();
   }, []);
 
-
   const handleCardClick = (item) => {
     if (item.status !== "Completed") return;
     navigate(`/report/${item._id}`);
@@ -103,6 +90,26 @@ const InterviewHistory = () => {
     }
   };
 
+  const completedInterviews = interviews.filter((i) => i.status === "Completed");
+  const averageScore = (() => {
+    if (!completedInterviews.length) return "—";
+    const avg =
+      completedInterviews.reduce((sum, i) => sum + (Number(i.finalScore) || 0), 0) /
+      completedInterviews.length;
+    return `${formatScore(avg)}/10`;
+  })();
+  const thisMonthCount = interviews.filter((i) => {
+    const d = new Date(i.createdAt);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const stats = [
+    { label: "Total interviews", value: interviews.length },
+    { label: "Average score", value: averageScore },
+    { label: "This month", value: thisMonthCount },
+  ];
+
   return (
     <div className="relative min-h-screen bg-[#F7F6F3] dark:bg-[#0A0B0D] transition-colors duration-300 overflow-hidden">
       <style>{`
@@ -124,21 +131,7 @@ const InterviewHistory = () => {
 
       <div className="film-grain" />
 
-      {/* soft amber glow, replacing the old green blobs to match the brand accent */}
-      <div
-        className="pointer-events-none absolute top-0 left-0 right-0 h-125 overflow-hidden z-0"
-        style={{
-          maskImage:
-            "linear-gradient(to bottom, black 0%, black 40%, transparent 100%)",
-          WebkitMaskImage:
-            "linear-gradient(to bottom, black 0%, black 40%, transparent 100%)",
-        }}
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(232,169,76,0.10),transparent_35%),radial-gradient(circle_at_85%_0%,rgba(94,200,216,0.08),transparent_35%)]"></div>
-      </div>
-
       <div className="history-root relative z-10 w-[90vw] lg:w-[70vw] max-w-[90%] mx-auto py-12">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,16 +142,18 @@ const InterviewHistory = () => {
             whileHover={{ scale: 1.06, y: -1 }}
             whileTap={{ scale: 0.94 }}
             onClick={() => navigate("/")}
-            className="mt-1 w-12 h-12 shrink-0 flex items-center justify-center rounded-full bg-white/90 dark:bg-[#131519]/90 backdrop-blur-md shadow-sm hover:shadow-md border border-[#EAE9E5] dark:border-[#232830] transition-all duration-200"
+            className="mt-1 w-12 h-12 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] transition-all duration-200 cursor-pointer"
           >
-            <FaArrowLeft className="text-[#5C6472] cursor-pointer dark:text-[#9AA1AC]" size={14} />
+            <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
           </motion.button>
 
           <div>
-            <span className="font-mono-studio inline-flex items-center gap-1.5 text-[11px] tracking-wide text-[#B27E2E] dark:text-[#E8A94C] bg-[#E8A94C]/10 border border-[#E8A94C]/25 px-3 py-1 rounded-full mb-3">
-              <IoSparklesSharp size={11} />
-              YOUR PROGRESS
-            </span>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
+              <span className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C]">
+                YOUR PROGRESS
+              </span>
+            </div>
             <h1 className="font-serif-display text-3xl md:text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
               Interview History
             </h1>
@@ -173,54 +168,17 @@ const InterviewHistory = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+            className="grid grid-cols-1 sm:grid-cols-3 rounded-3xl border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden mb-8 divide-y sm:divide-y-0 sm:divide-x divide-[#EAE9E5] dark:divide-[#1E2229]"
           >
-            {[
-              {
-                icon: <BsClipboardData size={17} />,
-                label: "Total interviews",
-                value: interviews.length,
-              },
-              {
-                icon: <BsTrophy size={17} />,
-                label: "Average score",
-                value: (() => {
-                  const completed = interviews.filter(
-                    (i) => i.status === "Completed",
-                  );
-                  if (!completed.length) return "—";
-                  const avg =
-                    completed.reduce(
-                      (sum, i) => sum + (Number(i.finalScore) || 0),
-                      0,
-                    ) / completed.length;
-                  return `${formatScore(avg)}/10`;
-                })(),
-              },
-              {
-                icon: <BsCalendarCheck size={17} />,
-                label: "This month",
-                value: interviews.filter((i) => {
-                  const d = new Date(i.createdAt);
-                  const now = new Date();
-                  return (
-                    d.getMonth() === now.getMonth() &&
-                    d.getFullYear() === now.getFullYear()
-                  );
-                }).length,
-              },
-            ].map((stat) => (
+            {stats.map((stat, i) => (
               <div
                 key={stat.label}
-                className="bg-white/90 dark:bg-[#111318]/90 backdrop-blur-md border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl p-5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-28px_rgba(0,0,0,0.6)]"
+                className="bg-white dark:bg-[#111318] p-6"
               >
-                <div className="flex items-center gap-2 mb-3 text-[#B27E2E] dark:text-[#E8A94C]">
-                  {stat.icon}
-                  <span className="font-mono-studio text-[11px] tracking-wide uppercase text-[#8B92A0]">
-                    {stat.label}
-                  </span>
-                </div>
-                <p className="font-serif-display text-3xl text-[#1C1F24] dark:text-[#EDEEF0]">
+                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8B92A0] mb-4">
+                  {String(i + 1).padStart(2, "0")} · {stat.label.toUpperCase()}
+                </p>
+                <p className="font-serif-display text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
                   {stat.value}
                 </p>
               </div>
@@ -232,14 +190,13 @@ const InterviewHistory = () => {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-2xl p-4 flex items-start gap-2"
+            className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-2xl p-4 flex items-start gap-3"
           >
-            <IoWarningOutline size={16} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+            <span className="w-1.5 h-1.5 rotate-45 bg-red-500 shrink-0 mt-1.5" />
             <p className="text-red-700 dark:text-red-400 text-sm">{deleteError}</p>
           </motion.div>
         )}
 
-        {/* Loading skeleton */}
         {loading ? (
           <div className="grid gap-5">
             {[1, 2, 3].map((i) => (
@@ -254,10 +211,13 @@ const InterviewHistory = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="bg-white/90 dark:bg-[#111318]/80 backdrop-blur-md border border-red-200 dark:border-red-900/40 p-10 rounded-[28px] shadow-sm text-center"
+            className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] p-10 rounded-[28px] text-center"
           >
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
-              <IoWarningOutline size={24} />
+            <div className="flex items-center justify-center gap-2.5 mb-4">
+              <span className="w-1.5 h-1.5 rotate-45 bg-[#F87171] shrink-0" />
+              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#F87171]">
+                LOAD FAILED
+              </p>
             </div>
             <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium">
               {error}
@@ -266,7 +226,7 @@ const InterviewHistory = () => {
               whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => window.location.reload()}
-              className="mt-6 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-medium text-sm shadow-lg"
+              className="mt-6 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-medium text-sm cursor-pointer"
             >
               Retry
             </motion.button>
@@ -276,22 +236,25 @@ const InterviewHistory = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="bg-white/90 dark:bg-[#111318]/80 backdrop-blur-md border border-[#EAE9E5] dark:border-[#1E2229] p-14 rounded-[28px] shadow-sm text-center"
+            className="bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] p-14 rounded-[28px] text-center"
           >
-            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-[#1C1F24] dark:bg-[#EDEEF0] flex items-center justify-center text-white dark:text-[#0A0B0D] shadow-lg">
-              <BsClipboardData size={26} />
+            <div className="flex items-center justify-center gap-2.5 mb-5">
+              <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
+              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C]">
+                ARCHIVE EMPTY
+              </p>
             </div>
-            <p className="text-[#3D4148] dark:text-[#C7CBD1] font-medium">
+            <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-2">
               No interviews found yet
             </p>
-            <p className="text-[#9AA1AC] text-sm mt-1">
+            <p className="text-[#9AA1AC] text-sm">
               Start your first interview to see it here.
             </p>
             <motion.button
               whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => navigate("/interview")}
-              className="mt-6 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-medium text-sm shadow-lg"
+              className="mt-6 bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] px-8 py-2.5 rounded-full font-medium text-sm cursor-pointer"
             >
               Start Interview
             </motion.button>
@@ -317,83 +280,58 @@ const InterviewHistory = () => {
                       ? undefined
                       : "This interview wasn't finished, so no report is available."
                   }
-                  className={`group relative bg-white/90 dark:bg-[#111318]/90 backdrop-blur-md p-6 rounded-3xl shadow-[0_20px_50px_-28px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_-28px_rgba(0,0,0,0.7)] transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] ${
+                  className={`group relative bg-white dark:bg-[#111318] p-6 rounded-3xl transition-all duration-300 border border-[#EAE9E5] dark:border-[#1E2229] ${
                     isCompleted
-                      ? "cursor-pointer hover:border-[#E8A94C]/40"
+                      ? "cursor-pointer hover:border-[#E8A94C]/50"
                       : "cursor-not-allowed opacity-80"
                   } ${isDeleting ? "opacity-40 pointer-events-none" : ""}`}
                 >
-                  {/* decorative glow lives in its own clipped layer — the
-                      card itself must NOT have overflow-hidden, or the
-                      delete-confirm popover below gets clipped/covered by
-                      the next card in the list */}
-                  {isCompleted && (
-                    <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#E8A94C]/0 group-hover:bg-[#E8A94C]/10 rounded-full blur-2xl transition-all duration-500"></div>
-                    </div>
-                  )}
+                  <div className="relative flex flex-col md:flex-row md:items-center gap-5">
+                    <span className="font-mono-studio text-[11px] tracking-[0.18em] text-[#8B92A0] shrink-0">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
 
-                  <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                    <div className="flex items-start gap-4 min-w-0 flex-1">
-                      <div className="w-12 h-12 shrink-0 rounded-2xl bg-[#1C1F24] dark:bg-[#EDEEF0] flex items-center justify-center text-white dark:text-[#0A0B0D] shadow-md group-hover:scale-105 transition-transform">
-                        <BsBriefcase size={18} />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-serif-display text-lg text-[#1C1F24] dark:text-[#EDEEF0] truncate">
-                          {item.role}
-                        </h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight truncate">
+                        {item.role}
+                      </h3>
 
-                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                          <span
-                            className={`font-mono-studio inline-flex items-center gap-1 text-[10px] tracking-wide px-2 py-0.5 rounded-md ${
-                              item.mode === "Technical"
-                                ? "bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C]"
-                                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            }`}
-                          >
-                            <BsGraphUp size={10} />
-                            {item.mode}
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2">
+                        <span
+                          className={`font-mono-studio text-[10px] tracking-[0.14em] ${
+                            item.mode === "Technical"
+                              ? "text-[#B27E2E] dark:text-[#E8A94C]"
+                              : "text-emerald-600 dark:text-emerald-400"
+                          }`}
+                        >
+                          {String(item.mode || "").toUpperCase()}
+                        </span>
+                        {item.interviewType === "panel" && (
+                          <span className="font-mono-studio text-[10px] tracking-[0.14em] text-[#2E8494] dark:text-[#5EC8D8]">
+                            PANEL
                           </span>
-                          {item.interviewType === "panel" && (
-                            <span className="font-mono-studio text-[10px] tracking-wide px-2 py-0.5 rounded-md bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8]">
-                              PANEL
-                            </span>
-                          )}
-                          {item.company && (
-                            <>
-                              <span className="text-[#D8D6D0] dark:text-[#2A2F37]">
-                                •
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-[#5C6472] dark:text-[#9AA1AC] text-sm">
-                                <BsBriefcase size={12} />
-                                {item.company}
-                              </span>
-                            </>
-                          )}
-                          <span className="text-[#D8D6D0] dark:text-[#2A2F37]">
-                            •
-                          </span>
-                          <span className="font-mono-studio inline-flex items-center gap-1 text-[#9AA1AC] dark:text-[#565D68] text-xs">
-                            <BsCalendar3 size={11} />
-                            {new Date(item.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        {/* experience can be a whole pasted resume line, so
-                            keep it to ONE line here; hover shows the full text */}
-                        {item.experience && (
-                          <p
-                            title={item.experience}
-                            className="mt-2 flex items-start gap-1.5 text-[#8B92A0] dark:text-[#7A828F] text-[13px]"
-                          >
-                            <BsChatDots size={12} className="shrink-0 mt-0.75" />
-                            <span className="line-clamp-1">{item.experience}</span>
-                          </p>
                         )}
+                        {item.company && (
+                          <span className="text-sm text-[#5C6472] dark:text-[#9AA1AC]">
+                            {item.company}
+                          </span>
+                        )}
+                        <span className="font-mono-studio text-[11px] text-[#9AA1AC] dark:text-[#565D68]">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
                       </div>
+
+                      {item.experience && (
+                        <p
+                          title={item.experience}
+                          className="mt-2 text-[13px] text-[#8B92A0] dark:text-[#7A828F] line-clamp-1"
+                        >
+                          {item.experience}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-5 md:gap-7 pl-16 md:pl-0 shrink-0">
+                    <div className="flex items-center gap-5 md:gap-7 pl-8 md:pl-0 shrink-0">
                       {isCompleted && (
                         <div className="text-right min-w-20">
                           <p
@@ -404,7 +342,7 @@ const InterviewHistory = () => {
                               /10
                             </span>
                           </p>
-                          <p className="text-[10px] text-[#9AA1AC] mt-0.5 tracking-wide">
+                          <p className="font-mono-studio text-[9px] text-[#9AA1AC] mt-1 tracking-[0.18em]">
                             OVERALL SCORE
                           </p>
                         </div>
@@ -417,19 +355,18 @@ const InterviewHistory = () => {
                             : "bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C]"
                         }`}
                       >
-                        {item.status}
+                        {String(item.status || "").toUpperCase()}
                       </span>
 
-                      {/* ---- delete control ---- */}
                       <motion.button
                         whileHover={{ scale: 1.08 }}
                         whileTap={{ scale: 0.92 }}
                         onClick={(e) => requestDelete(e, item._id)}
                         disabled={isDeleting}
                         title="Delete this interview"
-                        className="w-9 h-9 flex items-center justify-center rounded-full border border-[#EAE9E5] dark:border-[#262B34] text-[#9AA1AC] hover:text-[#F87171] hover:border-[#F87171]/40 hover:bg-[#F87171]/5 transition-all duration-200 disabled:opacity-50"
+                        className="w-9 h-9 flex items-center justify-center rounded-full border border-[#EAE9E5] dark:border-[#262B34] text-[#9AA1AC] hover:text-[#F87171] hover:border-[#F87171]/40 hover:bg-[#F87171]/5 transition-all duration-200 disabled:opacity-50 cursor-pointer"
                       >
-                        <FaTrashAlt className="cursor-pointer" size={13} />
+                        <FaTrashAlt size={13} />
                       </motion.button>
                     </div>
                   </div>
@@ -439,9 +376,6 @@ const InterviewHistory = () => {
           </div>
         )}
 
-        {/* ---- delete-confirmation modal: fixed + centered so it can
-             never clip off-screen, regardless of which card (or how far
-             down the scrolled list) triggered it ---- */}
         <AnimatePresence>
           {confirmDeleteId && (
             <motion.div
@@ -458,13 +392,16 @@ const InterviewHistory = () => {
                 exit={{ opacity: 0, y: 12, scale: 0.96 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm cursor-pointer bg-white dark:bg-[#15181D] border border-[#EAE9E5] dark:border-[#262B34] rounded-3xl shadow-[0_30px_70px_-20px_rgba(0,0,0,0.4)] p-6"
+                className="w-full max-w-sm bg-white dark:bg-[#15181D] border border-[#EAE9E5] dark:border-[#262B34] rounded-3xl p-6"
               >
-                <div className="w-12 h-12 cursor-pointer rounded-2xl bg-[#F87171]/10 flex items-center justify-center text-[#F87171] mb-4">
-                  <FaTrashAlt size={18}  className="cursor-pointer"/>
+                <div className="flex items-center gap-2.5 mb-4">
+                  <span className="w-1.5 h-1.5 rotate-45 bg-[#F87171] shrink-0" />
+                  <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#F87171]">
+                    CONFIRM DELETION
+                  </p>
                 </div>
 
-                <h3 className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] mb-2">
+                <h3 className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-2">
                   Delete this interview?
                 </h3>
                 <p className="text-sm text-[#5C6472] dark:text-[#9AA1AC] leading-relaxed mb-6">
@@ -475,14 +412,14 @@ const InterviewHistory = () => {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={cancelDelete}
-                    className="flex-1 border cursor-pointer border-[#EAE9E5] dark:border-[#262B34] text-[#3D4148] dark:text-[#C7CBD1] text-sm font-semibold py-2.5 rounded-xl hover:bg-[#F5F5F3] dark:hover:bg-[#1B1E24] transition-colors"
+                    className="flex-1 border border-[#EAE9E5] dark:border-[#262B34] text-[#3D4148] dark:text-[#C7CBD1] text-sm font-semibold py-2.5 rounded-xl hover:bg-[#F5F5F3] dark:hover:bg-[#1B1E24] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={(e) => confirmDelete(e, confirmDeleteId)}
                     disabled={deletingId === confirmDeleteId}
-                    className="flex-1 bg-[#F87171] cursor-pointer hover:bg-[#F05C5C] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-70"
+                    className="flex-1 bg-[#F87171] hover:bg-[#F05C5C] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-70 cursor-pointer"
                   >
                     {deletingId === confirmDeleteId ? "Deleting..." : "Delete"}
                   </button>

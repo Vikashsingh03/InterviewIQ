@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import maleVideo from "../assets/Videos/male-ai.mp4";
 import femaleVideo from "../assets/Videos/female-ai.mp4";
 import femaleVideo2 from "../assets/Videos/female-ai-2.mp4";
-import Timer from "./Timer";
+
 import { motion, AnimatePresence } from "motion/react";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 import axios from "axios";
@@ -11,8 +11,8 @@ import { createRecognition } from "../utils/speechRecognition";
 import { createTts } from "../utils/neuralTts";
 import { useVoiceAnswer } from "../hooks/useVoiceAnswer";
 import { getVoiceCommand } from "../utils/voiceCommands";
-import { BsStars, BsSkipForward, BsCode, BsPlayFill, BsCheckCircleFill, BsXCircleFill, BsChevronDown, BsFullscreen, BsPersonFill, BsLightningCharge } from "react-icons/bs";
-import { IoWarningOutline, IoSparklesSharp } from "react-icons/io5";
+import { BsSkipForward, BsCode, BsPlayFill, BsCheckCircleFill, BsXCircleFill, BsChevronDown, BsFullscreen, BsPersonFill, BsLightningCharge, BsArrowRight } from "react-icons/bs";
+import { IoWarningOutline } from "react-icons/io5";
 import { useEyeContactTracking, EYE_CONTACT_WARNING_MS } from "../hooks/useEyeContactTracking";
 import ProctorWarningModal from "./ProctorWarningModal";
 import Editor from "@monaco-editor/react";
@@ -147,7 +147,7 @@ function VoiceAnswerPanel({
 
       {}
       <div className={`relative z-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 border transition-all duration-300 ${listening ? "bg-[#E8A94C]/10 border-[#E8A94C]/40 shadow-[0_0_24px_-6px_rgba(232,169,76,0.55)]" : "bg-white/5 border-white/10"}`}>
-        <span className={`w-2 h-2 rounded-full ${listening ? "bg-[#E8A94C] live-dot" : status === "transcribing" ? "bg-[#5EC8D8] live-dot" : "bg-[#565D68]"}`} />
+        <span className={`w-1.5 h-1.5 rotate-45 ${listening ? "bg-[#E8A94C]" : status === "transcribing" ? "bg-[#5EC8D8]" : "bg-[#565D68]"}`} />
         <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#C7CBD1] uppercase">
           {statusLabel}
         </span>
@@ -204,6 +204,12 @@ function VoiceAnswerPanel({
       })}
       </div>
 
+      <div className="relative z-10 flex items-center justify-center gap-5 mb-5">
+        {["repeat", "skip", "wait"].map(cmd => <span key={cmd} className="font-mono-studio text-[9px] tracking-[0.18em] text-[#565D68]">
+            SAY <span className="text-[#8B92A0]">"{cmd}"</span>
+          </span>)}
+      </div>
+
       {}
       {notice && <p className="relative z-10 text-sm text-[#E8B96A] mb-3 max-w-md">
           {notice}
@@ -219,7 +225,7 @@ function VoiceAnswerPanel({
             , or answer by typing instead.
           </p>
           <button type="button" onClick={onSwitchToType} className="w-full py-2.5 rounded-xl bg-[#E8A94C] text-[#0C0E11] text-sm font-bold hover:bg-[#F0B95E] transition">
-            ⌨ Type instead
+            Type instead
           </button>
         </div>}
 
@@ -230,7 +236,7 @@ function VoiceAnswerPanel({
             safe — switch to typing and keep going.
           </p>
           <button type="button" onClick={onSwitchToType} className="w-full py-2.5 rounded-xl bg-white text-[#0C0E11] text-sm font-bold hover:bg-gray-100 transition">
-            ⌨ Switch to Type mode
+            Switch to Type mode
           </button>
         </div>}
 
@@ -242,9 +248,9 @@ function VoiceAnswerPanel({
       opacity: 1,
       scale: 1
     }} className="relative z-10 font-mono-studio text-[11px] tracking-wide px-4 py-2 rounded-xl border border-[#E8A94C]/40 bg-[#E8A94C]/10 text-[#E8B96A] shadow-[0_0_24px_-6px_rgba(232,169,76,0.5)]">
-          {lastCommand.id === "repeat" && "🔁 Repeating the question…"}
-          {lastCommand.id === "skip" && "⏭ Skipping…"}
-          {lastCommand.id === "wait" && "⏸ Take your time…"}
+          {lastCommand.id === "repeat" && "Repeating the question…"}
+          {lastCommand.id === "skip" && "Skipping…"}
+          {lastCommand.id === "wait" && "Take your time…"}
         </motion.div>}
 
     </div>;
@@ -279,6 +285,7 @@ function Step2PanelInterview({
   const [micError, setMicError] = useState("");
   const recognitionRef = useRef(null);
   const [isAIPlaying, setIsAIPlaying] = useState(false);
+  const [personaVideoReady, setPersonaVideoReady] = useState({ interviewerA: false, interviewerB: false });
   const [showAnswerBox, setShowAnswerBox] = useState(false);
   const [answerMode, setAnswerMode] = useState("voice");
   const answerModeRef = useRef("voice");
@@ -1324,94 +1331,97 @@ function Step2PanelInterview({
       }} transition={{
         duration: 0.5
       }} className="studio-root w-full max-w-2xl bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden">
-          <div className="p-7 sm:p-9">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-2 h-2 rounded-full bg-[#E8A94C] live-dot" />
-              <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#E8A94C]">
-                PANEL MODE · BEFORE WE BEGIN
-              </span>
+          <div className="p-7 sm:p-10">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-2.5">
+                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C]" />
+                <span className="font-mono-studio text-[11px] tracking-[0.2em] text-[#8B92A0]">PANEL MODE · GREEN ROOM</span>
+              </div>
+              <span className="font-mono-studio text-[10px] tracking-[0.14em] text-[#9AA1AC] dark:text-[#565D68]">2 INTERVIEWERS</span>
             </div>
-            <h2 className="font-serif-display text-2xl sm:text-3xl text-gray-900 dark:text-white mb-2">
-              Two interviewers, one session
+
+            <h2 className="font-serif-display text-3xl sm:text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight leading-[1.08]">
+              Two interviewers, <span className="italic text-[#B27E2E] dark:text-[#E8A94C]">one session.</span>
             </h2>
-            <p className="text-sm text-gray-500 dark:text-[#8B93A1] mb-8 leading-relaxed">
-              Interviewer A (technical) and Interviewer B (behavioral) will take
-              turns. Same camera and browser signals as usual, everything optional
-              except fullscreen once you press start.
+            <p className="text-[15px] text-[#5C6472] dark:text-[#9AA1AC] mt-3 leading-relaxed max-w-xl">
+              Interviewer A goes deep on technical depth, Interviewer B on communication and fit. They take turns — everything below is optional except fullscreen, once you press start.
             </p>
 
-            <div className="grid sm:grid-cols-2 gap-5">
-              <div className="rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] bg-[#FAFAF8] dark:bg-[#0C0E11] p-4">
-                <div className="relative rounded-xl overflow-hidden bg-black aspect-video mb-3 ring-1 ring-black/40">
-                  <div className="viewfinder-corner corner-tl" />
-                  <div className="viewfinder-corner corner-tr" />
-                  <div className="viewfinder-corner corner-bl" />
-                  <div className="viewfinder-corner corner-br" />
+            <div className="mt-9 border-t border-[#EAE9E5] dark:border-[#1E2229]">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 py-5 border-b border-[#EAE9E5] dark:border-[#1E2229]">
+                <span className="font-serif-display italic text-lg text-[#B27E2E] dark:text-[#E8A94C] w-8 shrink-0">01</span>
+                <div className="relative w-full sm:w-36 aspect-video rounded-xl overflow-hidden bg-black shrink-0 ring-1 ring-black/30">
                   {cameraStream ? <video ref={selfVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" /> : <div className="w-full h-full flex items-center justify-center">
-                      <span className="font-mono-studio text-[10px] text-[#565D68]">
-                        NO SIGNAL
-                      </span>
+                      <span className="font-mono-studio text-[9px] tracking-[0.22em] text-[#565D68]">NO SIGNAL</span>
                     </div>}
+                  <span className="absolute top-2 left-2 font-mono-studio text-[8px] tracking-[0.18em] text-white/70 bg-black/50 px-1.5 py-0.5 rounded">PREVIEW</span>
                 </div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-1">
-                  Camera
-                </p>
-                {cameraError && <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                    {cameraError}
-                  </p>}
-                <button onClick={requestCamera} disabled={isRequestingCamera || !!cameraStream} className="w-full text-xs font-medium py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 disabled:opacity-60 transition">
-                  {cameraStream ? "Camera enabled" : isRequestingCamera ? "Requesting..." : "Enable camera"}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <p className="text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">Camera</p>
+                    <span className={`font-mono-studio text-[9px] tracking-[0.16em] px-2 py-0.5 rounded-full border ${cameraStream ? "text-[#B27E2E] dark:text-[#E8A94C] border-[#E8A94C]/40 bg-[#E8A94C]/8" : "text-[#9AA1AC] dark:text-[#565D68] border-[#E5E4E0] dark:border-[#262B34]"}`}>
+                      {cameraStream ? "READY" : "NOT SET"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8B92A0] mt-1">Lets the panel read the room. Eye-contact tracking needs it.</p>
+                  {cameraError && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">{cameraError}</p>}
+                </div>
+                <button onClick={requestCamera} disabled={isRequestingCamera || !!cameraStream} className="shrink-0 text-xs font-semibold px-4 py-2.5 rounded-xl bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] disabled:opacity-50 transition">
+                  {cameraStream ? "Enabled" : isRequestingCamera ? "Requesting..." : "Enable camera"}
                 </button>
               </div>
 
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] bg-[#FAFAF8] dark:bg-[#0C0E11] p-4">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-1">
-                    Location
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-[#8B93A1] mb-3">
-                    Approximate coordinates only, shared once.
-                  </p>
-                  {locationError && <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                      {locationError}
-                    </p>}
-                  <button onClick={requestLocation} disabled={locationShared} className="w-full text-xs font-medium py-2 rounded-lg border border-gray-300 dark:border-[#232830] text-gray-700 dark:text-gray-200 disabled:opacity-60 transition">
-                    {locationShared ? "Location shared ✓" : "Share location"}
-                  </button>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 py-5 border-b border-[#EAE9E5] dark:border-[#1E2229]">
+                <span className="font-serif-display italic text-lg text-[#B27E2E] dark:text-[#E8A94C] w-8 shrink-0">02</span>
+                <div className="hidden sm:block w-36 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <p className="text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">Location</p>
+                    <span className={`font-mono-studio text-[9px] tracking-[0.16em] px-2 py-0.5 rounded-full border ${locationShared ? "text-[#B27E2E] dark:text-[#E8A94C] border-[#E8A94C]/40 bg-[#E8A94C]/8" : "text-[#9AA1AC] dark:text-[#565D68] border-[#E5E4E0] dark:border-[#262B34]"}`}>
+                      {locationShared ? "READY" : "NOT SET"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8B92A0] mt-1">Approximate coordinates only, shared once.</p>
+                  {locationError && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">{locationError}</p>}
                 </div>
+                <button onClick={requestLocation} disabled={locationShared} className="shrink-0 text-xs font-semibold px-4 py-2.5 rounded-xl border border-[#E5E4E0] dark:border-[#262B34] text-[#1C1F24] dark:text-[#EDEEF0] disabled:opacity-50 transition hover:border-[#E8A94C]/40">
+                  {locationShared ? "Shared" : "Share location"}
+                </button>
+              </div>
 
-                <div className="rounded-2xl border border-[#EAE9E5] dark:border-[#1E2229] bg-[#FAFAF8] dark:bg-[#0C0E11] p-4">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-1">
-                    Screen share
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-[#8B93A1] mb-3">
-                    Optional, mirrors real panel technical rounds.
-                  </p>
-                  <button onClick={requestScreenShare} disabled={screenShareActive} className="w-full text-xs font-medium py-2 rounded-lg border border-gray-300 dark:border-[#232830] text-gray-700 dark:text-gray-200 disabled:opacity-60 transition">
-                    {screenShareActive ? "Screen shared ✓" : "Share screen"}
-                  </button>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 py-5 border-b border-[#EAE9E5] dark:border-[#1E2229]">
+                <span className="font-serif-display italic text-lg text-[#B27E2E] dark:text-[#E8A94C] w-8 shrink-0">03</span>
+                <div className="hidden sm:block w-36 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <p className="text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">Screen share</p>
+                    <span className={`font-mono-studio text-[9px] tracking-[0.16em] px-2 py-0.5 rounded-full border ${screenShareActive ? "text-[#B27E2E] dark:text-[#E8A94C] border-[#E8A94C]/40 bg-[#E8A94C]/8" : "text-[#9AA1AC] dark:text-[#565D68] border-[#E5E4E0] dark:border-[#262B34]"}`}>
+                      {screenShareActive ? "READY" : "NOT SET"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8B92A0] mt-1">Optional, mirrors real panel technical rounds.</p>
                 </div>
+                <button onClick={requestScreenShare} disabled={screenShareActive} className="shrink-0 text-xs font-semibold px-4 py-2.5 rounded-xl border border-[#E5E4E0] dark:border-[#262B34] text-[#1C1F24] dark:text-[#EDEEF0] disabled:opacity-50 transition hover:border-[#E8A94C]/40">
+                  {screenShareActive ? "Shared" : "Share screen"}
+                </button>
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-[#E8A94C]/30 bg-[#E8A94C]/5 p-4 flex items-start gap-3">
-              <IoWarningOutline size={17} className="text-[#B27E2E] dark:text-[#E8A94C] mt-0.5 shrink-0" />
-              <p className="text-xs text-[#8A6A2F] dark:text-[#E8B96A] leading-relaxed">
-                The interview runs in fullscreen. After{" "}
-                <strong>{MAX_FULLSCREEN_EXITS} exits</strong> the session ends
-                automatically. Tab switches are logged too.
+            <div className="mt-7 border-l-2 border-[#E8A94C] pl-4 py-0.5">
+              <p className="font-mono-studio text-[10px] tracking-[0.2em] text-[#B27E2E] dark:text-[#E8A94C] mb-1.5">HOUSE RULES</p>
+              <p className="text-xs text-[#5C6472] dark:text-[#9AA1AC] leading-relaxed">
+                The interview runs in fullscreen. After <strong className="text-[#1C1F24] dark:text-[#EDEEF0]">{MAX_FULLSCREEN_EXITS} exits</strong> the session ends automatically. Tab switches are logged too.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 mt-7">
-              <motion.button onClick={startInterviewFromGate} whileHover={{
-              scale: 1.02
-            }} whileTap={{
-              scale: 0.98
-            }} className="flex-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold py-3.5 rounded-2xl shadow-lg transition">
-                Start Panel Interview
-              </motion.button>
-            </div>
+            <motion.button onClick={startInterviewFromGate} whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}
+              className="mt-7 w-full bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] font-semibold py-4 rounded-2xl shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] transition flex items-center justify-center gap-2.5">
+              Start Panel Interview
+              <BsArrowRight size={16} />
+            </motion.button>
+            <p className="font-mono-studio text-[10px] tracking-[0.16em] text-[#9AA1AC] dark:text-[#565D68] text-center mt-4">
+              TECHNICAL + BEHAVIORAL · ALTERNATING TURNS
+            </p>
           </div>
         </motion.div>
       </div>;
@@ -1516,6 +1526,7 @@ function Step2PanelInterview({
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${fullscreenWarning.isFinal ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-[#E8A94C]/15 text-[#B27E2E] dark:text-[#E8A94C]"}`}>
                     <IoWarningOutline size={20} />
                   </div>
+                  <span className={`w-1.5 h-1.5 rotate-45 shrink-0 ${fullscreenWarning.isFinal ? "bg-red-500" : "bg-[#E8A94C]"}`} />
                   <span className={`font-mono-studio text-[11px] tracking-[0.08em] ${fullscreenWarning.isFinal ? "text-red-600 dark:text-red-400" : "text-[#B27E2E] dark:text-[#E8A94C]"}`}>
                     {fullscreenWarning.isFinal ? "SESSION TERMINATED" : `WARNING ${fullscreenWarning.count} OF ${MAX_FULLSCREEN_EXITS}`}
                   </span>
@@ -1554,18 +1565,35 @@ function Step2PanelInterview({
           </motion.div>}
       </AnimatePresence>
 
-      <div className="studio-root w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] flex flex-col lg:flex-row overflow-hidden relative">
+      <div className="studio-root w-full max-w-350 min-h-[80vh] bg-white dark:bg-[#0F1115] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.18)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)] border border-[#EAE9E5] dark:border-[#1E2229] flex flex-col overflow-hidden relative">
+        <div className="flex items-center justify-between px-6 sm:px-8 py-4 border-b border-[#EAE9E5] dark:border-[#1E2229] shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
+            <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C] whitespace-nowrap">LIVE SESSION</p>
+            <span className="w-px h-4 bg-[#E5E4E0] dark:bg-[#262B34] shrink-0" />
+            <h2 className="font-serif-display text-lg sm:text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight truncate">Mock Panel Interview</h2>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {ttsProvider && <span className="hidden sm:inline-flex items-center gap-1.5 font-mono-studio text-[10px] tracking-wide px-2.5 py-1.5 rounded-full bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] border border-[#E8A94C]/25">
+                {ttsProvider === "deepgram" ? "NEURAL VOICE" : "STANDARD VOICE"}
+              </span>}
+            <span className="font-mono-studio text-[11px] text-[#8B92A0] tracking-wide tabular-nums whitespace-nowrap">
+              {String(currentIndex + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}
+            </span>
+            <span className="w-px h-4 bg-[#E5E4E0] dark:bg-[#262B34]" />
+            <span className="font-mono-studio text-[11px] text-[#8B92A0] tracking-wide tabular-nums whitespace-nowrap">
+              {String(Math.floor((timeLeft || 0) / 60)).padStart(2, "0")}:{String((timeLeft || 0) % 60).padStart(2, "0")}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {}
         <div className="w-full lg:w-[38%] bg-[#0C0E11] flex flex-col p-6 sm:p-7 space-y-5 border-r border-[#1E2229] relative">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isAIPlaying ? "live-dot" : ""}`} style={{
-              backgroundColor: activePersona.accent
-            }} />
-              <span className="font-mono-studio text-[11px] tracking-[0.08em]" style={{
-              color: activePersona.accent
-            }}>
-                {isAIPlaying ? `${activePersona.label} · ON AIR` : "STANDBY"}
+              <span className="w-1.5 h-1.5 rotate-45" style={{ backgroundColor: activePersona.accent }} />
+              <span className="font-mono-studio text-[11px] tracking-[0.2em] text-[#8B92A0]">
+                {isAIPlaying ? `${activePersona.label} · SPEAKING` : "STANDBY"}
               </span>
             </div>
             <span className="font-mono-studio text-[11px] text-[#565D68]">
@@ -1579,22 +1607,24 @@ function Step2PanelInterview({
             const persona = getPersona(key);
             const isActive = activeSpeaker === key;
             const speaking = isActive && isAIPlaying;
-            return <div key={key} className={`relative rounded-xl overflow-hidden bg-black ring-1 transition-all duration-300 ${isActive ? "ring-2 opacity-100" : "ring-black/40 opacity-45 grayscale-30"}${speaking ? " speaking-card" : ""}`} style={isActive ? {
-              boxShadow: `0 0 0 2px ${persona.accent}`
-            } : undefined}>
-                  <video src={persona.video} key={persona.video} ref={key === "interviewerA" ? videoRefA : videoRefB} muted playsInline preload="auto" className="w-full h-auto object-cover aspect-4/5" />
-                  {speaking && <div className="absolute inset-0 rounded-xl animate-pulse pointer-events-none" style={{ boxShadow: `inset 0 0 30px ${persona.accent}55, 0 0 26px ${persona.accent}66` }} />}
-                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent px-2 py-1.5">
-                    <p className="font-mono-studio text-[9px] tracking-wide truncate" style={{
-                  color: isActive ? persona.accent : "#8B92A0"
-                }}>
-                      {persona.label}
-                    </p>
-                    <p className="text-[8px] text-[#6B7280]">{persona.subtitle}</p>
-                  </div>
-                  {isActive && isAIPlaying && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full live-dot" style={{
-                backgroundColor: persona.accent
-              }} />}
+            return <div key={key} className={`relative rounded-xl overflow-hidden bg-[#0A0B0D] ring-1 transition-all duration-500 ${isActive ? "ring-[#E8A94C]/60 opacity-100" : "ring-white/10 opacity-55"}`}>
+                  {!personaVideoReady[key] && <div className="w-full aspect-4/5 animate-pulse bg-[#15181D] flex items-center justify-center">
+                      <span className="font-mono-studio text-[8px] tracking-[0.24em] text-[#565D68]">LOADING</span>
+                    </div>}
+                  <video src={persona.video} key={persona.video} ref={key === "interviewerA" ? videoRefA : videoRefB} muted playsInline preload="auto" onLoadStart={() => setPersonaVideoReady(r => ({ ...r, [key]: false }))} onLoadedData={() => setPersonaVideoReady(r => ({ ...r, [key]: true }))} className={`w-full h-auto object-cover aspect-4/5 transition-opacity duration-700 ${personaVideoReady[key] ? "opacity-100" : "opacity-0 absolute inset-0"}`} />
+                  {speaking && personaVideoReady[key] && <span className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/55 backdrop-blur px-1.5 py-0.5 rounded">
+                      <span className="w-1 h-1 rotate-45" style={{
+                  backgroundColor: persona.accent
+                }} />
+                      <span className="font-mono-studio text-[7px] tracking-[0.18em]" style={{
+                  color: persona.accent
+                }}>SPEAKING</span>
+                    </span>}
+                  <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-black/55 backdrop-blur px-1.5 py-0.5 rounded">
+                    <span className="font-mono-studio text-[7px] tracking-[0.16em] text-white/85">{persona.name.toUpperCase()}</span>
+                    <span className="w-px h-2 bg-white/25" />
+                    <span className="font-mono-studio text-[7px] tracking-[0.12em] text-[#8B92A0]">{persona.subtitle.toUpperCase()}</span>
+                  </span>
                 </div>;
           })}
           </div>
@@ -1615,13 +1645,33 @@ function Step2PanelInterview({
             {screenShareActive && <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 SCREEN ●
               </span>}
-            {tabSwitchCount > 0 && <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                {tabSwitchCount} TAB SWITCH{tabSwitchCount > 1 ? "ES" : ""}
-              </span>}
             {fullscreenExitCount > 0 && <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20">
                 FS EXIT {fullscreenExitCount}/{MAX_FULLSCREEN_EXITS}
               </span>}
           </div>
+
+          <AnimatePresence>
+            {tabSwitchCount > 0 && <motion.div key="tab-warning" initial={{
+            opacity: 0,
+            y: 6
+          }} animate={{
+            opacity: 1,
+            y: 0
+          }} exit={{
+            opacity: 0
+          }} transition={{
+            duration: 0.3
+          }} className="border-l-2 border-amber-500/70 bg-amber-500/[0.07] rounded-r-xl px-4 py-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-1.5 h-1.5 rotate-45 bg-amber-500 shrink-0" />
+                  <p className="font-mono-studio text-[9px] tracking-[0.22em] text-amber-600 dark:text-amber-400">PROCTOR LOG</p>
+                  <span className="font-mono-studio text-[9px] tracking-[0.14em] text-amber-600/70 dark:text-amber-400/70 ml-auto whitespace-nowrap">{tabSwitchCount} RECORDED</span>
+                </div>
+                <p className="text-xs text-[#8A6A2F] dark:text-[#E8B96A] leading-relaxed">
+                  Tab switch detected and logged. Repeated switching is flagged in your final report.
+                </p>
+              </motion.div>}
+          </AnimatePresence>
 
           {}
           <AnimatePresence mode="wait">
@@ -1647,21 +1697,21 @@ function Step2PanelInterview({
             </div>}
 
           <div className="bg-[#131519] border border-[#232830] rounded-2xl p-5 space-y-4">
-            {}
-            {!(answerMode === "voice" && !isCodingQuestion) && <>
-            <div className="flex justify-center">
-              <Timer timeLeft={timeLeft} totalTime={currentQuestion?.timeLimit} />
-            </div>
-            <div className="h-px bg-linear-to-r from-transparent via-[#232830] to-transparent" />
-              </>}
             <div className="text-center">
+              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#565D68] mb-2">QUESTION</p>
               <p className="font-serif-display text-4xl text-[#EDEEF0] tracking-tight">
                 {String(currentIndex + 1).padStart(2, "0")}
               </p>
-              <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-[#565D68]">
-                <BsStars size={11} className="text-[#5EC8D8]" />
-                <span>Interviewers alternate every question</span>
+              <p className="font-mono-studio text-[10px] tracking-[0.2em] text-[#565D68] mt-1.5">
+                OF {String(questions.length).padStart(2, "0")}
+              </p>
+              <div className="mt-3 h-px bg-[#232830] relative overflow-hidden rounded-full">
+                <div className="absolute inset-y-0 left-0 transition-all duration-500" style={{
+              width: `${questions.length ? (currentIndex + 1) / questions.length * 100 : 0}%`,
+              backgroundColor: activePersona.accent
+            }} />
               </div>
+              <p className="text-[11px] text-[#565D68] mt-3">Interviewers alternate every question</p>
             </div>
 
             {isCodingQuestion && submitTestResults && <>
@@ -1678,23 +1728,6 @@ function Step2PanelInterview({
 
         {}
         <div className="flex-1 flex flex-col p-5 sm:p-8 md:p-10 relative bg-[#F7F6F3] dark:bg-[#0F1115]">
-          <div className="flex items-baseline justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <IoSparklesSharp className="text-[#E8A94C]" size={18} />
-              <h2 className="font-serif-display text-2xl sm:text-3xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
-                Mock Panel Interview
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {ttsProvider && <span title={ttsProvider === "deepgram" ? "The interviewers are speaking with neural voices" : "The interviewers are speaking with the browser voice — set DEEPGRAM_API_KEY on the server for neural voices"} className={`font-mono-studio text-[10px] px-2 py-1 rounded-full border tracking-wide ${ttsProvider === "deepgram" ? "bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] border-[#5EC8D8]/30" : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#8B92A0] border-[#E5E4E0] dark:border-[#262B34]"}`}>
-                  {ttsProvider === "deepgram" ? "NEURAL VOICE" : "STANDARD VOICE"}
-                </span>}
-              <span className="font-mono-studio text-xs text-[#8B92A0] tracking-wide">
-                {String(currentIndex + 1).padStart(2, "0")} / {String(questions.length).padStart(2, "0")}
-              </span>
-            </div>
-          </div>
-
           {errorMessage && <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 flex items-start justify-between gap-3">
               <div className="flex items-start gap-2">
                 <IoWarningOutline size={16} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
@@ -1712,11 +1745,11 @@ function Step2PanelInterview({
               <div className="inline-flex items-center p-1 rounded-2xl bg-[#EFEEEA] dark:bg-[#131519] border border-[#E5E4E0] dark:border-[#232830] shadow-sm">
                 {[{
               id: "voice",
-              label: "🎙 Voice",
+              label: "Voice",
               hint: "Speak your answer — auto transcribed & submitted"
             }, {
               id: "type",
-              label: "⌨ Type",
+              label: "Type",
               hint: "Classic typing mode"
             }].map(m => <button key={m.id} type="button" title={m.hint} onClick={() => switchAnswerMode(m.id)} className={`px-5 sm:px-7 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${answerMode === m.id ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] shadow" : "text-[#8B92A0] hover:text-[#1C1F24] dark:hover:text-[#EDEEF0]"}`}>
                     {m.label}
@@ -1735,6 +1768,11 @@ function Step2PanelInterview({
             duration: 0.35,
             ease: "easeOut"
           }} className="mb-3 pb-6 border-b border-[#E5E4E0] dark:border-[#1E2229]">
+                <p className="font-mono-studio text-[10px] tracking-[0.24em] mb-2.5" style={{
+              color: activePersona.accent
+            }}>
+                  QUESTION {String(currentIndex + 1).padStart(2, "0")}
+                </p>
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] tracking-wide" style={{
                 backgroundColor: `${activePersona.accent}1A`,
@@ -1755,6 +1793,9 @@ function Step2PanelInterview({
                 <div className="font-serif-display text-xl sm:text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-snug tracking-tight">
                   {currentQuestion?.question}
                 </div>
+                <p className="font-mono-studio text-[9px] tracking-[0.2em] text-[#9AA1AC] dark:text-[#565D68] mt-3">
+                  ASKED BY {activePersona.name.toUpperCase()}
+                </p>
 
                 {isCodingQuestion && currentQuestion?.description && <div className="mt-5 space-y-3">
                     <p className="text-sm text-[#5C6472] dark:text-[#9AA1AC] whitespace-pre-line leading-relaxed">
@@ -1826,7 +1867,7 @@ function Step2PanelInterview({
             return <div key={key} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10" style={isActive ? {
               borderColor: p.accent
             } : undefined}>
-                        <span className={`w-2 h-2 rounded-full${isActive && isAIPlaying ? " animate-pulse" : ""}`} style={{
+                        <span className="w-1.5 h-1.5 rotate-45" style={{
                 backgroundColor: p.accent
               }} />
                         <span className="font-mono-studio text-[10px] tracking-[0.08em] text-[#C7CBD1] uppercase">
@@ -1861,14 +1902,15 @@ function Step2PanelInterview({
           }} exit={{
             opacity: 0,
             y: -8
-          }} className="mt-4 flex items-center justify-between gap-3 bg-[#E8A94C]/10 border border-[#E8A94C]/25 rounded-2xl px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <IoWarningOutline size={16} className="text-[#B27E2E] dark:text-[#E8A94C] shrink-0" />
-                  <p className="text-[#8A6A2F] dark:text-[#E8B96A] text-sm">
+          }} className="mt-4 bg-white dark:bg-[#131519] border border-[#E8A94C]/35 rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-[0_10px_30px_-14px_rgba(232,169,76,0.45)]">
+                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono-studio text-[9px] tracking-[0.22em] text-[#B27E2E] dark:text-[#E8A94C] mb-0.5">STILL THERE?</p>
+                  <p className="text-[#5C6472] dark:text-[#9AA1AC] text-sm leading-snug">
                     {STILL_THERE_BANNER}
                   </p>
                 </div>
-                <span className="font-mono-studio text-xs font-semibold text-[#B27E2E] dark:text-[#E8A94C] shrink-0">
+                <span className="font-mono-studio text-sm tabular-nums text-[#B27E2E] dark:text-[#E8A94C] shrink-0">
                   {warningSecondsLeft}s
                 </span>
               </motion.div>}
@@ -1925,14 +1967,9 @@ function Step2PanelInterview({
           borderColor: `${activePersona.accent}4D`
         }}>
               {answerMode === "voice" && !isCodingQuestion ? (<div className="flex items-center gap-3 mb-4">
-                  <span className="relative flex h-3 w-3 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{
+                  <span className="w-2 h-2 rotate-45 shrink-0" style={{
                 backgroundColor: activePersona.accent
               }} />
-                    <span className="relative inline-flex rounded-full h-3 w-3" style={{
-                backgroundColor: activePersona.accent
-              }} />
-                  </span>
                   <p className="font-mono-studio text-xs tracking-[0.2em] uppercase" style={{
               color: activePersona.accent
             }}>
@@ -1941,7 +1978,30 @@ function Step2PanelInterview({
                 </div>) : <p className="text-[#1C1F24] dark:text-[#EDEEF0] font-medium mb-4 leading-relaxed">
                   {feedback}
                 </p>}
-              <div className="flex items-center gap-2 font-mono-studio text-xs tracking-wide" style={{
+              {isLastQuestion ? <div className="py-2">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{
+                backgroundColor: activePersona.accent
+              }} />
+                    <p className="font-mono-studio text-[10px] tracking-[0.24em]" style={{
+                color: activePersona.accent
+              }}>SESSION COMPLETE</p>
+                  </div>
+                  <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight mb-2">Wrapping up your report</p>
+                  <p className="text-sm text-[#5C6472] dark:text-[#8B92A0] mb-5">Scoring your answers and compiling your feedback.</p>
+                  <div className="h-px bg-[#E5E4E0] dark:bg-[#232830] relative overflow-hidden rounded-full">
+                    <motion.div className="absolute inset-y-0 left-0 w-1/3" style={{
+                backgroundColor: activePersona.accent
+              }} animate={{
+                x: ["-100%", "300%"]
+              }} transition={{
+                repeat: Infinity,
+                duration: 1.4,
+                ease: "easeInOut"
+              }} />
+                  </div>
+                  <p className="font-mono-studio text-[9px] tracking-[0.22em] text-[#8B92A0] mt-3">FINALISING</p>
+                </div> : <div className="flex items-center gap-2 font-mono-studio text-xs tracking-wide" style={{
             color: activePersona.accent
           }}>
                 <motion.span animate={{
@@ -1954,9 +2014,10 @@ function Step2PanelInterview({
               borderColor: `${activePersona.accent}4D`,
               borderTopColor: activePersona.accent
             }} />
-                {isLastQuestion ? "Wrapping up your report..." : "Moving to the next question..."}
-              </div>
+                Moving to the next question...
+              </div>}
             </motion.div>}
+        </div>
         </div>
       </div>
     </div>;

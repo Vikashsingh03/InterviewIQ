@@ -4,7 +4,6 @@ import axios from "axios";
 import { ServerUrl } from "../App";
 import {
   IoClose,
-  IoSparklesSharp,
   IoSendSharp,
   IoTrashOutline,
   IoCopyOutline,
@@ -12,7 +11,6 @@ import {
   IoWarningOutline,
 } from "react-icons/io5";
 
-// must match the server's limit (MAX_COACH_MESSAGE_LENGTH in interview.controller.js)
 const MAX_MESSAGE_LENGTH = 2000;
 
 const SUGGESTIONS = [
@@ -22,15 +20,6 @@ const SUGGESTIONS = [
   "How can I sound more confident?",
 ];
 
-// ------------------------------------------------------------------
-// The coach writes Markdown (**bold**, * bullets, `code`). Showing that as
-// plain text is what put raw asterisks on screen, so it is rendered here.
-// It builds React elements (never innerHTML), so anything the model says,
-// including "<script>", is shown as harmless text.
-// ------------------------------------------------------------------
-// NOTE: a regex with the g flag keeps its own position (lastIndex). renderInline
-// calls itself for text inside **bold**, so every call must get its OWN regex,
-// otherwise the inner call resets the outer one and the loop never ends.
 const INLINE_SOURCE = "(`[^`\\n]+`)|(\\*\\*[^\\n]+?\\*\\*)|(\\*[^*\\s][^*\\n]*?\\*)";
 
 const renderInline = (text, keyPrefix = "i") => {
@@ -41,7 +30,6 @@ const renderInline = (text, keyPrefix = "i") => {
   let n = 0;
 
   const pushPlain = (chunk) => {
-    // an unmatched "**" is never useful on screen
     const clean = chunk.replace(/\*\*/g, "");
     if (clean) nodes.push(clean);
   };
@@ -130,7 +118,6 @@ const parseBlocks = (text) => {
       }
       list.items.push(numbered[2]);
     } else if (list && /^\s{2,}\S/.test(raw)) {
-      // indented continuation of the previous list item
       list.items[list.items.length - 1] += " " + line.trim();
     } else {
       flushList();
@@ -151,7 +138,7 @@ export function CoachMarkdown({ text }) {
           return (
             <p
               key={i}
-              className="font-semibold text-[#1C1F24] dark:text-white"
+              className="font-serif-display text-[15px] text-[#1C1F24] dark:text-white"
             >
               {renderInline(block.text, `h${i}`)}
             </p>
@@ -197,12 +184,13 @@ const formatTime = (value) => {
 };
 
 function CoachAvatar({ size = 28 }) {
+  const d = Math.round(size * 0.34);
   return (
     <div
       style={{ width: size, height: size }}
-      className="shrink-0 rounded-full bg-linear-to-br from-[#F4C97A] to-[#D48A2E] flex items-center justify-center shadow-[0_4px_14px_-4px_rgba(212,138,46,0.6)]"
+      className="shrink-0 rounded-xl bg-[#1C1F24] dark:bg-[#EDEEF0] flex items-center justify-center"
     >
-      <IoSparklesSharp className="text-white" size={Math.round(size * 0.46)} />
+      <span className="rotate-45 bg-[#E8A94C] block" style={{ width: d, height: d }} />
     </div>
   );
 }
@@ -244,7 +232,6 @@ function CoachChat({ interviewId, onClose }) {
     if (interviewId) loadChat();
   }, [interviewId, loadChat]);
 
-  // keep the newest message in view
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -252,7 +239,6 @@ function CoachChat({ interviewId, onClose }) {
     });
   }, [messages, sending, loading]);
 
-  // the box grows with what you type (up to ~5 lines)
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -260,7 +246,6 @@ function CoachChat({ interviewId, onClose }) {
     el.style.height = Math.min(el.scrollHeight, 128) + "px";
   }, [input]);
 
-  // Esc: closes the "clear chat?" card first, otherwise the whole panel
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
@@ -299,7 +284,6 @@ function CoachChat({ interviewId, onClose }) {
       ]);
     } catch (error) {
       console.log(error);
-      // take the message back so nothing typed is lost
       setMessages((prev) => prev.slice(0, -1));
       setInput(text);
       setErrorMessage(
@@ -322,7 +306,7 @@ function CoachChat({ interviewId, onClose }) {
       setConfirmClear(false);
       setMessages([]);
       setInput("");
-      await loadChat(); // a clean chat starts with a fresh opening message
+      await loadChat();
     } catch (error) {
       console.log(error);
       setErrorMessage(
@@ -340,7 +324,6 @@ function CoachChat({ interviewId, onClose }) {
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 1500);
     } catch {
-      // clipboard blocked: the text is still selectable
     }
   };
 
@@ -374,7 +357,6 @@ function CoachChat({ interviewId, onClose }) {
         .coach-scroll::-webkit-scrollbar-thumb { background: rgba(139,146,160,0.35); border-radius: 999px; }
       `}</style>
 
-      {/* backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -383,7 +365,6 @@ function CoachChat({ interviewId, onClose }) {
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-998"
       />
 
-      {/* slide-in panel */}
       <motion.div
         role="dialog"
         aria-label="AI Coach"
@@ -391,23 +372,19 @@ function CoachChat({ interviewId, onClose }) {
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="coach-root fixed top-0 right-0 h-full w-full sm:w-110 bg-[#F7F6F3] dark:bg-[#0A0B0D] z-999 shadow-[-24px_0_70px_-24px_rgba(0,0,0,0.45)] flex flex-col border-l border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden"
+        className="coach-root fixed top-0 right-0 h-full w-full sm:w-110 bg-[#F7F6F3] dark:bg-[#0A0B0D] z-999 flex flex-col border-l-2 border-[#E8A94C]/40 overflow-hidden"
       >
-        {/* ambient glow */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_15%_0%,rgba(232,169,76,0.18),transparent_60%),radial-gradient(circle_at_100%_0%,rgba(94,200,216,0.10),transparent_55%)]" />
-
-        {/* header */}
         <div className="relative z-10 flex items-center justify-between px-5 py-4 border-b border-[#EAE9E5] dark:border-[#1E2229] bg-white/80 dark:bg-[#0F1115]/80 backdrop-blur-xl shrink-0">
           <div className="flex items-center gap-3">
             <div className="relative">
               <CoachAvatar size={40} />
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#4ADE80] border-2 border-white dark:border-[#0F1115]" />
+              <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rotate-45 bg-[#4ADE80] border-2 border-white dark:border-[#0F1115]" />
             </div>
             <div>
               <p className="font-serif-display text-xl text-[#1C1F24] dark:text-[#EDEEF0] leading-none tracking-tight">
                 AI Coach
               </p>
-              <p className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] mt-1.5">
+              <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8B92A0] mt-1.5">
                 READS YOUR INTERVIEW · READY TO HELP
               </p>
             </div>
@@ -435,7 +412,6 @@ function CoachChat({ interviewId, onClose }) {
           </div>
         </div>
 
-        {/* clear-chat confirmation */}
         <AnimatePresence initial={false}>
           {confirmClear && (
             <motion.div
@@ -476,7 +452,6 @@ function CoachChat({ interviewId, onClose }) {
           )}
         </AnimatePresence>
 
-        {/* messages */}
         <div
           ref={scrollRef}
           className="coach-scroll relative z-10 flex-1 overflow-y-auto px-4 py-6 space-y-5"
@@ -596,7 +571,6 @@ function CoachChat({ interviewId, onClose }) {
           )}
         </div>
 
-        {/* error */}
         <AnimatePresence>
           {errorMessage && (
             <motion.div
@@ -625,7 +599,6 @@ function CoachChat({ interviewId, onClose }) {
           )}
         </AnimatePresence>
 
-        {/* composer */}
         <div className="relative z-10 px-4 pt-3 pb-4 border-t border-[#EAE9E5] dark:border-[#1E2229] bg-white/85 dark:bg-[#0F1115]/85 backdrop-blur-xl shrink-0">
           <div className="flex items-end gap-2 bg-[#F7F6F3] dark:bg-[#0C0E11] border border-[#E5E4E0] dark:border-[#1E2229] rounded-2xl pl-4 pr-2 py-2 focus-within:border-[#E8A94C]/60 focus-within:ring-4 focus-within:ring-[#E8A94C]/10 transition-all">
             <textarea
@@ -644,7 +617,7 @@ function CoachChat({ interviewId, onClose }) {
               aria-label="Send message"
               onClick={() => send()}
               disabled={!input.trim() || sending || loading || clearing}
-              className="w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-[#F4C97A] to-[#E8A94C] text-[#1C1F24] flex items-center justify-center shadow-[0_8px_20px_-8px_rgba(232,169,76,0.7)] hover:brightness-105 active:scale-95 disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed transition cursor-pointer"
+              className="w-10 h-10 shrink-0 rounded-xl bg-[#E8A94C] hover:bg-[#F0B865] text-[#1C1F24] flex items-center justify-center active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
             >
               <IoSendSharp size={15} />
             </button>

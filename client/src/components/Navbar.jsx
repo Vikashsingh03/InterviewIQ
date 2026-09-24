@@ -2,14 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  BsRobot,
   BsCoin,
   BsClockHistory,
   BsGraphUp,
-  BsLightningCharge,
 } from "react-icons/bs";
 import { HiOutlineLogout } from "react-icons/hi";
-import { FaUserAstronaut } from "react-icons/fa";
 import { HiOutlineSun, HiOutlineMoon } from "react-icons/hi";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
@@ -25,14 +22,21 @@ const popoverMotion = {
   transition: { duration: 0.16, ease: "easeOut" },
 };
 
-// desktop-only quick links — mobile keeps them in the profile popover
-// so the bar never gets crowded on small screens
 const NAV_LINKS = [
   { label: "Practice", path: "/practice" },
   { label: "Progress", path: "/progress" },
   { label: "History", path: "/history" },
   { label: "Pricing", path: "/pricing" },
 ];
+
+function BrandMark({ size = "md" }) {
+  const box = size === "md" ? "w-9 h-9 text-lg" : "w-8 h-8 text-base";
+  return (
+    <div className={`${box} rounded-lg bg-[#1C1F24] dark:bg-[#E8A94C] flex items-center justify-center shrink-0 shadow-md shadow-black/10`}>
+      <span className="font-serif-display italic font-semibold text-[#E8A94C] dark:text-[#0A0B0D] leading-none">Q</span>
+    </div>
+  );
+}
 
 function Navbar() {
   const { userData } = useSelector((state) => state.user);
@@ -44,8 +48,6 @@ function Navbar() {
   const [showAuth, setShowAuth] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
-  // the bar tightens and gains a stronger edge once the page scrolls —
-  // purely cosmetic, makes it read as "floating" rather than pinned
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -79,24 +81,16 @@ function Navbar() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
         .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
-        @keyframes livePulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,169,76,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(232,169,76,0); } }
-        .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
       `}</style>
 
-      {/* SPACER — invisible, reserves the height the fixed navbar takes up
-          so page content never hides behind it. */}
       <div
         aria-hidden="true"
         className="h-23 sm:h-28 pointer-events-none select-none"
       />
 
-      {/* ACTUAL NAVBAR — fixed, fully transparent. The page underneath
-          paints one continuous background from the true top of the page,
-          so it simply shows through here — no second background layer
-          competing with it, no seam possible. */}
       <div className="fixed top-0 left-0 right-0 z-50">
         <div
           className={`relative flex justify-center px-3 sm:px-4 transition-all duration-300 ${
@@ -113,22 +107,20 @@ function Navbar() {
                 : "py-3 sm:py-4 shadow-[0_10px_40px_-16px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_-16px_rgba(0,0,0,0.6)]"
             }`}
           >
-            {/* thin amber hairline along the top edge of the bar */}
             <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-[#E8A94C]/40 to-transparent" />
 
             <button
               onClick={() => navigate("/")}
-              className="group flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0"
+              className="group flex items-center gap-2.5 cursor-pointer shrink-0"
             >
-              <div className="bg-[#1C1F24] dark:bg-[#E8A94C] text-[#E8A94C] dark:text-[#0A0B0D] p-2 rounded-lg shadow-md shadow-black/10 shrink-0 group-hover:scale-105 transition-transform duration-200">
-                <BsRobot size={18} />
-              </div>
+              <span className="group-hover:scale-105 transition-transform duration-200 flex">
+                <BrandMark />
+              </span>
               <h2 className="font-serif-display text-base sm:text-lg text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight whitespace-nowrap">
-                InterviewIQ.AI
+                InterviewIQ<span className="text-[#B27E2E] dark:text-[#E8A94C]">.</span>
               </h2>
             </button>
 
-            {/* ---- desktop quick links ---- */}
             <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
               {NAV_LINKS.map((link) => {
                 const active = location.pathname.startsWith(link.path);
@@ -183,7 +175,6 @@ function Navbar() {
                 </AnimatePresence>
               </button>
 
-              {/* ---- credits ---- */}
               <div className="relative">
                 <button
                   onClick={() => {
@@ -206,9 +197,8 @@ function Navbar() {
                       {...popoverMotion}
                       className="absolute right-0 sm:-right-8 w-64 sm:w-72 mt-3 origin-top-right bg-white/95 dark:bg-[#0F1115]/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/50 rounded-2xl p-5 z-50 border border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden"
                     >
-                      <span className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full bg-[#E8A94C]/10 blur-3xl" />
                       <div className="relative flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#E8A94C]/15 flex items-center justify-center text-[#B27E2E] dark:text-[#E8A94C] shadow-md shadow-black/5">
+                        <div className="w-10 h-10 rounded-xl bg-[#E8A94C]/15 flex items-center justify-center text-[#B27E2E] dark:text-[#E8A94C]">
                           <BsCoin size={18} />
                         </div>
                         <div>
@@ -238,34 +228,33 @@ function Navbar() {
                 </AnimatePresence>
               </div>
 
-              {/* ---- profile ---- */}
               <div className="relative">
-                <button
-                  onClick={() => {
-                    if (!userData) {
-                      setShowAuth(true);
-                      return;
-                    }
-                    setShowUserPopup(!showUserPopup);
-                    setShowCreditPopup(false);
-                  }}
-                  className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer bg-[#1C1F24] dark:bg-[#EDEEF0] text-[#E8A94C] dark:text-[#0A0B0D] rounded-full flex items-center justify-center font-semibold shadow-md ring-2 ring-white dark:ring-[#0F1115] shrink-0 hover:scale-105 transition-transform duration-200"
-                >
-                  {userData ? (
-                    userData.name.charAt(0).toUpperCase()
-                  ) : (
-                    <FaUserAstronaut size={17} />
-                  )}
-                </button>
+                {userData ? (
+                  <button
+                    onClick={() => {
+                      setShowUserPopup(!showUserPopup);
+                      setShowCreditPopup(false);
+                    }}
+                    className="w-8 h-8 sm:w-9 sm:h-9 cursor-pointer bg-[#1C1F24] dark:bg-[#EDEEF0] text-[#E8A94C] dark:text-[#0A0B0D] rounded-full flex items-center justify-center font-semibold shadow-md ring-2 ring-white dark:ring-[#0F1115] shrink-0 hover:scale-105 transition-transform duration-200"
+                  >
+                    {userData.name.charAt(0).toUpperCase()}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAuth(true)}
+                    className="cursor-pointer bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] text-sm font-semibold px-4 sm:px-5 py-2 rounded-full hover:opacity-90 transition shrink-0"
+                  >
+                    Sign in
+                  </button>
+                )}
 
                 <AnimatePresence>
-                  {showUserPopup && (
+                  {showUserPopup && userData && (
                     <motion.div
                       {...popoverMotion}
                       className="absolute right-0 mt-3 w-60 sm:w-64 origin-top-right bg-white/95 dark:bg-[#0F1115]/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/50 border border-[#EAE9E5] dark:border-[#1E2229] rounded-2xl overflow-hidden z-50"
                     >
-                      <div className="relative px-5 pt-5 pb-4 bg-[#FAFAF8] dark:bg-[#0C0E11] border-b border-[#EAE9E5] dark:border-[#1E2229] overflow-hidden">
-                        <span className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-[#E8A94C]/10 blur-2xl" />
+                      <div className="relative px-5 pt-5 pb-4 bg-[#FAFAF8] dark:bg-[#0C0E11] border-b border-[#EAE9E5] dark:border-[#1E2229]">
                         <div className="relative flex items-center gap-3">
                           <div className="w-11 h-11 shrink-0 rounded-full bg-[#E8A94C]/15 text-[#B27E2E] dark:text-[#E8A94C] flex items-center justify-center font-semibold text-lg">
                             {userData?.name?.charAt(0).toUpperCase()}
@@ -290,7 +279,6 @@ function Navbar() {
                           }}
                           className="w-full cursor-pointer flex items-center gap-3 text-left text-sm px-3 py-2.5 rounded-xl hover:bg-[#F0EFEA] dark:hover:bg-[#181B20] text-[#3D4148] dark:text-[#C7CBD1] transition"
                         >
-                          <BsLightningCharge size={15} className="text-[#9AA1AC]" />
                           Practice Hub
                           <span className="font-mono-studio ml-auto text-[9px] tracking-wide px-1.5 py-0.5 rounded bg-[#E8A94C]/12 text-[#B27E2E] dark:text-[#E8A94C]">
                             FREE
@@ -342,3 +330,4 @@ function Navbar() {
 }
 
 export default Navbar;
+export { BrandMark };

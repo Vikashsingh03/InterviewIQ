@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaArrowLeft, FaDownload } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -13,28 +13,22 @@ import {
 } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
+import { IoWarningOutline } from "react-icons/io5";
 import { BsCode, BsPersonFill, BsChatDots } from "react-icons/bs";
 import QuestionCoaching from "./QuestionCoaching";
 import CoachChat from "./CoachChat";
 
-// client-side labels only — matches PANEL_PERSONAS in Step2PanelInterview,
-// kept separate (and this simple) since the report only needs a label + color
 const PANEL_LABELS = {
   interviewerA: { label: "Interviewer A", subtitle: "Technical", accent: "#5EC8D8" },
   interviewerB: { label: "Interviewer B", subtitle: "Behavioral", accent: "#E8A94C" },
 };
 
-// ---- number formatting -------------------------------------------------
-// The server can send 4.666666666666667. Everything shown on this page (and
-// in the PDF) goes through these, so a score never has more than 1 decimal.
 const round1 = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
 };
-const formatScore = (value) => String(round1(value)); // 4.7, 5, 2.4
+const formatScore = (value) => String(round1(value));
 
-// ---- score tiers (same thresholds the page always used) ----------------
 const tierFor = (value) => (value >= 8 ? "high" : value >= 5 ? "mid" : "low");
 
 const TIERS = {
@@ -66,15 +60,48 @@ const FILTERS = [
 ];
 
 const CARD =
-  "bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl shadow-[0_20px_50px_-24px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_-24px_rgba(0,0,0,0.6)]";
+  "bg-white dark:bg-[#111318] border border-[#EAE9E5] dark:border-[#1E2229] rounded-3xl";
 
-const CARD_TITLE =
-  "font-mono-studio text-[11px] tracking-wide text-[#8B92A0] uppercase";
+function useCountUp(target, duration, active, delay) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    let raf;
+    const t0 = performance.now() + delay * 1000;
+    const tick = (t) => {
+      if (t < t0) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const p = Math.min(1, (t - t0) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(target * eased * 10) / 10);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, active, delay]);
+  return val;
+}
 
-// ---- score ring: own SVG so it looks right in light AND dark -----------
+function SectionHead({ num, label }) {
+  return (
+    <div className="flex items-center gap-3 mb-7">
+      <span className="font-mono-studio text-[11px] font-bold tracking-[0.2em] text-[#B27E2E] dark:text-[#E8A94C]">
+        {num}
+      </span>
+      <span className="font-mono-studio text-[11px] tracking-[0.18em] text-[#8B92A0] uppercase">
+        {label}
+      </span>
+      <span className="flex-1 h-px bg-[#EAE9E5] dark:bg-[#1E2229]" />
+    </div>
+  );
+}
+
 function ScoreRing({ value, color }) {
-  const size = 176;
-  const stroke = 12;
+  const display = useCountUp(value, 1200, true, 0.25);
+  const size = 188;
+  const stroke = 13;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const fraction = Math.max(0, Math.min(1, value / 10));
@@ -106,18 +133,17 @@ function ScoreRing({ value, color }) {
           strokeDasharray={circumference}
           initial={{ strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: circumference * (1 - fraction) }}
-          transition={{ duration: 1.1, ease: "easeOut" }}
-          style={{ filter: `drop-shadow(0 0 8px ${color}66)` }}
+          transition={{ duration: 1.2, ease: "easeOut", delay: 0.25 }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
-          className="font-serif-display text-5xl tracking-tight leading-none"
+          className="font-serif-display text-6xl tracking-tight leading-none"
           style={{ color }}
         >
-          {formatScore(value)}
+          {formatScore(display)}
         </span>
-        <span className="font-mono-studio text-[10px] tracking-[0.12em] text-[#8B92A0] mt-2">
+        <span className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8B92A0] mt-2.5">
           OUT OF 10
         </span>
       </div>
@@ -137,7 +163,7 @@ function StatTile({ label, value, sub, onClick, accent }) {
           : ""
       }`}
     >
-      <p className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0] uppercase">
+      <p className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8B92A0] uppercase">
         {label}
       </p>
       <p
@@ -148,6 +174,38 @@ function StatTile({ label, value, sub, onClick, accent }) {
       </p>
       {sub && <p className="text-[11px] text-[#8B92A0] mt-0.5">{sub}</p>}
     </Tag>
+  );
+}
+
+function SkillRow({ s, index }) {
+  const skillTier = TIERS[tierFor(s.value)];
+  const barVal = useCountUp(s.value, 1000, true, 0.3 + index * 0.12);
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-2 text-sm">
+        <span className="text-[#3D4148] dark:text-[#C7CBD1]">
+          {s.label}
+        </span>
+        <span
+          className={`font-mono-studio font-semibold ${skillTier.text}`}
+        >
+          {formatScore(barVal)}
+          <span className="text-[10px] text-[#8B92A0] font-normal">
+            /10
+          </span>
+        </span>
+      </div>
+
+      <div className="bg-[#EFEEEA] dark:bg-[#1B1E24] h-2 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-[width] duration-1000 ease-out"
+          style={{
+            width: `${barVal * 10}%`,
+            backgroundColor: skillTier.color,
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -201,7 +259,6 @@ function Step3Report({ report, showBackButton = true }) {
   const isPanel = interviewType === "panel" && perInterviewerScores;
   const wasTerminated = Boolean(proctoring?.terminatedForMisbehavior);
 
-  // ---- everything numeric is rounded ONCE, here ----
   const score = round1(finalScore);
   const tierKey = tierFor(score);
   const tier = TIERS[tierKey];
@@ -232,7 +289,6 @@ function Step3Report({ report, showBackButton = true }) {
     score: round1(q.score || 0),
   }));
 
-  // ---- quick facts about this interview ----
   const totalQuestions = questionWiseScore.length;
   const skippedCount = questionWiseScore.filter((q) => q.skipped).length;
   const answeredCount = totalQuestions - skippedCount;
@@ -287,186 +343,181 @@ function Step3Report({ report, showBackButton = true }) {
     const margin = 16;
     const contentWidth = pageWidth - margin * 2;
 
-    const DARK = [17, 19, 24]; // #111318
-    const AMBER = [232, 169, 76]; // #E8A94C
-    const CYAN = [94, 200, 216]; // #5EC8D8
-    const MUTED = [139, 146, 160]; // #8B92A0
-    const INK = [28, 31, 36]; // #1C1F24
-    const CARD_BG = [247, 246, 243]; // #F7F6F3
+    const DARK = [14, 16, 20];
+    const INK = [28, 31, 36];
+    const AMBER = [232, 169, 76];
+    const AMBER_DK = [178, 126, 46];
+    const MUTED = [139, 146, 160];
+    const PAPER = [247, 246, 243];
+    const LINE = [228, 227, 222];
     const scoreRgb = hexToRgb(progressColor);
-
+    const refNo = String(interviewId || "report").slice(-6).toUpperCase();
     const today = new Date().toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
       year: "numeric",
     });
 
-    // ================ COVER HEADER BAND ================
+    const label = (text, x, y, size, color) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(size || 7.5);
+      doc.setTextColor(...(color || MUTED));
+      doc.text(String(text).toUpperCase(), x, y, { charSpace: 1.4 });
+    };
+
+    const serifHead = (text, x, y, size, color) => {
+      doc.setFont("times", "bold");
+      doc.setFontSize(size);
+      doc.setTextColor(...(color || INK));
+      doc.text(text, x, y);
+    };
+
+    const sectionHead = (num, title, y) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...AMBER_DK);
+      doc.text(String(num).padStart(2, "0"), margin, y, { charSpace: 1.2 });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text(String(title).toUpperCase(), margin + 10, y, { charSpace: 1.6 });
+      doc.setDrawColor(...LINE);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y + 3, pageWidth - margin, y + 3);
+      return y + 10;
+    };
+
     doc.setFillColor(...DARK);
-    doc.rect(0, 0, pageWidth, 34, "F");
+    doc.rect(0, 0, pageWidth, 38, "F");
     doc.setFillColor(...AMBER);
-    doc.rect(0, 0, pageWidth, 1.4, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(17);
-    doc.setTextColor(255, 255, 255);
-    doc.text(
-      isPanel ? "AI Panel Interview Performance Report" : "AI Interview Performance Report",
-      margin,
-      15,
-    );
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(200, 204, 211);
-    const subtitleParts = [role, company, today].filter(Boolean);
-    doc.text(subtitleParts.join("   •   "), margin, 22);
+    doc.rect(0, 0, pageWidth, 1.6, "F");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(...AMBER);
-    doc.text("InterviewIQ.AI", pageWidth - margin, 15, { align: "right" });
+    doc.text("InterviewIQ.AI", pageWidth - margin, 12, { align: "right", charSpace: 1.6 });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(160, 165, 175);
-    doc.text("Performance Report", pageWidth - margin, 20, { align: "right" });
+    doc.setTextColor(150, 155, 165);
+    doc.text("PERFORMANCE REPORT", pageWidth - margin, 17, { align: "right", charSpace: 1.2 });
 
-    let currentY = 44;
+    serifHead(
+      isPanel ? "AI Panel Interview Report" : "AI Interview Performance Report",
+      margin,
+      16,
+      19,
+      [255, 255, 255],
+    );
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(195, 199, 206);
+    const subtitleParts = [role, company, today].filter(Boolean);
+    doc.text(subtitleParts.join("   ·   "), margin, 24);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...AMBER);
+    doc.text(`REF Nº ${refNo}`, margin, 31, { charSpace: 1.4 });
 
-    // ================ MISBEHAVIOR NOTICE (if terminated) ================
+    let currentY = 48;
+
     if (wasTerminated) {
       doc.setFillColor(254, 226, 226);
       doc.setDrawColor(248, 113, 113);
       doc.setLineWidth(0.3);
-      doc.roundedRect(margin, currentY, contentWidth, 16, 3, 3, "FD");
+      doc.roundedRect(margin, currentY, contentWidth, 15, 3, 3, "FD");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10.5);
+      doc.setFontSize(10);
       doc.setTextColor(185, 28, 28);
       doc.text(
-        "Interview was not successful - ended due to repeated fullscreen exits.",
+        "Interview was not successful — ended early due to repeated fullscreen exits.",
         margin + 6,
-        currentY + 10,
+        currentY + 9.5,
       );
-      currentY += 22;
+      currentY += 21;
     }
 
-    // ================ SCORE HERO CARD ================
-    const scoreCardH = 32;
-    doc.setFillColor(...CARD_BG);
-    doc.roundedRect(margin, currentY, contentWidth, scoreCardH, 4, 4, "F");
-
-    const circleCx = margin + 18;
-    const circleCy = currentY + scoreCardH / 2;
+    currentY = sectionHead("01", "Overall verdict", currentY);
+    const verdictLines = doc.splitTextToSize(
+      `${performanceText} ${shortTagline}`,
+      contentWidth - 66,
+    );
+    const verdictH = Math.max(34, 16 + verdictLines.length * 5.5);
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...LINE);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, currentY, contentWidth, verdictH, 4, 4, "FD");
     doc.setFillColor(...scoreRgb);
-    doc.circle(circleCx, circleCy, 11, "F");
+    doc.rect(margin, currentY, 1.6, verdictH, "F");
+
+    const ringCx = margin + 22;
+    const ringCy = currentY + verdictH / 2;
+    doc.setFillColor(...scoreRgb);
+    doc.circle(ringCx, ringCy, 12, "F");
+    doc.setFont("times", "bold");
+    doc.setFontSize(15);
+    doc.setTextColor(255, 255, 255);
+    doc.text(formatScore(score), ringCx, ringCy + 2, { align: "center" });
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.setTextColor(17, 19, 24);
-    doc.text(formatScore(score), circleCx, circleCy + 1, { align: "center" });
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
-    doc.text("/ 10", circleCx, circleCy + 5.5, { align: "center" });
+    doc.text("/ 10", ringCx, ringCy + 7, { align: "center" });
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...MUTED);
-    doc.text("OVERALL PERFORMANCE", margin + 36, currentY + 11);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(...INK);
-    doc.text(performanceText, margin + 36, currentY + 19);
+    label("Verdict", margin + 40, currentY + 10, 7.5, scoreRgb);
+    serifHead(tier.label.charAt(0) + tier.label.slice(1).toLowerCase(), margin + 40, currentY + 19, 15, INK);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...MUTED);
-    doc.text(shortTagline, margin + 36, currentY + 25);
+    doc.setFontSize(9.5);
+    doc.setTextColor(80, 85, 92);
+    doc.text(verdictLines, margin + 40, currentY + 26);
 
-    currentY += scoreCardH + 8;
+    currentY += verdictH + 10;
 
-    // ================ PANEL VERDICT (panel mode only) ================
     if (isPanel) {
+      currentY = sectionHead("02", "Panel verdict", currentY);
       const halfW = (contentWidth - 6) / 2;
-      const panelH = 26;
+      const panelH = 27;
       const panels = [
-        {
-          x: margin,
-          label: "INTERVIEWER A",
-          sub: "Technical",
-          score: perInterviewerScores.interviewerA,
-          rgb: CYAN,
-        },
-        {
-          x: margin + halfW + 6,
-          label: "INTERVIEWER B",
-          sub: "Behavioral",
-          score: perInterviewerScores.interviewerB,
-          rgb: AMBER,
-        },
+        { x: margin, key: "interviewerA", rgb: [94, 200, 216] },
+        { x: margin + halfW + 6, key: "interviewerB", rgb: AMBER },
       ];
-
       panels.forEach((p) => {
+        const persona = PANEL_LABELS[p.key];
         doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(230, 229, 224);
-        doc.setLineWidth(0.25);
+        doc.setDrawColor(...LINE);
+        doc.setLineWidth(0.3);
         doc.roundedRect(p.x, currentY, halfW, panelH, 3, 3, "FD");
         doc.setFillColor(...p.rgb);
-        doc.rect(p.x, currentY, 1.4, panelH, "F");
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(...p.rgb);
-        doc.text(p.label, p.x + 7, currentY + 9);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(...MUTED);
-        doc.text(p.sub, p.x + 7, currentY + 15);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.setTextColor(...INK);
-        doc.text(`${formatScore(p.score)}/10`, p.x + halfW - 7, currentY + 13, {
-          align: "right",
-        });
+        doc.rect(p.x, currentY, 1.6, panelH, "F");
+        label(`${persona.label} · ${persona.subtitle}`, p.x + 8, currentY + 9, 7.5, p.rgb);
+        serifHead(`${formatScore(perInterviewerScores[p.key])}/10`, p.x + halfW - 8, currentY + 20, 15, INK);
       });
-
-      currentY += panelH + 8;
+      currentY += panelH + 10;
     }
 
-    // ================ SKILLS CARD (with mini bars) ================
-    const skillsCardH = 8 + skills.length * 11;
+    currentY = sectionHead(isPanel ? "03" : "02", "Skill evaluation", currentY);
+    const skillsH = 10 + skills.length * 12;
     doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(230, 229, 224);
-    doc.setLineWidth(0.25);
-    doc.roundedRect(margin, currentY, contentWidth, skillsCardH, 4, 4, "FD");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...MUTED);
-    doc.text("SKILL EVALUATION", margin + 8, currentY + 9);
-
+    doc.setDrawColor(...LINE);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, currentY, contentWidth, skillsH, 4, 4, "FD");
     skills.forEach((s, i) => {
-      const rowY = currentY + 15 + i * 11;
+      const rowY = currentY + 12 + i * 12;
+      const sRgb = hexToRgb(TIERS[tierFor(s.value)].color);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
+      doc.setFontSize(10);
       doc.setTextColor(...INK);
       doc.text(s.label, margin + 8, rowY);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...AMBER);
-      doc.text(formatScore(s.value), pageWidth - margin - 8, rowY, {
-        align: "right",
-      });
-
+      doc.setFont("times", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...sRgb);
+      doc.text(`${formatScore(s.value)}/10`, pageWidth - margin - 8, rowY, { align: "right" });
       const barX = margin + 8;
       const barW = contentWidth - 16;
-      const barY = rowY + 2;
       doc.setFillColor(239, 238, 234);
-      doc.roundedRect(barX, barY, barW, 2, 1, 1, "F");
-      doc.setFillColor(...AMBER);
-      doc.roundedRect(barX, barY, Math.max(2, (barW * s.value) / 10), 2, 1, 1, "F");
+      doc.roundedRect(barX, rowY + 2.5, barW, 2.2, 1, 1, "F");
+      doc.setFillColor(...sRgb);
+      doc.roundedRect(barX, rowY + 2.5, Math.max(2.5, (barW * s.value) / 10), 2.2, 1, 1, "F");
     });
+    currentY += skillsH + 10;
 
-    currentY += skillsCardH + 8;
-
-    // ================ ADVICE CARD ================
     let advice = "";
     if (tierKey === "high") {
       advice =
@@ -478,31 +529,24 @@ function Step3Report({ report, showBackButton = true }) {
       advice =
         "Significant improvement required. Focus on structured thinking, clarity, and confident delivery. Practice answering aloud regularly.";
     }
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    const splitAdvice = doc.splitTextToSize(advice, contentWidth - 18);
-    const adviceCardH = 16 + splitAdvice.length * 5;
-
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(230, 229, 224);
-    doc.setLineWidth(0.25);
-    doc.roundedRect(margin, currentY, contentWidth, adviceCardH, 4, 4, "FD");
-    doc.setFillColor(...AMBER);
-    doc.rect(margin, currentY, 1.4, adviceCardH, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    currentY = sectionHead(isPanel ? "04" : "03", "Professional advice", currentY);
+    doc.setFont("times", "bold");
+    doc.setFontSize(26);
+    doc.setTextColor(...AMBER);
+    doc.text("\u201C", margin + 4, currentY + 8);
+    const adviceLines = doc.splitTextToSize(advice, contentWidth - 20);
+    doc.setFont("times", "italic");
+    doc.setFontSize(11.5);
     doc.setTextColor(...INK);
-    doc.text("PROFESSIONAL ADVICE", margin + 8, currentY + 10);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    doc.setTextColor(80, 85, 92);
-    doc.text(splitAdvice, margin + 8, currentY + 17);
+    doc.text(adviceLines, margin + 12, currentY + 8);
+    currentY += 10 + adviceLines.length * 5.5;
+    doc.setDrawColor(...LINE);
+    doc.setLineWidth(0.3);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 10;
 
-    currentY += adviceCardH + 10;
+    currentY = sectionHead(isPanel ? "05" : "04", "Question analysis", currentY);
 
-    // ================ QUESTION TABLE ================
     const tableHead = isPanel
       ? [["#", "Interviewer", "Question", "Score", "Feedback"]]
       : [["#", "Question", "Score", "Feedback"]];
@@ -513,38 +557,41 @@ function Step3Report({ report, showBackButton = true }) {
             `${i + 1}`,
             q.askedBy ? PANEL_LABELS[q.askedBy]?.label || "—" : "—",
             q.question,
-            `${formatScore(q.score)}/10`,
+            q.skipped ? "Skipped" : `${formatScore(q.score)}/10`,
             q.feedback,
           ]
-        : [`${i + 1}`, q.question, `${formatScore(q.score)}/10`, q.feedback],
+        : [`${i + 1}`, q.question, q.skipped ? "Skipped" : `${formatScore(q.score)}/10`, q.feedback],
     );
 
     autoTable(doc, {
       startY: currentY,
-      margin: { left: margin, right: margin, bottom: 16 },
+      margin: { left: margin, right: margin, bottom: 18 },
       head: tableHead,
       body: tableBody,
       styles: {
+        font: "helvetica",
         fontSize: 8.5,
         cellPadding: 4.5,
         valign: "top",
-        lineColor: [235, 234, 230],
+        lineColor: LINE,
         lineWidth: 0.2,
         textColor: INK,
       },
       headStyles: {
-        fillColor: AMBER,
-        textColor: INK,
+        font: "times",
         fontStyle: "bold",
+        fontSize: 10,
+        fillColor: DARK,
+        textColor: AMBER,
         halign: "center",
-        fontSize: 8.5,
+        cellPadding: 5,
       },
       columnStyles: isPanel
         ? {
             0: { cellWidth: 8, halign: "center" },
             1: { cellWidth: 22 },
             2: { cellWidth: 45 },
-            3: { cellWidth: 15, halign: "center", fontStyle: "bold" },
+            3: { cellWidth: 16, halign: "center", fontStyle: "bold" },
             4: { cellWidth: "auto" },
           }
         : {
@@ -553,39 +600,30 @@ function Step3Report({ report, showBackButton = true }) {
             2: { cellWidth: 20, halign: "center", fontStyle: "bold" },
             3: { cellWidth: "auto" },
           },
-      alternateRowStyles: {
-        fillColor: [250, 249, 247],
-      },
-      // color the "Interviewer" column text to match each panelist's accent
+      alternateRowStyles: { fillColor: [250, 249, 247] },
       didParseCell: (data) => {
-        if (
-          isPanel &&
-          data.section === "body" &&
-          data.column.index === 1
-        ) {
+        if (isPanel && data.section === "body" && data.column.index === 1) {
           const raw = questionWiseScore[data.row.index];
-          const rgb = raw?.askedBy === "interviewerA" ? CYAN : AMBER;
+          const rgb = raw?.askedBy === "interviewerA" ? [94, 200, 216] : AMBER;
           data.cell.styles.textColor = rgb;
           data.cell.styles.fontStyle = "bold";
         }
       },
     });
 
-    // ================ FOOTER ON EVERY PAGE ================
     const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       const pageH = doc.internal.pageSize.getHeight();
-      doc.setDrawColor(230, 229, 224);
-      doc.setLineWidth(0.2);
-      doc.line(margin, pageH - 12, pageWidth - margin, pageH - 12);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
+      doc.setDrawColor(...LINE);
+      doc.setLineWidth(0.25);
+      doc.line(margin, pageH - 13, pageWidth - margin, pageH - 13);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
       doc.setTextColor(...MUTED);
-      doc.text("Generated by InterviewIQ.AI", margin, pageH - 7);
-      doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageH - 7, {
-        align: "right",
-      });
+      doc.text(`InterviewIQ.AI  ·  REF Nº ${refNo}`, margin, pageH - 8, { charSpace: 1 });
+      doc.setFont("helvetica", "normal");
+      doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageH - 8, { align: "right" });
     }
 
     doc.save(isPanel ? "AI_Panel_Interview_report.pdf" : "AI_Interview_report.pdf");
@@ -594,7 +632,7 @@ function Step3Report({ report, showBackButton = true }) {
   return (
     <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] px-4 sm:px-6 lg:px-10 py-8 transition-colors duration-300 overflow-hidden">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         .report-root, .report-root * { font-family: 'Manrope', sans-serif; }
         .font-serif-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
         .font-mono-studio { font-family: 'JetBrains Mono', monospace; }
@@ -612,66 +650,67 @@ function Step3Report({ report, showBackButton = true }) {
 
       <div className="film-grain" />
 
-      {/* soft glow that follows the score tier */}
-      <div
-        className="pointer-events-none absolute top-0 left-0 right-0 h-112 z-0"
-        style={{
-          background: `radial-gradient(circle at 12% 0%, ${progressColor}1F, transparent 45%), radial-gradient(circle at 92% 0%, rgba(94,200,216,0.10), transparent 40%)`,
-          maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-        }}
-      />
-
       <div className="report-root relative z-10 max-w-350 mx-auto">
-        {/* ============ header ============ */}
-        <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+        <div className="mb-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
           <div className="flex items-start gap-4 min-w-0">
             {showBackButton && (
               <button
                 onClick={() => navigate("/history")}
                 aria-label="Back to history"
-                className="mt-1 w-11 h-11 shrink-0 cursor-pointer flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                className="mt-1 w-11 h-11 shrink-0 cursor-pointer flex items-center justify-center rounded-full bg-white dark:bg-[#131519] border border-[#EAE9E5] dark:border-[#232830] hover:-translate-y-0.5 transition-all duration-200"
               >
                 <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
               </button>
             )}
 
-            <div className="min-w-0">
-              <span className="font-mono-studio inline-flex items-center gap-1.5 text-[11px] tracking-wide text-[#B27E2E] dark:text-[#E8A94C] bg-[#E8A94C]/10 border border-[#E8A94C]/25 px-3 py-1 rounded-full mb-3">
-                <IoSparklesSharp size={11} />
-                AI-POWERED PERFORMANCE INSIGHTS
-              </span>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="min-w-0"
+            >
+              <div className="inline-flex items-center gap-2 bg-[#E8A94C]/8 border border-[#E8A94C]/20 px-3 py-1.5 rounded-full mb-4">
+                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
+                <span className="font-mono-studio text-[11px] tracking-[0.08em] text-[#B27E2E] dark:text-[#E8A94C]">
+                  AI-POWERED PERFORMANCE INSIGHTS
+                </span>
+              </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="font-serif-display text-3xl sm:text-4xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+                <h1 className="font-serif-display text-4xl sm:text-5xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight leading-[1.05]">
                   {isPanel ? "Panel Interview Analytics" : "Interview Analytics"}
                 </h1>
                 {isPanel && (
-                  <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-[#8B7FD6]/10 text-[#6A5FBF] dark:text-[#B3A9F5] border border-[#8B7FD6]/20">
+                  <span className="font-mono-studio text-[10px] tracking-[0.12em] px-2.5 py-1 rounded-md bg-[#8B7FD6]/10 text-[#6A5FBF] dark:text-[#B3A9F5] border border-[#8B7FD6]/20">
                     2 INTERVIEWERS
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center flex-wrap gap-2 mt-3">
+              <div className="flex items-center flex-wrap gap-2.5 mt-3.5">
                 {role && (
-                  <span className="font-mono-studio text-xs text-[#5C6472] dark:text-[#8B92A0]">
+                  <span className="font-mono-studio text-xs tracking-[0.06em] text-[#5C6472] dark:text-[#8B92A0]">
                     {role}
                     {company ? ` @ ${company}` : ""}
                   </span>
                 )}
                 {hasJobDescription && (
-                  <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="font-mono-studio text-[10px] tracking-widest px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     TAILORED TO PASTED JOB DESCRIPTION
                   </span>
                 )}
               </div>
-            </div>
+            </motion.div>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap shrink-0">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+            className="flex items-center gap-3 flex-wrap shrink-0"
+          >
             <button
               onClick={downloadPDF}
-              className="flex items-center gap-2 bg-[#1C1F24] dark:bg-[#EDEEF0] hover:opacity-90 text-white dark:text-[#0A0B0D] px-6 py-3 rounded-2xl shadow-[0_10px_30px_-8px_rgba(0,0,0,0.3)] transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
+              className="flex items-center gap-2 bg-[#1C1F24] dark:bg-[#EDEEF0] hover:-translate-y-0.5 text-white dark:text-[#0A0B0D] px-6 py-3 rounded-2xl transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
             >
               <FaDownload size={13} />
               Download PDF
@@ -681,27 +720,29 @@ function Step3Report({ report, showBackButton = true }) {
                 onClick={() => setShowCoach(true)}
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-2 bg-linear-to-br from-[#F4C97A] to-[#E8A94C] text-[#1C1F24] px-6 py-3 rounded-2xl shadow-[0_10px_30px_-8px_rgba(232,169,76,0.55)] transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
+                className="flex items-center gap-2 bg-[#E8A94C] hover:bg-[#F0B865] text-[#1C1F24] px-6 py-3 rounded-2xl transition-all duration-200 font-semibold text-sm sm:text-base text-nowrap cursor-pointer"
               >
                 <BsChatDots size={14} />
                 Talk to AI Coach
               </motion.button>
             )}
-          </div>
+          </motion.div>
         </div>
 
-        {/* ============ misbehavior banner ============ */}
         {wasTerminated && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 rounded-3xl border border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 p-6 sm:p-7"
+            className="mb-8 rounded-3xl border-2 border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-6 sm:p-7"
           >
             <div className="flex items-start gap-4">
               <div className="w-11 h-11 shrink-0 rounded-2xl bg-red-500/15 flex items-center justify-center">
                 <IoWarningOutline className="text-red-600 dark:text-red-400" size={22} />
               </div>
               <div>
+                <p className="font-mono-studio text-[10px] tracking-[0.2em] text-red-500 dark:text-red-400 mb-2">
+                  PROCTOR NOTICE
+                </p>
                 <h2 className="font-serif-display text-xl sm:text-2xl text-red-700 dark:text-red-300 mb-1.5">
                   Interview was not successful
                 </h2>
@@ -716,49 +757,48 @@ function Step3Report({ report, showBackButton = true }) {
           </motion.div>
         )}
 
-        {/* ============ grid ============ */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* ---------- left column ---------- */}
           <div className="space-y-6">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
               className={`${CARD} p-6 sm:p-8 text-center relative overflow-hidden`}
             >
-              <div
-                className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full blur-3xl opacity-25"
+              <motion.span
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+                className="absolute top-0 left-10 right-10 h-0.5 origin-center"
                 style={{ backgroundColor: progressColor }}
               />
-              <h3 className={`${CARD_TITLE} mb-6 relative`}>Overall Performance</h3>
+              <SectionHead num="01" label="Overall Performance" />
 
-              <div className="relative">
-                <ScoreRing value={score} color={progressColor} />
-              </div>
+              <ScoreRing value={score} color={progressColor} />
 
-              <div className="mt-6 relative">
+              <div className="mt-7">
                 <span
-                  className={`font-mono-studio inline-block text-[10px] tracking-[0.12em] px-3 py-1 rounded-full mb-3 ${tier.pill}`}
+                  className={`font-mono-studio inline-block text-[10px] tracking-[0.14em] px-3.5 py-1.5 rounded-md border-2 mb-4 ${tier.pill} border-current`}
                 >
                   {tier.label}
                 </span>
-                <p className="font-semibold text-[#1C1F24] dark:text-[#EDEEF0] text-base leading-snug">
+                <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] text-xl leading-snug">
                   {performanceText}
                 </p>
-                <p className="text-[#8B92A0] text-sm mt-1.5 leading-relaxed">
+                <p className="text-[#8B92A0] text-sm mt-2 leading-relaxed">
                   {shortTagline}
                 </p>
               </div>
             </motion.div>
 
-            {/* ============ Panel Verdict ============ */}
             {isPanel && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.04 }}
+                transition={{ duration: 0.5, delay: 0.05 }}
                 className={`${CARD} p-6 sm:p-8`}
               >
-                <h3 className={`${CARD_TITLE} mb-6`}>Panel Verdict</h3>
+                <SectionHead num="02" label="Panel Verdict" />
                 <div className="grid grid-cols-2 gap-3">
                   {["interviewerA", "interviewerB"].map((key) => {
                     const persona = PANEL_LABELS[key];
@@ -766,11 +806,8 @@ function Step3Report({ report, showBackButton = true }) {
                     return (
                       <div
                         key={key}
-                        className="rounded-2xl p-4 text-center border"
-                        style={{
-                          borderColor: `${persona.accent}33`,
-                          backgroundColor: `${persona.accent}0D`,
-                        }}
+                        className="rounded-2xl p-4 text-center border-2"
+                        style={{ borderColor: `${persona.accent}44` }}
                       >
                         <BsPersonFill
                           size={14}
@@ -785,16 +822,16 @@ function Step3Report({ report, showBackButton = true }) {
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${val * 10}%` }}
-                            transition={{ duration: 0.9, ease: "easeOut" }}
+                            transition={{ duration: 0.9, ease: "easeOut", delay: 0.3 }}
                             className="h-full rounded-full"
                             style={{ backgroundColor: persona.accent }}
                           />
                         </div>
                         <p
-                          className="font-mono-studio text-[10px] tracking-wide mt-2.5"
+                          className="font-mono-studio text-[10px] tracking-[0.12em] mt-2.5"
                           style={{ color: persona.accent }}
                         >
-                          {persona.label}
+                          {persona.label.toUpperCase()}
                         </p>
                         <p className="text-[10px] text-[#8B92A0]">{persona.subtitle}</p>
                       </div>
@@ -804,65 +841,34 @@ function Step3Report({ report, showBackButton = true }) {
               </motion.div>
             )}
 
-            {/* ============ Skill evaluation ============ */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08 }}
+              transition={{ duration: 0.5, delay: 0.08 }}
               className={`${CARD} p-6 sm:p-8`}
             >
-              <h3 className={`${CARD_TITLE} mb-6`}>Skill Evaluation</h3>
+              <SectionHead num={isPanel ? "03" : "02"} label="Skill Evaluation" />
               <div className="space-y-5">
-                {skills.map((s) => {
-                  const skillTier = TIERS[tierFor(s.value)];
-                  return (
-                    <div key={s.label}>
-                      <div className="flex justify-between items-baseline mb-2 text-sm">
-                        <span className="text-[#3D4148] dark:text-[#C7CBD1]">
-                          {s.label}
-                        </span>
-                        <span
-                          className={`font-mono-studio font-semibold ${skillTier.text}`}
-                        >
-                          {formatScore(s.value)}
-                          <span className="text-[10px] text-[#8B92A0] font-normal">
-                            /10
-                          </span>
-                        </span>
-                      </div>
-
-                      <div className="bg-[#EFEEEA] dark:bg-[#1B1E24] h-2 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${s.value * 10}%` }}
-                          transition={{ duration: 0.9, ease: "easeOut" }}
-                          className="h-full rounded-full"
-                          style={{
-                            background: `linear-gradient(90deg, ${skillTier.color}99, ${skillTier.color})`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                {skills.map((s, i) => (
+                  <SkillRow key={s.label} s={s} index={i} />
+                ))}
               </div>
             </motion.div>
 
-            {/* ============ Delivery (only when there were spoken answers) ============ */}
             {hasDelivery && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
                 className={`${CARD} p-6 sm:p-8`}
               >
-                <h3 className={`${CARD_TITLE} mb-6`}>Speaking Delivery</h3>
+                <SectionHead num={isPanel ? "04" : "03"} label="Speaking Delivery" />
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
                     <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
                       {formatScore(avgDeliveryScore)}
                     </p>
-                    <p className="font-mono-studio text-[9px] tracking-wide text-[#8B92A0] mt-1">
+                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8B92A0] mt-1">
                       DELIVERY /10
                     </p>
                   </div>
@@ -870,7 +876,7 @@ function Step3Report({ report, showBackButton = true }) {
                     <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
                       {wpm}
                     </p>
-                    <p className="font-mono-studio text-[9px] tracking-wide text-[#8B92A0] mt-1">
+                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8B92A0] mt-1">
                       WORDS / MIN
                     </p>
                   </div>
@@ -878,7 +884,7 @@ function Step3Report({ report, showBackButton = true }) {
                     <p className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0]">
                       {totalFillerWords}
                     </p>
-                    <p className="font-mono-studio text-[9px] tracking-wide text-[#8B92A0] mt-1">
+                    <p className="font-mono-studio text-[9px] tracking-[0.12em] text-[#8B92A0] mt-1">
                       FILLER WORDS
                     </p>
                   </div>
@@ -889,15 +895,14 @@ function Step3Report({ report, showBackButton = true }) {
               </motion.div>
             )}
 
-            {/* ============ Proctoring ============ */}
             {proctoring && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.12 }}
+                transition={{ duration: 0.5, delay: 0.12 }}
                 className={`${CARD} p-6 sm:p-8`}
               >
-                <h3 className={`${CARD_TITLE} mb-6`}>Proctoring Summary</h3>
+                <SectionHead num={isPanel ? (hasDelivery ? "05" : "04") : (hasDelivery ? "04" : "03")} label="Proctoring Summary" />
                 <div className="space-y-3.5 text-sm">
                   {[
                     {
@@ -945,14 +950,14 @@ function Step3Report({ report, showBackButton = true }) {
                         {row.label}
                       </span>
                       <span
-                        className={`font-mono-studio inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                        className={`font-mono-studio inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md ${
                           row.ok
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                             : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${row.ok ? "bg-emerald-500" : "bg-amber-500"}`}
+                          className={`w-1.5 h-1.5 rotate-45 ${row.ok ? "bg-emerald-500" : "bg-amber-500"}`}
                         />
                         {row.value}
                       </span>
@@ -963,13 +968,11 @@ function Step3Report({ report, showBackButton = true }) {
             )}
           </div>
 
-          {/* ---------- right column ---------- */}
           <div className="lg:col-span-2 space-y-6">
-            {/* quick facts */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
+              transition={{ duration: 0.5, delay: 0.05 }}
               className="grid grid-cols-2 lg:grid-cols-4 gap-3"
             >
               <StatTile
@@ -998,19 +1001,13 @@ function Step3Report({ report, showBackButton = true }) {
               />
             </motion.div>
 
-            {/* trend chart */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
               className={`${CARD} p-6 sm:p-8`}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className={CARD_TITLE}>Performance Trend</h3>
-                <span className="font-mono-studio text-[10px] tracking-wide text-[#8B92A0]">
-                  SCORE PER QUESTION
-                </span>
-              </div>
+              <SectionHead num={isPanel ? (hasDelivery ? "06" : "05") : (hasDelivery ? "05" : "04")} label="Performance Trend" />
 
               <div className="h-64 sm:h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1060,16 +1057,15 @@ function Step3Report({ report, showBackButton = true }) {
               </div>
             </motion.div>
 
-            {/* questions breakdown */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
               className={`${CARD} p-6 sm:p-8`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <h3 className={CARD_TITLE}>Questions Breakdown</h3>
-                <div className="flex flex-wrap gap-2">
+              <div className="mb-6">
+                <SectionHead num={isPanel ? (hasDelivery ? "07" : "06") : (hasDelivery ? "06" : "05")} label="Questions Breakdown" />
+                <div className="flex flex-wrap gap-2 -mt-2">
                   {FILTERS.map((f) => {
                     const count = filterCount(f.id);
                     const active = filter === f.id;
@@ -1079,7 +1075,7 @@ function Step3Report({ report, showBackButton = true }) {
                         type="button"
                         onClick={() => setFilter(f.id)}
                         disabled={f.id !== "all" && count === 0}
-                        className={`font-mono-studio text-[11px] tracking-wide px-3 py-1.5 rounded-full border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                        className={`font-mono-studio text-[11px] tracking-[0.08em] px-3 py-1.5 rounded-full border transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                           active
                             ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] border-transparent"
                             : "border-[#EAE9E5] dark:border-[#262B34] text-[#5C6472] dark:text-[#8B92A0] hover:bg-[#F5F5F3] dark:hover:bg-[#181B20]"
@@ -1119,8 +1115,8 @@ function Step3Report({ report, showBackButton = true }) {
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <p className="font-mono-studio text-[11px] text-[#9AA1AC]">
-                              Question {String(i + 1).padStart(2, "0")}
+                            <p className="font-mono-studio text-[11px] tracking-[0.14em] text-[#B27E2E] dark:text-[#E8A94C]">
+                              Q.{String(i + 1).padStart(2, "0")}
                             </p>
                             {persona && (
                               <span
@@ -1145,12 +1141,12 @@ function Step3Report({ report, showBackButton = true }) {
                         </div>
 
                         {q.skipped ? (
-                          <div className="font-mono-studio bg-[#8B92A0]/12 text-[#8B92A0] px-3 py-1 rounded-full font-bold text-xs w-fit shrink-0 tracking-wide">
+                          <div className="font-mono-studio bg-[#8B92A0]/12 text-[#8B92A0] px-3 py-1 rounded-md font-bold text-xs w-fit shrink-0 tracking-[0.12em]">
                             SKIPPED
                           </div>
                         ) : (
                           <div
-                            className={`font-mono-studio px-3 py-1 rounded-full font-bold text-xs sm:text-sm w-fit shrink-0 ${qTier.pill}`}
+                            className={`font-mono-studio px-3 py-1 rounded-md font-bold text-xs sm:text-sm w-fit shrink-0 ${qTier.pill}`}
                           >
                             {formatScore(qScore)}/10
                           </div>
@@ -1159,9 +1155,9 @@ function Step3Report({ report, showBackButton = true }) {
 
                       {q.type === "coding" && q.answer && (
                         <div className="mb-4">
-                          <p className="font-mono-studio text-[11px] text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
-                            <BsCode size={11} /> Submitted code
-                            {q.language ? ` · ${q.language}` : ""}
+                          <p className="font-mono-studio text-[11px] tracking-widest text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
+                            <BsCode size={11} /> SUBMITTED CODE
+                            {q.language ? ` · ${q.language.toUpperCase()}` : ""}
                           </p>
                           <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#1E2229]">
                             <code>{q.answer}</code>
@@ -1170,7 +1166,7 @@ function Step3Report({ report, showBackButton = true }) {
                       )}
 
                       <div className="bg-white dark:bg-[#111318] border border-[#E8A94C]/25 p-4 rounded-xl">
-                        <p className="font-mono-studio text-[10px] text-[#B27E2E] dark:text-[#E8A94C] tracking-wide uppercase mb-1.5">
+                        <p className="font-mono-studio text-[10px] tracking-[0.16em] text-[#B27E2E] dark:text-[#E8A94C] uppercase mb-1.5">
                           AI feedback
                         </p>
                         <p className="text-sm text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">

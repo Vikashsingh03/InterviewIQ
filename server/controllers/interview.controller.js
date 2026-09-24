@@ -1364,7 +1364,16 @@ export const getAnalyticsSummary = async (req, res) => {
           communication: 0,
           correctness: 0
         },
-        weakTopics: []
+        weakTopics: [],
+        bestScore: null,
+        biggestJump: {
+          delta: 0,
+          from: null,
+          to: null
+        },
+        topicBreakdown: [],
+        recentInterviews: [],
+        activity: []
       });
     }
     const totalInterviews = interviews.length;
@@ -1376,6 +1385,28 @@ export const getAnalyticsSummary = async (req, res) => {
       role: i.role,
       company: i.company || null
     }));
+    const bestScore = scoreTrend.reduce((a, b) => b.score > a.score ? {
+      score: b.score,
+      label: b.label
+    } : a, {
+      score: scoreTrend[0].score,
+      label: scoreTrend[0].label
+    });
+    let biggestJump = {
+      delta: 0,
+      from: null,
+      to: null
+    };
+    for (let i = 1; i < scoreTrend.length; i++) {
+      const delta = Number((scoreTrend[i].score - scoreTrend[i - 1].score).toFixed(1));
+      if (delta > biggestJump.delta) {
+        biggestJump = {
+          delta,
+          from: scoreTrend[i - 1].label,
+          to: scoreTrend[i].label
+        };
+      }
+    }
     let totalConfidence = 0;
     let totalCommunication = 0;
     let totalCorrectness = 0;
@@ -1405,14 +1436,16 @@ export const getAnalyticsSummary = async (req, res) => {
       communication: scoredQuestionCount ? Number((totalCommunication / scoredQuestionCount).toFixed(1)) : 0,
       correctness: scoredQuestionCount ? Number((totalCorrectness / scoredQuestionCount).toFixed(1)) : 0
     };
-    const weakTopics = Object.entries(topicScores).map(([topic, {
+    const cleanTopic = (topic) => topic.replace("project: ", "Project: ").replace("skills: ", "Skills: ").replace("coding-question", "Coding Round").replace("activity-or-certification (find in resume text if present)", "Achievements / Certifications");
+    const topicBreakdown = Object.entries(topicScores).map(([topic, {
       total,
       count
     }]) => ({
-      topic: topic.replace("project: ", "Project: ").replace("skills: ", "Skills: ").replace("coding-question", "Coding Round").replace("activity-or-certification (find in resume text if present)", "Achievements / Certifications"),
+      topic: cleanTopic(topic),
       averageScore: Number((total / count).toFixed(1)),
       count
-    })).filter(t => t.averageScore < 6).sort((a, b) => a.averageScore - b.averageScore).slice(0, 5);
+    })).sort((a, b) => b.averageScore - a.averageScore);
+    const weakTopics = topicBreakdown.filter(t => t.averageScore < 6).sort((a, b) => a.averageScore - b.averageScore).slice(0, 5);
     const dayKeys = new Set(interviews.map(i => new Date(i.createdAt).toDateString()));
     let currentStreak = 0;
     let cursor = new Date();
@@ -1420,13 +1453,43 @@ export const getAnalyticsSummary = async (req, res) => {
       currentStreak += 1;
       cursor.setDate(cursor.getDate() - 1);
     }
+    const recentInterviews = [...interviews].reverse().slice(0, 8).map((i, index) => ({
+      id: i._id,
+      label: `#${interviews.length - index}`,
+      role: i.role,
+      company: i.company || null,
+      mode: i.mode || null,
+      finalScore: Number((i.finalScore || 0).toFixed(1)),
+      createdAt: i.createdAt
+    }));
+    const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const activityMap = {};
+    interviews.forEach(i => {
+      const key = dayKey(new Date(i.createdAt));
+      activityMap[key] = (activityMap[key] || 0) + 1;
+    });
+    const activity = [];
+    for (let d = 29; d >= 0; d--) {
+      const day = new Date();
+      day.setDate(day.getDate() - d);
+      const key = dayKey(day);
+      activity.push({
+        date: key,
+        count: activityMap[key] || 0
+      });
+    }
     return res.status(200).json({
       totalInterviews,
       averageScore: Number(averageScore.toFixed(1)),
       currentStreak,
       scoreTrend,
       skillAverages,
-      weakTopics
+      weakTopics,
+      bestScore,
+      biggestJump,
+      topicBreakdown,
+      recentInterviews,
+      activity
     });
   } catch (error) {
     return res.status(500).json({
@@ -1434,6 +1497,7 @@ export const getAnalyticsSummary = async (req, res) => {
     });
   }
 };
+
 const OBJECT_ID_REGEX = /^[a-f\d]{24}$/i;
 const cleanCoachingText = (value, maxLength) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : "";
 const cleanCoachingList = (value, maxItems = 3, maxLength = 220) => Array.isArray(value) ? value.map(item => cleanCoachingText(item, maxLength)).filter(Boolean).slice(0, maxItems) : [];

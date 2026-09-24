@@ -9,19 +9,15 @@ import { BsGear, BsMic, BsBarChart, BsCheckLg } from "react-icons/bs";
 import { FaArrowLeft } from "react-icons/fa";
 
 const steps = [
-  { id: 1, label: "Setup", icon: <BsGear size={14} /> },
-  { id: 2, label: "Interview", icon: <BsMic size={14} /> },
-  { id: 3, label: "Report", icon: <BsBarChart size={14} /> },
+  { id: 1, label: "Setup", icon: <BsGear size={13} /> },
+  { id: 2, label: "Interview", icon: <BsMic size={13} /> },
+  { id: 3, label: "Report", icon: <BsBarChart size={13} /> },
 ];
 
 function InterviewPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [interviewData, setinterviewData] = useState(null);
-
-  // Step1 always returns interviewType ("solo" | "panel") in its payload —
-  // this decides which Step2 component runs, existing solo flow (Step2Interview)
-  // stays completely untouched either way.
   const isPanel = interviewData?.interviewType === "panel";
 
   return (
@@ -33,86 +29,105 @@ function InterviewPage() {
         .film-grain {
           position: fixed; inset: 0; pointer-events: none; opacity: 0.02;
           mix-blend-mode: overlay; z-index: 0;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/rect%3E%3C/svg%3E");
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         }
+        * { scrollbar-width: thin; scrollbar-color: rgba(150,150,150,0.45) transparent; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+          background-color: rgba(120,120,120,0.35);
+          border-radius: 8px;
+          border: 3px solid transparent;
+          background-clip: content-box;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+          background-color: rgba(255,255,255,0.16);
+          border: 3px solid transparent;
+          background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover, .dark ::-webkit-scrollbar-thumb:hover {
+          background-color: #E8A94C;
+          border: 3px solid transparent;
+          background-clip: content-box;
+        }
+        ::-webkit-scrollbar-corner { background: transparent; }
+        .premium-scroll::-webkit-scrollbar { width: 8px; }
+        .premium-scroll::-webkit-scrollbar-thumb { border: 2.5px solid transparent; }
+        .premium-scroll::-webkit-scrollbar-thumb:hover { border: 2.5px solid transparent; }
       `}</style>
 
       <div className="film-grain" />
 
-      {/* soft amber/cyan glow, matching the studio brand instead of the old green blobs */}
       <div
         className="pointer-events-none absolute top-0 left-0 right-0 h-125 overflow-hidden z-0"
         style={{
-          maskImage:
-            "linear-gradient(to bottom, black 0%, black 40%, transparent 100%)",
-          WebkitMaskImage:
-            "linear-gradient(to bottom, black 0%, black 40%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, black 0%, black 40%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 40%, transparent 100%)",
         }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(232,169,76,0.10),transparent_35%),radial-gradient(circle_at_85%_0%,rgba(94,200,216,0.08),transparent_35%)]"></div>
       </div>
 
-      <div className="interviewpage-root relative z-10 pt-8 pb-4">
-        {/* Step progress indicator */}
-        <div className="relative flex items-center justify-center gap-2 md:gap-4 px-4">
+      <div className="interviewpage-root relative z-10 pt-6 pb-2">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-center">
           <motion.button
-            whileHover={{ scale: 1.06, y: -1 }}
-            whileTap={{ scale: 0.94 }}
+            whileHover={{ x: -2 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => navigate("/")}
             title="Back to home"
-            className="absolute left-4 sm:left-8 w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center rounded-full bg-white/90 dark:bg-[#131519]/90 backdrop-blur-md shadow-sm hover:shadow-md border border-[#EAE9E5] dark:border-[#232830] transition-all duration-200"
+            className="absolute left-4 sm:left-6 flex items-center gap-2 pl-3 pr-3.5 py-2.5 rounded-full bg-white/80 dark:bg-[#111318]/80 backdrop-blur-xl border border-[#EAE9E5] dark:border-[#232830] shadow-[0_10px_28px_-12px_rgba(0,0,0,0.2)] hover:border-[#E8A94C]/40 transition-colors duration-200"
           >
-            <FaArrowLeft className="text-[#5C6472] dark:text-[#9AA1AC]" size={14} />
+            <FaArrowLeft className="text-[#5C6472] cursor-pointer dark:text-[#9AA1AC]" size={12} />
+            <span className="hidden sm:block cursor-pointer font-mono-studio text-[10px] tracking-[0.2em] text-[#5C6472] dark:text-[#9AA1AC]">HOME</span>
           </motion.button>
 
-          {steps.map((s, i) => (
-            <React.Fragment key={s.id}>
-              <div className="flex items-center gap-2">
-                <motion.div
-                  animate={{
-                    scale: step === s.id ? 1.08 : 1,
-                  }}
-                  transition={{ duration: 0.3 }}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors duration-300
-                                        ${
-                                          step > s.id
-                                            ? "bg-[#E8A94C] border-[#E8A94C] text-[#1C1F24]"
-                                            : step === s.id
-                                              ? "bg-[#1C1F24] dark:bg-[#EDEEF0] border-transparent text-white dark:text-[#0A0B0D] shadow-[0_0_0_4px_rgba(232,169,76,0.15),0_8px_20px_-8px_rgba(0,0,0,0.35)]"
-                                              : "bg-white dark:bg-[#111318] border-[#EAE9E5] dark:border-[#232830] text-[#9AA1AC] dark:text-[#565D68]"
-                                        }`}
-                >
-                  {step > s.id ? <BsCheckLg size={14} /> : s.icon}
-                </motion.div>
-                <span
-                  className={`hidden sm:block font-mono-studio text-xs tracking-wide transition-colors duration-300
-                                    ${
-                                      step === s.id
-                                        ? "text-[#1C1F24] dark:text-[#EDEEF0]"
-                                        : step > s.id
-                                          ? "text-[#B27E2E] dark:text-[#E8A94C]"
-                                          : "text-[#9AA1AC] dark:text-[#565D68]"
-                                    }`}
-                >
-                  {s.label}
-                </span>
-              </div>
-              {i < steps.length - 1 && (
-                <div className="w-8 md:w-16 h-0.5 rounded-full overflow-hidden bg-[#EAE9E5] dark:bg-[#1E2229]">
+          <div className="flex items-center gap-0.5 p-1.5 rounded-full bg-white/80 dark:bg-[#111318]/80 backdrop-blur-xl border border-[#EAE9E5] dark:border-[#232830] shadow-[0_14px_36px_-14px_rgba(0,0,0,0.25)]">
+            {steps.map((s, i) => {
+              const isActive = step === s.id;
+              const isDone = step > s.id;
+              return (
+                <React.Fragment key={s.id}>
                   <motion.div
-                    initial={{ width: "0%" }}
-                    animate={{ width: step > s.id ? "100%" : "0%" }}
-                    transition={{ duration: 0.4 }}
-                    className="h-full bg-[#E8A94C]"
-                  />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
+                    animate={isActive ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+                    transition={{ duration: 0.35 }}
+                    className={`flex items-center gap-2.5 pl-4 pr-4 sm:pl-5 sm:pr-5 py-2.5 rounded-full transition-all duration-300 ${
+                      isActive ? "bg-[#1C1F24] dark:bg-[#EDEEF0] shadow-[0_8px_20px_-8px_rgba(0,0,0,0.4)]" : ""
+                    }`}
+                  >
+                    <span className={`font-mono-studio text-[10px] tracking-[0.14em] ${
+                      isActive ? "text-[#E8A94C]" : isDone ? "text-[#B27E2E] dark:text-[#E8A94C]" : "text-[#B9BEC7] dark:text-[#3A3F47]"
+                    }`}>
+                      {String(s.id).padStart(2, "0")}
+                    </span>
+                    {isDone ? (
+                      <BsCheckLg size={13} className="text-[#B27E2E] dark:text-[#E8A94C]" />
+                    ) : (
+                      <span className={isActive ? "text-white dark:text-[#0A0B0D]" : "text-[#9AA1AC] dark:text-[#565D68]"}>
+                        {s.icon}
+                      </span>
+                    )}
+                    <span className={`hidden sm:block text-[13px] font-semibold tracking-wide ${
+                      isActive ? "text-white dark:text-[#0A0B0D]" : isDone ? "text-[#B27E2E] dark:text-[#E8A94C]" : "text-[#9AA1AC] dark:text-[#565D68]"
+                    }`}>
+                      {s.label}
+                    </span>
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#E8A94C]" />}
+                  </motion.div>
+                  {i < steps.length - 1 && (
+                    <span className={`w-px h-5 transition-colors duration-300 ${isDone ? "bg-[#E8A94C]/50" : "bg-[#EAE9E5] dark:bg-[#232830]"}`} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          <div className="absolute right-4 sm:right-6 hidden md:flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C]" />
+            <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#9AA1AC] dark:text-[#565D68]">SESSION Nº 001</span>
+          </div>
         </div>
       </div>
 
-      {/* Animated step content */}
       <div className="relative z-10">
         <AnimatePresence mode="wait">
           {step === 1 && (
