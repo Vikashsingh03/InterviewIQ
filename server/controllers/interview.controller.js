@@ -4,8 +4,11 @@ import { askAi } from "../services/openRouter.service.js";
 import userModel from "../models/user.model.js";
 import interviewModel from "../models/interview.model.js";
 import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
+import CS_FUNDAMENTALS_BANK from "../data/csFundamentals.js";
+import { SQL_SCHEMA_SQL, SQL_QUESTION_BANK } from "../data/sqlQuestions.js";
 import { runTestCases } from "../services/codeExecution.service.js";
 import { getCompanyStyleGuidance } from "../data/companyStyles.js";
+import { getCompanyMode, totalBlueprintQuestions, roundForAskedCount, signalForScore } from "../data/companyModes.js";
 import { handleCodingCoaching } from "../services/codingCoaching.service.js";
 import { buildConfidenceMetrics, summarizeInterviewConfidence } from "./confidence.controller.js";
 import { sanitizeInterviewLanguage, buildLanguageInstruction, spokenStyleFor, firstQuestionFor, neutralAckFor, isJudgementalAck, fixedLineFor } from "../utils/language.js";
@@ -175,17 +178,57 @@ const computeSpeakingMetrics = (answerText, durationSeconds) => {
     deliveryScore
   };
 };
-const pickCodingQuestion = interview => {
+const pickCodingQuestion = (interview, preferDifficulty = null) => {
   const alreadyUsedIds = interview.questions.filter(q => q.type === "coding" && q.dsaQuestionId).map(q => q.dsaQuestionId);
   const available = DSA_QUESTION_BANK.filter(q => !alreadyUsedIds.includes(q.id));
   const pool = available.length ? available : DSA_QUESTION_BANK;
-  const preferMedium = Math.random() < 0.6;
-  const preferredPool = pool.filter(q => q.difficulty === (preferMedium ? "medium" : "easy"));
-  const finalPool = preferredPool.length ? preferredPool : pool;
+  let preferredPool = pool;
+  if (preferDifficulty) {
+    const dp = pool.filter(q => q.difficulty === preferDifficulty);
+    if (dp.length) preferredPool = dp;
+  } else {
+    const preferMedium = Math.random() < 0.6;
+    const mp = pool.filter(q => q.difficulty === (preferMedium ? "medium" : "easy"));
+    if (mp.length) preferredPool = mp;
+  }
+  return preferredPool[Math.floor(Math.random() * preferredPool.length)];
+};
+const pickCsFundamentalsQuestion = interview => {
+  const usedIds = interview.questions.filter(q => q.csFundamentalsId).map(q => q.csFundamentalsId);
+  const available = CS_FUNDAMENTALS_BANK.filter(q => !usedIds.includes(q.id));
+  const pool = available.length ? available : CS_FUNDAMENTALS_BANK;
+  const answered = interview.questions.filter(q => q.score != null && !q.skipped);
+  const avg = answered.length ? answered.reduce((a, q) => a + q.score, 0) / answered.length : 5;
+  const preferDifficulty = avg >= 7 ? "hard" : avg >= 5 ? "medium" : "easy";
+  const dp = pool.filter(q => q.difficulty === preferDifficulty);
+  const diffPool = dp.length ? dp : pool;
+  const usedCategories = interview.questions.filter(q => q.csCategory).map(q => q.csCategory);
+  const freshCats = diffPool.filter(q => !usedCategories.includes(q.category));
+  const finalPool = freshCats.length ? freshCats : diffPool;
   return finalPool[Math.floor(Math.random() * finalPool.length)];
 };
-const buildCodingQuestion = (dsaQuestion, askedBy = null) => ({
-  question: `Alright, let's move to a quick coding round — solve "${dsaQuestion.title}". You can write your solution in JavaScript, Python, C++, or Java, whichever you're most comfortable with.`,
+const pickSqlQuestion = (interview, preferDifficulty = null) => {
+  const usedIds = interview.questions.filter(q => q.sqlTaskId).map(q => q.sqlTaskId);
+  const available = SQL_QUESTION_BANK.filter(q => !usedIds.includes(q.id));
+  const pool = available.length ? available : SQL_QUESTION_BANK;
+  if (preferDifficulty) {
+    const dp = pool.filter(q => q.difficulty === preferDifficulty);
+    if (dp.length) return dp[Math.floor(Math.random() * dp.length)];
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+const buildSqlQuestion = (sqlTask, askedBy = null) => ({
+  type: "sql",
+  question: `SQL task — ${sqlTask.title}: ${sqlTask.description} The database schema is loaded in the SQL workbench below. Run your query there before submitting.`,
+  difficulty: sqlTask.difficulty,
+  timeLimit: 180,
+  topicHint: "sql",
+  askedBy,
+  sqlTaskId: sqlTask.id,
+  sqlSchema: SQL_SCHEMA_SQL
+});
+const buildCodingQuestion = (dsaQuestion, askedBy = null, isNextCoding = false) => ({
+  question: isNextCoding ? `Good. Now try this next one — ${dsaQuestion.description}` : `Alright, let's move to a coding round. Here's your problem — ${dsaQuestion.description}`,
   difficulty: dsaQuestion.difficulty,
   timeLimit: 600,
   topicHint: "coding-question",
@@ -290,6 +333,7 @@ export const generateQuestion = async (req, res) => {
       experience,
       mode,
       company,
+      companyMode,
       jobDescription,
       resumeText,
       projects,
@@ -302,6 +346,10 @@ export const generateQuestion = async (req, res) => {
     experience = experience?.trim();
     mode = mode?.trim();
     company = company?.trim() || null;
+    const selectedCompanyMode = getCompanyMode(companyMode);
+    if (selectedCompanyMode) {
+      company = selectedCompanyMode.name;
+    }
     jobDescription = jobDescription?.trim().slice(0, 4000) || null;
     interviewType = interviewType === "panel" ? "panel" : "solo";
     candidateName = candidateName?.trim() || null;
@@ -351,10 +399,14 @@ export const generateQuestion = async (req, res) => {
       projects: safeProjects,
       skills: safeSkills
     });
+    const blueprintTotal = selectedCompanyMode ? totalBlueprintQuestions(selectedCompanyMode) : 0;
     const {
       minQuestions,
       maxQuestions
-    } = computeQuestionBudget(topicPool, mode);
+    } = selectedCompanyMode ? {
+      minQuestions: 1 + blueprintTotal,
+      maxQuestions: 1 + blueprintTotal + 2
+    } : computeQuestionBudget(topicPool, mode);
     const interview = await interviewModel.create({
       userId: user._id,
       role,
@@ -363,6 +415,7 @@ export const generateQuestion = async (req, res) => {
       interviewType,
       language,
       company,
+      companyMode: selectedCompanyMode ? selectedCompanyMode.id : null,
       candidateName: displayName,
       jobDescription,
       resumeText: safeResume,
@@ -386,6 +439,7 @@ export const generateQuestion = async (req, res) => {
       interviewId: interview._id,
       role: interview.role,
       company: interview.company,
+      companyMode: interview.companyMode || null,
       hasJobDescription: Boolean(interview.jobDescription),
       interviewType: interview.interviewType,
       language: interview.language,
@@ -450,19 +504,156 @@ const topicDisplayName = topicLabel => {
   }
   return topicLabel;
 };
+const ADAPTIVE_MIN_ANSWERED = 6;
+const ADAPTIVE_MAX_ASKED = 14;
+const ADAPTIVE_MAX_CODING = 3;
+const ADAPTIVE_MAX_SQL = 3;
+const ADAPTIVE_MAX_ROUND_PROBES = 4;
+const STANDARD_DIMENSIONS = [
+  { id: "coding", label: "Coding", kind: "coding", brief: "A practical coding problem at the right difficulty. The candidate must think out loud, write working code, and discuss time and space complexity honestly." },
+  { id: "technical", label: "CS Fundamentals", kind: "technical", brief: "Core computer-science fundamentals — data structures, OOPs, DBMS, OS, networks — grounded in the candidate's role and background. Demand precise answers; follow every definition with 'why' or 'give an example'." },
+  { id: "sql", label: "SQL", kind: "sql", brief: "A practical SQL task against a live in-browser database. The candidate writes and runs a query, then discusses the approach and how to optimize it." },
+  { id: "behavioral", label: "Behavioral", kind: "behavioral", brief: "Behavioral interview questions about ownership, teamwork, pressure, and learning. Demand specific real stories with concrete details — never accept generic claims." }
+];
+const STANDARD_PERSONA = "You are an experienced hiring interviewer: direct, curious, allergic to vague answers. You reward concrete details, honest reasoning, and structured thinking.";
+const dimOfQuestion = q => q.roundId || (q.type === "coding" ? "coding" : "general");
+const dimStats = questions => {
+  const byDim = {};
+  questions.forEach(q => {
+    const d = dimOfQuestion(q);
+    if (!byDim[d]) byDim[d] = { count: 0, total: 0 };
+    byDim[d].count += 1;
+    byDim[d].total += q.score;
+  });
+  Object.keys(byDim).forEach(d => {
+    byDim[d].avg = byDim[d].total / byDim[d].count;
+  });
+  return byDim;
+};
+const requiredDimIdsFor = (interview, companyMode) => {
+  if (companyMode) return companyMode.rounds.map(r => r.id);
+  if (interview.mode === "HR") return ["behavioral"];
+  return ["coding", "technical"];
+};
+const interviewerSatisfied = (interview, requiredDimIds) => {
+  const scored = interview.questions.filter(q => q.score != null);
+  if (scored.length >= ADAPTIVE_MAX_ASKED) return true;
+  const answered = scored.filter(q => !q.skipped);
+  if (scored.filter(q => q.skipped).length >= 4 && answered.length < 3) {
+    const askedDimIds = new Set(scored.map(dimOfQuestion));
+    if (requiredDimIds.every(id => askedDimIds.has(id))) return true;
+    return false;
+  }
+  if (answered.length < ADAPTIVE_MIN_ANSWERED) return false;
+  const stats = dimStats(answered);
+  if (requiredDimIds.some(id => !stats[id] || !stats[id].count)) return false;
+  const sqlAsked = interview.questions.filter(q => q.type === "sql").length;
+  if (sqlAsked < ADAPTIVE_MAX_SQL) {
+    const overallAvg = answered.reduce((a, q) => a + q.score, 0) / answered.length;
+    const sqlCompanyMode = getCompanyMode(interview.companyMode);
+    const sqlThreshold = 5;
+    const sqlReady = sqlCompanyMode ? true : stats["coding"] && stats["coding"].count > 0 && stats["technical"] && stats["technical"].count > 0;
+    if (sqlReady && overallAvg >= sqlThreshold) return false;
+  }
+  const recent = answered.slice(-3).map(q => q.score);
+  const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+  if (recentAvg >= 7.5 && Math.min(...recent) >= 6) return true;
+  if (recentAvg <= 4.5 && Math.max(...recent) <= 5.5) return true;
+  if (answered.length >= 8) {
+    const avg = answered.reduce((a, q) => a + q.score, 0) / answered.length;
+    const variance = answered.reduce((a, q) => a + (q.score - avg) * (q.score - avg), 0) / answered.length;
+    if (variance < 2.5) return true;
+  }
+  if (answered.length >= 10) return true;
+  return false;
+};
+const findStandardDim = id => STANDARD_DIMENSIONS.find(d => d.id === id);
+const pickNextDimension = (interview, companyMode, requiredDimIds) => {
+  const answered = interview.questions.filter(q => q.score != null && !q.skipped);
+  const stats = dimStats(answered);
+  const codingAsked = interview.questions.filter(q => q.type === "coding").length;
+  const sqlAsked = interview.questions.filter(q => q.type === "sql").length;
+  const overallAvg = answered.length ? answered.reduce((a, q) => a + q.score, 0) / answered.length : 0;
+  if (companyMode) {
+    const askedRoundCount = interview.questions.filter(q => q.roundId).length;
+    const spine = roundForAskedCount(companyMode, askedRoundCount);
+    if (spine) return { round: spine.round, roundIndex: spine.roundIndex, totalRounds: spine.totalRounds, isExtension: false };
+    const codingRound = companyMode.rounds.find(r => r.kind === "coding");
+    const codingStat = codingRound ? stats[codingRound.id] : null;
+    if (codingRound && codingStat && codingStat.count >= 1 && codingStat.avg >= 7.5 && codingAsked < ADAPTIVE_MAX_CODING) {
+      return { round: { ...codingRound, brief: codingRound.brief + " They solved the earlier coding problem well — raise the difficulty and demand optimal complexity." }, roundIndex: companyMode.rounds.indexOf(codingRound), totalRounds: companyMode.rounds.length, isExtension: true };
+    }
+    if (answered.length >= 3 && overallAvg >= 5 && sqlAsked < ADAPTIVE_MAX_SQL) {
+      const sqlRound = { id: "sql", label: "SQL", kind: "sql", brief: "A practical SQL task against a live in-browser database. This candidate is strong — expect a correct, efficient query and probe how they would optimize it." };
+      return { round: sqlRound, roundIndex: companyMode.rounds.length, totalRounds: companyMode.rounds.length, isExtension: true };
+    }
+    let weakest = null;
+    const codingStrong = codingStat && codingStat.avg >= 7.5;
+    companyMode.rounds.forEach((r, i) => {
+      const s = stats[r.id];
+      const count = s ? s.count : 0;
+      if (count >= ADAPTIVE_MAX_ROUND_PROBES) return;
+      if (r.kind === "coding" && !codingStrong) return;
+      const score = s ? s.avg : 5;
+      if (!weakest || score < weakest.score) weakest = { round: r, roundIndex: i, score };
+    });
+    if (weakest) {
+      return { round: { ...weakest.round, brief: weakest.round.brief + " Go one level deeper than before — this area needs a harder, more specific probe." }, roundIndex: weakest.roundIndex, totalRounds: companyMode.rounds.length, isExtension: true };
+    }
+    return { round: companyMode.rounds[0], roundIndex: 0, totalRounds: companyMode.rounds.length, isExtension: true };
+  }
+  const askedDimIds = new Set(interview.questions.filter(q => q.score != null).map(dimOfQuestion));
+  const missing = requiredDimIds.filter(id => !askedDimIds.has(id));
+  if (missing.length) {
+    const dim = findStandardDim(missing[0]);
+    return { round: dim, roundIndex: STANDARD_DIMENSIONS.indexOf(dim), totalRounds: STANDARD_DIMENSIONS.length, isExtension: false };
+  }
+  const codingStat = stats["coding"];
+  const codingStrong = codingStat && codingStat.count >= 1 && codingStat.avg >= 7;
+  if (requiredDimIds.includes("coding") && codingStrong && codingStat.count < ADAPTIVE_MAX_CODING) {
+    const dim = findStandardDim("coding");
+    return { round: { ...dim, brief: dim.brief + " They handled the earlier coding problem well — raise the difficulty and probe for optimal time and space complexity." }, roundIndex: 0, totalRounds: STANDARD_DIMENSIONS.length, isExtension: true };
+  }
+  if (askedDimIds.has("coding") && askedDimIds.has("technical") && answered.length >= 3 && overallAvg >= 5 && sqlAsked < ADAPTIVE_MAX_SQL) {
+    const dim = findStandardDim("sql");
+    return { round: dim, roundIndex: STANDARD_DIMENSIONS.indexOf(dim), totalRounds: STANDARD_DIMENSIONS.length, isExtension: true };
+  }
+  const probeIds = requiredDimIds.filter(id => id !== "coding" || codingStrong);
+  const usableIds = probeIds.length ? probeIds : requiredDimIds;
+  let weakest = null;
+  usableIds.forEach(id => {
+    const s = stats[id];
+    if (!s || s.count >= 3) return;
+    if (!weakest || s.avg < weakest.score) weakest = { id, score: s.avg };
+  });
+  if (weakest) {
+    const dim = findStandardDim(weakest.id);
+    return { round: { ...dim, brief: dim.brief + " This area showed weakness earlier — probe deeper with a harder, more specific question." }, roundIndex: STANDARD_DIMENSIONS.indexOf(dim), totalRounds: STANDARD_DIMENSIONS.length, isExtension: true };
+  }
+  let fallback = null;
+  usableIds.forEach(id => {
+    const s = stats[id];
+    const count = s ? s.count : 0;
+    if (count >= ADAPTIVE_MAX_ROUND_PROBES) return;
+    if (!fallback || count < fallback.count) fallback = { id, count };
+  });
+  const dim = findStandardDim(fallback ? fallback.id : usableIds[0]);
+  return { round: dim, roundIndex: STANDARD_DIMENSIONS.indexOf(dim), totalRounds: STANDARD_DIMENSIONS.length, isExtension: true };
+};
 const decideNextStep = async interview => {
   const askedCount = interview.questions.length;
   const isPanel = interview.interviewType === "panel";
   const nextAskedBy = isPanel ? nextPanelSpeaker(interview) : null;
   const history = interview.questions.map((q, i) => `Q${i + 1} [topic: ${q.topicHint || "general"}] (${q.difficulty}): ${q.question}\nCandidate's Answer: ${q.skipped ? "Skipped by candidate" : q.answer || "No answer given"}\nScore: ${q.score ?? 0}/10`).join("\n\n");
-  const mustContinue = askedCount < interview.minQuestions;
-  const mustStop = askedCount >= interview.maxQuestions;
-  if (mustStop) {
+  const companyMode = getCompanyMode(interview.companyMode);
+  const requiredDimIds = requiredDimIdsFor(interview, companyMode);
+  if (interviewerSatisfied(interview, requiredDimIds)) {
     return {
       continueInterview: false,
       nextQuestion: null
     };
   }
+  const dimCtx = pickNextDimension(interview, companyMode, requiredDimIds);
   const lastQuestion = interview.questions[askedCount - 1];
   const lastTopic = lastQuestion?.topicHint || "general";
   const lastScore = lastQuestion?.score ?? 0;
@@ -474,15 +665,17 @@ const decideNextStep = async interview => {
     skills: interview.skills
   });
   const uncoveredOrdered = topicPool.filter(t => !interview.coveredTopics?.includes(t));
-  const canAskCodingQuestion = interview.mode === "Technical" && !interview.askedCodingQuestion;
-  const remainingSlots = interview.maxQuestions - askedCount;
-  if (canAskCodingQuestion && remainingSlots <= 1) {
-    const dsaQuestion = pickCodingQuestion(interview);
-    return {
-      continueInterview: true,
-      nextQuestion: buildCodingQuestion(dsaQuestion, isPanel ? "interviewerA" : null)
-    };
-  }
+  const codingAsked = interview.questions.filter(q => q.type === "coding").length;
+  const sqlAsked = interview.questions.filter(q => q.type === "sql").length;
+  const tagRound = q => {
+    if (dimCtx && q) {
+      q.roundId = dimCtx.round.id;
+      q.roundLabel = dimCtx.round.label;
+      q.roundIndex = dimCtx.roundIndex;
+      q.totalRounds = dimCtx.totalRounds;
+    }
+    return q;
+  };
   const lastAnswerText = !wasSkipped && typeof lastQuestion?.answer === "string" ? lastQuestion.answer.trim() : "";
   const lastAnswerWords = lastAnswerText.split(/\s+/).filter(Boolean).length;
   const lastIsFollowUp = !!lastQuestion?.isFollowUp;
@@ -496,33 +689,57 @@ const decideNextStep = async interview => {
   } else if (eligibleFollowUp) {
     action = "followup";
     targetTopic = lastTopic;
-  } else if (uncoveredOrdered.length > 0) {
-    action = "nextTopic";
-    targetTopic = uncoveredOrdered[0];
-  } else if (canAskCodingQuestion) {
+  } else if (dimCtx.round.kind === "coding" && codingAsked < ADAPTIVE_MAX_CODING) {
     action = "coding";
-  } else if (mustContinue) {
-    action = "general";
+  } else if (dimCtx.round.kind === "sql" && sqlAsked < ADAPTIVE_MAX_SQL) {
+    action = "sql";
+  } else if (dimCtx.round.kind === "technical") {
+    const techAsked = interview.questions.filter(q => q.roundId === dimCtx.round.id && !q.isFollowUp).length;
+    const useBank = companyMode ? true : techAsked % 2 === 0 || uncoveredOrdered.length === 0;
+    if (useBank) {
+      action = "csFundamentals";
+    } else {
+      action = "nextTopic";
+      targetTopic = uncoveredOrdered[0];
+    }
   } else {
-    action = "end";
-  }
-  if (action === "end") {
-    return {
-      continueInterview: false,
-      nextQuestion: null
-    };
+    action = "roundQuestion";
   }
   if (action === "coding") {
-    const dsaQuestion = pickCodingQuestion(interview);
+    const preferDifficulty = codingAsked === 0 ? null : codingAsked === 1 ? "medium" : "hard";
+    const dsaQuestion = pickCodingQuestion(interview, preferDifficulty);
     return {
       continueInterview: true,
-      nextQuestion: buildCodingQuestion(dsaQuestion, isPanel ? "interviewerA" : null)
+      nextQuestion: tagRound(buildCodingQuestion(dsaQuestion, isPanel ? "interviewerA" : null, codingAsked > 0))
+    };
+  }
+  if (action === "sql") {
+    const preferDifficulty = sqlAsked === 0 ? "easy" : sqlAsked === 1 ? "medium" : "hard";
+    const sqlTask = pickSqlQuestion(interview, preferDifficulty);
+    return {
+      continueInterview: true,
+      nextQuestion: tagRound(buildSqlQuestion(sqlTask, isPanel ? "interviewerA" : null))
+    };
+  }
+  if (action === "csFundamentals") {
+    const csQ = pickCsFundamentalsQuestion(interview);
+    return {
+      continueInterview: true,
+      nextQuestion: tagRound({
+        question: csQ.question,
+        difficulty: csQ.difficulty,
+        timeLimit: 90,
+        topicHint: `cs-fundamentals:${csQ.category}`,
+        askedBy: nextAskedBy,
+        csFundamentalsId: csQ.id,
+        csCategory: csQ.category
+      })
     };
   }
   const modeGuidance = interview.mode === "Technical" ? `This is a TECHNICAL interview — lean toward implementation details, tech stack
          choices, and how they solved a real problem.` : `This is an HR/behavioral interview — lean toward their role, ownership, decisions,
          and how they handled pressure or teamwork (STAR-style).`;
-  const companyGuidance = getCompanyStyleGuidance(interview.company);
+  const companyGuidance = companyMode ? null : getCompanyStyleGuidance(interview.company);
   const companyBlock = companyGuidance ? `
       COMPANY CONTEXT:
       ${companyGuidance}
@@ -530,6 +747,12 @@ const decideNextStep = async interview => {
       It must NOT change the SUBJECT of the question — the topic decided above still wins.
       Never mention the company name in the question itself.
       ` : "";
+  const roundBlock = dimCtx ? `
+      ROUND CONTEXT — ${dimCtx.round.label} (Round ${dimCtx.roundIndex + 1} of ${dimCtx.totalRounds})${dimCtx.isExtension ? " — deeper probe" : ""}:
+      ${dimCtx.round.brief}
+      ${companyMode ? companyMode.personaBrief : STANDARD_PERSONA}
+      ` : "";
+  const roundInstruction = action === "roundQuestion" ? (dimCtx.round.kind === "bar-raiser" ? `Ask ONE sharp, uncomfortable question in the spirit of the ROUND CONTEXT below — an ambiguous scenario or a direct challenge to something they claimed earlier in this interview. No warm-up, no softball. Demand specifics.` : dimCtx.round.kind === "behavioral" ? `Ask ONE behavioral interview question in the spirit of the ROUND CONTEXT below — a "tell me about a time" question answerable from the candidate's own experience. Do not ask about a resume topic; probe their behavior, judgment, and ownership.` : `Ask ONE technical question in the spirit of the ROUND CONTEXT below, grounded in the candidate's role (${interview.role}) and experience. Push for real engineering reasoning: trade-offs, scale, failure modes.`) : null;
   const personaBlock = isPanel ? `
       YOUR PERSONA:
       ${getPersonaGuidance(nextAskedBy)}
@@ -545,22 +768,21 @@ const decideNextStep = async interview => {
       rather than generic questions about the role title alone. Don't quote the posting text
       verbatim in your question.
       ` : "";
+  const lastWasSql = lastQuestion?.type === "sql";
+  const sqlProbeNote = lastWasSql ? ` The candidate's answer above is a SQL query they wrote and ran against a live database — grill the QUERY itself: why this JOIN and not another, what breaks with NULLs or duplicates, how the result changes at scale, or how they would optimize it.` : "";
   const instructionLine = action === "rapidfire" ? `RAPID-FIRE ROUND: the candidate just answered about "${lastTopic}". Fire ONE sharp
          counter-question that grills something SPECIFIC they actually said — pick a concrete
          claim, tool, number, or decision from their answer (quote or closely paraphrase it)
          and press them on it: why this over the alternatives, what was the trade-off, what
          breaks at scale, or demand a concrete example. Be direct and pointed, like a real
          interviewer in a grilling round — no soft setup, no preamble. Stay on this SAME
-         topic; do not introduce a new subject.
+         topic; do not introduce a new subject.${sqlProbeNote}
          Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""` : action === "followup" ? `The candidate's last answer (topic: "${lastTopic}") was thin — only a few words.
            Ask ONE follow-up question that pushes for something concrete: a specific example,
            a number, or exactly what THEY personally did. Anchor it in something they actually
            said so it is clear you listened. Stay on this SAME topic. Do not introduce a
-           new subject.
-         Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""` : action === "general" ? `All resume topics are already covered, but the interview hasn't hit its minimum length
-           yet. Ask one thoughtful, natural reflective question that doesn't repeat anything
-           already asked (e.g. about a broader lesson learned, or how they'd approach a new
-           challenge in this role).` : `You must ask about exactly this topic next: ${topicDisplayName(targetTopic)}.
+           new subject.${sqlProbeNote}
+         Their last answer, word for word: """${lastAnswerText.slice(0, 1200)}"""` : action === "roundQuestion" ? roundInstruction : `You must ask about exactly this topic next: ${topicDisplayName(targetTopic)}.
            Make the question feel like a natural next line from an interviewer who read their
            resume closely — reference the last answer briefly for flow if it fits naturally,
            but the SUBJECT of the question must be the topic given above, nothing else.`;
@@ -569,8 +791,8 @@ const decideNextStep = async interview => {
     role: "system",
     content: `
       You are a real, experienced interviewer conducting a live ${interview.mode} interview.
-      The interview has a fixed plan for what to cover next — that decision has already been
-      made for you. Your ONLY job is to phrase ONE natural-sounding question for it.
+      This is an adaptive interview — the focus area for the next question has already been
+      chosen for you based on how the interview is going. Your ONLY job is to phrase ONE natural-sounding question for it.
 
       ${languageInstruction}
 
@@ -578,6 +800,7 @@ const decideNextStep = async interview => {
 
       ${modeGuidance}
       ${companyBlock}
+      ${roundBlock}
       ${personaBlock}
       ${jobDescriptionBlock}
       Rules:
@@ -620,39 +843,39 @@ const decideNextStep = async interview => {
   } catch {
     return {
       continueInterview: true,
-      nextQuestion: {
+      nextQuestion: tagRound({
         question: buildFallbackQuestion(finalTopicHint, interview.mode, interview.language),
         difficulty: "medium",
         timeLimit: 90,
         topicHint: finalTopicHint,
         askedBy: nextAskedBy,
         isFollowUp: isFollowUpAction
-      }
+      })
     };
   }
   if (!parsed.question || !parsed.question.trim()) {
     return {
       continueInterview: true,
-      nextQuestion: {
+      nextQuestion: tagRound({
         question: buildFallbackQuestion(finalTopicHint, interview.mode, interview.language),
         difficulty: "medium",
         timeLimit: 90,
         topicHint: finalTopicHint,
         askedBy: nextAskedBy,
         isFollowUp: isFollowUpAction
-      }
+      })
     };
   }
   return {
     continueInterview: true,
-    nextQuestion: {
+    nextQuestion: tagRound({
       question: parsed.question.trim(),
       difficulty: parsed.difficulty || "medium",
       timeLimit: action === "rapidfire" ? 60 : timeLimitByDifficulty[parsed.difficulty] || 90,
       topicHint: finalTopicHint,
       askedBy: nextAskedBy,
       isFollowUp: isFollowUpAction
-    }
+    })
   };
 };
 const recordTopic = (interview, topicHint) => {
@@ -728,6 +951,8 @@ export const submitAnswer = async (req, res) => {
       durationSeconds,
       skipped,
       language,
+      sqlResult,
+      sqlError,
       confidenceMetrics
     } = req.body;
     if (!interviewId || questionIndex === undefined || questionIndex === null) {
@@ -755,6 +980,7 @@ export const submitAnswer = async (req, res) => {
       });
     }
     const isCodingQuestion = question.type === "coding";
+    const isSqlQuestion = question.type === "sql";
     if (skipped) {
       question.score = 0;
       question.feedback = fixedLineFor("skippedFeedback", interviewLanguage);
@@ -779,7 +1005,7 @@ export const submitAnswer = async (req, res) => {
     }
     if (!answer) {
       question.score = 0;
-      question.feedback = isCodingQuestion ? "You did not submit any code." : "You did not submit an answer.";
+      question.feedback = isCodingQuestion ? "You did not submit any code." : isSqlQuestion ? "You did not submit a query." : "You did not submit an answer.";
       question.answer = "";
       await interview.save();
       const {
@@ -799,7 +1025,7 @@ export const submitAnswer = async (req, res) => {
     }
     if (timeTaken > question.timeLimit) {
       question.score = 0;
-      question.feedback = isCodingQuestion ? "Time limit exceeded. Code not evaluated." : "Time limit exceeded. Answer not evaluated.";
+      question.feedback = isCodingQuestion ? "Time limit exceeded. Code not evaluated." : isSqlQuestion ? "Time limit exceeded. Query not evaluated." : "Time limit exceeded. Answer not evaluated.";
       question.answer = answer;
       if (isCodingQuestion) question.language = language || null;
       await interview.save();
@@ -999,6 +1225,137 @@ export const submitAnswer = async (req, res) => {
         testsTotalCount
       });
     }
+    if (isSqlQuestion) {
+      const sqlTask = SQL_QUESTION_BANK.find(q => q.id === question.sqlTaskId);
+      if (!sqlTask) {
+        question.answer = answer;
+        question.score = 0;
+        question.feedback = "Could not grade this question — question data missing.";
+        await interview.save();
+        const {
+          continueInterview,
+          nextQuestion
+        } = await decideNextStep(interview);
+        if (continueInterview) {
+          recordTopic(interview, nextQuestion.topicHint);
+          interview.questions.push(nextQuestion);
+          await interview.save();
+        }
+        return res.status(200).json({
+          feedback: question.feedback,
+          isLast: !continueInterview,
+          nextQuestion: continueInterview ? nextQuestion : null,
+          speakingMetrics: null
+        });
+      }
+      const normRow = r => JSON.stringify(Object.keys(r).sort().reduce((o, k) => {
+        o[k] = r[k];
+        return o;
+      }, {}));
+      const toObjects = (columns, rows) => (rows || []).map(vals => Object.fromEntries((columns || []).map((c, i) => [c, vals[i]])));
+      const expectedObjs = sqlTask.expectedRows;
+      const actualObjs = sqlResult ? toObjects(sqlResult.columns, sqlResult.rows) : [];
+      let correctness;
+      let matchedCount;
+      if (sqlError) {
+        correctness = 0;
+        matchedCount = 0;
+      } else if (sqlTask.ordered) {
+        const a = actualObjs.map(normRow);
+        const b = expectedObjs.map(normRow);
+        matchedCount = a.filter((x, i) => x === b[i]).length;
+        correctness = b.length ? Math.round(matchedCount / b.length * 10) : 0;
+      } else {
+        const aSet = new Set(actualObjs.map(normRow));
+        const bSet = new Set(expectedObjs.map(normRow));
+        matchedCount = [...aSet].filter(x => bSet.has(x)).length;
+        correctness = Math.round(matchedCount / Math.max(aSet.size, bSet.size, 1) * 10);
+      }
+      const resultPreview = sqlError ? `Query failed to run: ${sqlError}` : `Returned ${actualObjs.length} row(s): ${JSON.stringify(actualObjs.slice(0, 5))}`;
+      const sqlReviewMessages = [{
+        role: "system",
+        content: `
+              You are a senior data engineer reviewing a SQL query written during a live interview.
+              You already know the result-correctness score below — that number is fixed and NOT yours to judge.
+
+              ${languageInstruction}
+
+              Score ONLY these two things (0 to 10):
+              1. communication – Is the query readable and well-structured (clear aliases, formatting, intent obvious)?
+              2. confidence – Does the approach look efficient and sound (right JOIN type, filtering before aggregation where it matters, no obvious anti-pattern)?
+
+              Feedback Rules:
+              - 10 to 20 words, natural review tone.
+              - Mention one concrete thing about the query approach or one possible optimization.
+              - Do NOT mention correctness numbers — those are added separately.
+
+              Return ONLY valid JSON:
+              {
+                "confidence": number,
+                "communication": number,
+                "feedback": "short review comment"
+              }
+              `
+      }, {
+        role: "user",
+        content: `Task: ${sqlTask.title} — ${sqlTask.description}\nExpected columns: ${sqlTask.expectedColumns.join(", ")}\nResult correctness: ${correctness}/10\n\nCandidate's query:\n${answer}\n\n${resultPreview}`
+      }];
+      let sqlReviewParsed = null;
+      try {
+        const sqlReviewResponse = await askAi(sqlReviewMessages);
+        const cleanedSqlReview = sqlReviewResponse.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+        sqlReviewParsed = JSON.parse(cleanedSqlReview);
+      } catch {
+        sqlReviewParsed = {
+          confidence: correctness,
+          communication: correctness,
+          feedback: matchedCount === expectedObjs.length ? "Result matches the expected output." : `${matchedCount} of ${expectedObjs.length} expected rows matched.`
+        };
+      }
+      const sqlConfidence = sqlReviewParsed.confidence ?? correctness;
+      const sqlCommunication = sqlReviewParsed.communication ?? correctness;
+      const sqlFinalScore = Math.round((correctness + sqlConfidence + sqlCommunication) / 3);
+      const sqlTestResults = [{
+        passed: correctness === 10,
+        expectedOutput: `${expectedObjs.length} expected row(s)`,
+        actualOutput: sqlError ? "Query error" : `${actualObjs.length} returned row(s)`,
+        error: sqlError || null
+      }];
+      question.answer = answer;
+      question.confidence = sqlConfidence;
+      question.communication = sqlCommunication;
+      question.correctness = correctness;
+      question.score = sqlFinalScore;
+      question.testResults = { passedCount: matchedCount, totalCount: expectedObjs.length, allPassed: correctness === 10 };
+      question.sqlResult = sqlResult ? { columns: sqlResult.columns, rows: sqlResult.rows, error: sqlError || null } : { columns: [], rows: [], error: sqlError || "No query was run." };
+      question.feedback = `${matchedCount}/${expectedObjs.length} expected rows matched. ${sqlReviewParsed.feedback || ""}`.trim();
+      await interview.save();
+      const {
+        continueInterview,
+        nextQuestion
+      } = await decideNextStep(interview);
+      if (continueInterview) {
+        recordTopic(interview, nextQuestion.topicHint);
+        interview.questions.push(nextQuestion);
+        await interview.save();
+      }
+      return res.status(200).json({
+        feedback: question.feedback,
+        isLast: !continueInterview,
+        nextQuestion: continueInterview ? nextQuestion : null,
+        speakingMetrics: null,
+        testResults: sqlTestResults,
+        testsPassedCount: matchedCount,
+        testsTotalCount: expectedObjs.length
+      });
+    }
+    const scoringCompanyMode = getCompanyMode(interview.companyMode);
+    const companyRubricBlock = scoringCompanyMode ? `
+            COMPANY RUBRIC (${scoringCompanyMode.name}):
+            ${scoringCompanyMode.rubric}
+            Also score "companyScore" (0 to 10): how well this answer would land with a ${scoringCompanyMode.name} interviewer against the rubric above.
+            Also give "companySignal": one of "HIRE", "LEAN HIRE", "NO HIRE" for this answer.
+            ` : "";
     const messages = [{
       role: "system",
       content: `
@@ -1013,7 +1370,7 @@ export const submitAnswer = async (req, res) => {
             1. Confidence – Does the answer sound clear, confident, and well-presented?
             2. Communication – Is the language simple, clear, and easy to understand?
             3. Correctness – Is the answer accurate, relevant, and complete?
-
+${companyRubricBlock}
             Rules:
             - Be realistic and unbiased.
             - Do not give random high scores.
@@ -1054,7 +1411,9 @@ export const submitAnswer = async (req, res) => {
             "confidence": number,
             "communication": number,
             "correctness": number,
-            "finalScore": number,
+            "finalScore": number,${scoringCompanyMode ? `
+            "companyScore": number,
+            "companySignal": "HIRE" or "LEAN HIRE" or "NO HIRE",` : ""}
             "feedback": "short human feedback",
             "ack": "short spoken reaction"
             }
@@ -1077,6 +1436,8 @@ export const submitAnswer = async (req, res) => {
       question.communication = 0;
       question.correctness = 0;
       question.score = 0;
+      question.companyScore = null;
+      question.companySignal = null;
       question.feedback = fixedLineFor("evalUnavailable", interviewLanguage);
       question.speakingMetrics = computeSpeakingMetrics(answer, durationSeconds);
       question.confidenceMetrics = buildConfidenceMetrics(confidenceMetrics);
@@ -1103,6 +1464,9 @@ export const submitAnswer = async (req, res) => {
     question.correctness = parsed.correctness;
     question.score = parsed.finalScore;
     question.feedback = parsed.feedback;
+    const parsedCompanyScore = Number(parsed.companyScore);
+    question.companyScore = scoringCompanyMode && Number.isFinite(parsedCompanyScore) ? Math.max(0, Math.min(10, parsedCompanyScore)) : null;
+    question.companySignal = scoringCompanyMode && ["HIRE", "LEAN HIRE", "NO HIRE"].includes(parsed.companySignal) ? parsed.companySignal : null;
     question.speakingMetrics = computeSpeakingMetrics(answer, durationSeconds);
     question.confidenceMetrics = buildConfidenceMetrics(confidenceMetrics);
     await interview.save();
@@ -1149,6 +1513,46 @@ const computePerInterviewerScores = (interview, scorableQuestions) => {
   return {
     interviewerA: byInterviewer.interviewerA.count ? Number((byInterviewer.interviewerA.total / byInterviewer.interviewerA.count).toFixed(1)) : 0,
     interviewerB: byInterviewer.interviewerB.count ? Number((byInterviewer.interviewerB.total / byInterviewer.interviewerB.count).toFixed(1)) : 0
+  };
+};
+const buildCommitteeSummary = async (interview, mode, roundSignals, signal) => {
+  try {
+    const qa = interview.questions.filter(q => !q.skipped && q.answer).map((q, i) => `Q${i + 1} [${q.roundLabel || "general"}] (company score ${q.companyScore ?? "n/a"}/10): ${q.question}\nA: ${(q.answer || "").slice(0, 400)}`).join("\n\n");
+    const messages = [{
+      role: "system",
+      content: `You are the hiring committee scribe at ${mode.name}, writing the debrief summary after a mock interview loop. Round signals: ${roundSignals.map(r => `${r.label}: ${r.signal}`).join(", ")}. Overall signal: ${signal}. Write 2 to 3 sentences, direct and specific: the candidate's clearest strength mapped to ${mode.name}'s values, the biggest gap, and one line on what would change the signal. No fluff, no bullet points.`
+    }, {
+      role: "user",
+      content: qa.slice(0, 6000) || "No answers recorded."
+    }];
+    const out = await askAi(messages);
+    return out.replace(/^```(?:\w+)?\s*/i, "").replace(/\s*```$/, "").trim().slice(0, 800);
+  } catch {
+    return `${mode.name} loop complete. Overall signal: ${signal}.`;
+  }
+};
+const buildCompanyVerdict = async (interview, mode) => {
+  const roundSignals = mode.rounds.map(round => {
+    const qs = interview.questions.filter(q => q.roundId === round.id && !q.skipped && q.companyScore != null);
+    const avg = qs.length ? qs.reduce((s, q) => s + q.companyScore, 0) / qs.length : null;
+    return {
+      roundId: round.id,
+      label: round.label,
+      signal: avg == null ? "NO HIRE" : signalForScore(mode.bands, avg),
+      avgScore: avg == null ? 0 : Math.round(avg * 10) / 10
+    };
+  });
+  const validAvgs = roundSignals.filter(r => r.avgScore > 0).map(r => r.avgScore);
+  const overallAvg = validAvgs.length ? validAvgs.reduce((s, v) => s + v, 0) / validAvgs.length : 0;
+  let signal = signalForScore(mode.bands, overallAvg);
+  if (roundSignals[roundSignals.length - 1].signal === "NO HIRE" && signal !== "NO HIRE") {
+    signal = "LEAN HIRE";
+  }
+  const summary = await buildCommitteeSummary(interview, mode, roundSignals, signal);
+  return {
+    signal,
+    summary,
+    roundSignals
   };
 };
 export const finishInterview = async (req, res) => {
@@ -1213,10 +1617,16 @@ export const finishInterview = async (req, res) => {
     const confidenceSummary = summarizeInterviewConfidence(interview.questions);
     interview.finalScore = finalScore;
     interview.status = "Completed";
+    const finishedCompanyMode = getCompanyMode(interview.companyMode);
+    if (finishedCompanyMode) {
+      interview.companyVerdict = await buildCompanyVerdict(interview, finishedCompanyMode);
+    }
     await interview.save();
     return res.status(200).json({
       role: interview.role,
       company: interview.company || null,
+      companyMode: interview.companyMode || null,
+      companyVerdict: interview.companyVerdict || null,
       hasJobDescription: Boolean(interview.jobDescription),
       interviewType: interview.interviewType,
       perInterviewerScores,
@@ -1240,6 +1650,10 @@ export const finishInterview = async (req, res) => {
         confidence: q.confidence || 0,
         communication: q.communication || 0,
         correctness: q.correctness || 0,
+        roundId: q.roundId || null,
+        roundLabel: q.roundLabel || null,
+        companyScore: q.companyScore,
+        companySignal: q.companySignal || null,
         skipped: q.skipped || false,
         type: q.type || "verbal",
         askedBy: q.askedBy || null,

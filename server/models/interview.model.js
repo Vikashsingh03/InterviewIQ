@@ -62,6 +62,22 @@ const questionSchema = new mongoose.Schema({
     type: String,
     default: "general"
   },
+  roundId: {
+    type: String,
+    default: null
+  },
+  roundLabel: {
+    type: String,
+    default: null
+  },
+  companyScore: {
+    type: Number,
+    default: null
+  },
+  companySignal: {
+    type: String,
+    default: null
+  },
   skipped: {
     type: Boolean,
     default: false
@@ -77,7 +93,7 @@ const questionSchema = new mongoose.Schema({
   confidenceMetrics: { type: confidenceMetricsSchema, default: undefined },
   type: {
     type: String,
-    enum: ["verbal", "coding"],
+    enum: ["verbal", "coding", "sql"],
     default: "verbal"
   },
   askedBy: {
@@ -87,6 +103,18 @@ const questionSchema = new mongoose.Schema({
   },
   dsaQuestionId: {
     type: String,
+    default: null
+  },
+  sqlTaskId: {
+    type: String,
+    default: null
+  },
+  sqlSchema: {
+    type: String,
+    default: null
+  },
+  sqlResult: {
+    type: mongoose.Schema.Types.Mixed,
     default: null
   },
   starterCode: {
@@ -145,6 +173,29 @@ const interviewSchema = new mongoose.Schema({
   company: {
     type: String,
     default: null
+  },
+  companyMode: {
+    type: String,
+    default: null
+  },
+  companyVerdict: {
+    signal: {
+      type: String,
+      default: null
+    },
+    summary: {
+      type: String,
+      default: null
+    },
+    roundSignals: {
+      type: [{
+        roundId: String,
+        label: String,
+        signal: String,
+        avgScore: Number
+      }],
+      default: []
+    }
   },
   candidateName: {
     type: String,

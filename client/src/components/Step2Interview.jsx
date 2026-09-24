@@ -12,10 +12,12 @@ import { useVoiceAnswer } from "../hooks/useVoiceAnswer";
 import { useConfidenceAnalyzer } from "../hooks/useConfidenceAnalyzer";
 import ConfidenceLivePill from "./ConfidenceLivePill";
 import { getVoiceCommand } from "../utils/voiceCommands";
-import { BsSpeedometer2, BsSkipForward, BsCode, BsPlayFill, BsCheckCircleFill, BsXCircleFill, BsChevronDown, BsFullscreen, BsLightningCharge, BsArrowRight } from "react-icons/bs";
+import { BsSpeedometer2, BsSkipForward, BsCode, BsPlayFill, BsCheckCircleFill, BsXCircleFill, BsChevronDown, BsFullscreen, BsLightningCharge, BsArrowRight, BsTable } from "react-icons/bs";
 import { IoWarningOutline } from "react-icons/io5";
 import Editor from "@monaco-editor/react";
 import ProctorWarningModal from "./ProctorWarningModal";
+import SqlWorkbench from "./SqlWorkbench";
+import { runSqlQuery } from "../utils/sqlRunner";
 import { useEyeContactTracking, EYE_CONTACT_WARNING_MS } from "../hooks/useEyeContactTracking";
 const CODE_LANGUAGES = [{
   value: "javascript",
@@ -36,9 +38,10 @@ const buildSpokenReply = ({
   ack,
   isLast,
   isCodingQuestion,
+  isSqlQuestion,
   userName
 }) => {
-  const base = ack || (isCodingQuestion ? "Thanks, I've noted your solution." : "Alright, let's move on.");
+  const base = ack || (isCodingQuestion ? "Thanks, I've noted your solution." : isSqlQuestion ? "Thanks, I've noted your query." : "Alright, let's move on.");
   return isLast ? `${base} That was my last question. Thank you for your time, ${userName}.` : base;
 };
 const SILENCE_AUTO_SUBMIT_MS = 5000;
@@ -248,7 +251,8 @@ function Step2Interview({
 }) {
   const {
     interviewId,
-    userName
+    userName,
+    company
   } = interviewData;
   const interviewLanguage = interviewData.language || "english";
   const useHindiVoice = interviewLanguage !== "english";
@@ -281,6 +285,7 @@ function Step2Interview({
   const currentQuestionRef = useRef(null);
   const isMicOnRef = useRef(true);
   const submitAnswerRef = useRef(() => {});
+  const sqlPayloadRef = useRef({ query: "", result: null, error: null });
   const skipQuestionRef = useRef(() => {});
   const speakTextRef = useRef(() => Promise.resolve());
   const isAIPlayingRef = useRef(false);
@@ -377,6 +382,8 @@ function Step2Interview({
   const answerWindowStartRef = useRef(null);
   const currentQuestion = questions[currentIndex];
   const isCodingQuestion = currentQuestion?.type === "coding";
+  const isSqlQuestion = currentQuestion?.type === "sql";
+  const isHandsOnQuestion = isCodingQuestion || isSqlQuestion;
   useEffect(() => {
     proctoringReadyRef.current = proctoringReady;
   }, [proctoringReady]);
@@ -390,8 +397,8 @@ function Step2Interview({
     isIntroPhaseRef.current = isIntroPhase;
   }, [isIntroPhase]);
   useEffect(() => {
-    isCodingQuestionRef.current = isCodingQuestion;
-  }, [isCodingQuestion]);
+    isCodingQuestionRef.current = isHandsOnQuestion;
+  }, [isHandsOnQuestion]);
   useEffect(() => {
     currentQuestionRef.current = currentQuestion;
   }, [currentQuestion]);
@@ -880,6 +887,7 @@ function Step2Interview({
     }
     setRunResults(null);
     setSubmitTestResults(null);
+    sqlPayloadRef.current = { query: "", result: null, error: null };
   }, [currentIndex, isCodingQuestion]);
   const handleLanguageChange = newLang => {
     if (!currentQuestion?.starterCode) return;
@@ -1081,7 +1089,7 @@ function Step2Interview({
   const dismissWarningAndResume = () => {
     enterFullscreen();
     setFullscreenWarning(null);
-    if (isCodingQuestion) return;
+    if (isHandsOnQuestion) return;
     if (answerModeRef.current === "voice") {
       setTimeout(() => voiceAnswer.start(), 400);
     } else if (isMicOn) {
@@ -1131,10 +1139,20 @@ function Step2Interview({
     stopMic();
     voiceAnswer.stop();
     const finalAnswer = typeof answerOverride === "string" ? answerOverride : answer;
-    setAnswer(finalAnswer);
-    answerRef.current = finalAnswer;
+    const submitText = isSqlQuestion ? sqlPayloadRef.current?.query || "" : finalAnswer;
+    if (isSqlQuestion) {
+      const p = sqlPayloadRef.current || { query: "", result: null, error: null };
+      if (!p.result && !p.error && currentQuestion?.sqlSchema) {
+        try {
+          const out = await runSqlQuery(currentQuestion.sqlSchema, p.query || "");
+          sqlPayloadRef.current = out.error ? { query: p.query || "", result: null, error: out.error } : { query: p.query || "", result: { columns: out.columns, rows: out.rows }, error: null };
+        } catch (ignored) { void ignored; }
+      }
+    }
+    setAnswer(submitText);
+    answerRef.current = submitText;
     setIsSubmitting(true);
-    const useBeat = !isCodingQuestion;
+    const useBeat = !isHandsOnQuestion;
     if (useBeat) {
       setIsAnalyzing(true);
       setAnalysisProgress(0);
@@ -1142,19 +1160,23 @@ function Step2Interview({
     setErrorMessage("");
     setFeedback("");
     const durationSeconds = answerWindowStartRef.current ? Math.max(1, Math.round((Date.now() - answerWindowStartRef.current) / 1000)) : currentQuestion.timeLimit - timeLeft;
-    const confidenceMetrics = confidence.endAnswer({ transcript: finalAnswer, durationSec: durationSeconds });
+    const confidenceMetrics = confidence.endAnswer({ transcript: submitText, durationSec: durationSeconds });
     const beatPromise = useBeat ? runAnalysisBeat() : Promise.resolve();
     let data = null;
     try {
       const result = await axios.post(ServerUrl + "/api/interview/submit-answer", {
         interviewId,
         questionIndex: currentIndex,
-        answer: finalAnswer,
+        answer: submitText,
         timeTaken: currentQuestion.timeLimit - timeLeft,
         durationSeconds,
         confidenceMetrics,
         ...(isCodingQuestion ? {
           language: codeLanguage
+        } : {}),
+        ...(isSqlQuestion ? {
+          sqlResult: sqlPayloadRef.current?.result || null,
+          sqlError: sqlPayloadRef.current?.error || null
         } : {})
       }, {
         withCredentials: true,
@@ -1181,7 +1203,7 @@ function Step2Interview({
       } = data || {};
       const effectiveIsLast = evaluationFailed ? isLastQuestion : !!isLast;
       if (!evaluationFailed) {
-        if (isCodingQuestion) {
+        if (isCodingQuestion || isSqlQuestion) {
           setSubmitTestResults({
             results: testResults || [],
             passed: testsPassedCount ?? 0,
@@ -1198,6 +1220,7 @@ function Step2Interview({
         ack: evaluationFailed ? null : ack,
         isLast: effectiveIsLast,
         isCodingQuestion,
+        isSqlQuestion,
         userName
       });
       setFeedback(spokenReply);
@@ -1610,7 +1633,7 @@ function Step2Interview({
             <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
             <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C] whitespace-nowrap">LIVE SESSION</p>
             <span className="w-px h-4 bg-[#E5E4E0] dark:bg-[#262B34] shrink-0" />
-            <h2 className="font-serif-display text-lg sm:text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight truncate">AI Smart Interview</h2>
+            <h2 className="font-serif-display text-lg sm:text-xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight truncate">AI Smart Interview{company ? <span className="text-[#B27E2E] dark:text-[#E8A94C]">{" · "}{company}</span> : null}</h2>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             {ttsProvider && <span className="hidden sm:inline-flex items-center gap-1.5 font-mono-studio text-[10px] tracking-wide px-2.5 py-1.5 rounded-full bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] border border-[#E8A94C]/25">
@@ -1785,14 +1808,14 @@ function Step2Interview({
                 </>}
             </AnimatePresence>
 
-            {isCodingQuestion && submitTestResults && <>
+            {isHandsOnQuestion && submitTestResults && <>
                 <div className="h-px bg-linear-to-r from-transparent via-[#232830] to-transparent" />
                 <div className="bg-[#5EC8D8]/6 border border-[#5EC8D8]/25 rounded-xl p-4 text-center">
                   <p className="font-mono-studio text-2xl text-[#5EC8D8]">
                     {submitTestResults.passed}/{submitTestResults.total}
                   </p>
                   <p className="text-[10px] text-[#565D68] mt-1">
-                    test cases passed
+                    {isSqlQuestion ? "expected rows matched" : "test cases passed"}
                   </p>
                 </div>
               </>}
@@ -1814,7 +1837,7 @@ function Step2Interview({
             </div>}
 
           {}
-          {!isIntroPhase && !isCodingQuestion && <div className="flex justify-center mb-5">
+          {!isIntroPhase && !isHandsOnQuestion && <div className="flex justify-center mb-5">
               <div className="inline-flex items-center p-1 rounded-2xl bg-[#EFEEEA] dark:bg-[#131519] border border-[#E5E4E0] dark:border-[#232830] shadow-sm">
                 {[{
               id: "voice",
@@ -1851,8 +1874,14 @@ function Step2Interview({
                   {isCodingQuestion && <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#5EC8D8]/10 text-[#2E8494] dark:text-[#5EC8D8] text-[10px] tracking-wide">
                       <BsCode size={10} /> Coding Round
                     </span>}
+                  {isSqlQuestion && <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#A78BFA]/10 text-[#6D4FC2] dark:text-[#A78BFA] text-[10px] tracking-wide">
+                      <BsTable size={10} /> SQL Round
+                    </span>}
                   {currentQuestion?.isFollowUp && <span className="font-mono-studio inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F59E0B]/10 text-[#B45309] dark:text-[#FBBF24] text-[10px] tracking-wide">
                       <BsLightningCharge size={10} /> Follow-up
+                    </span>}
+                  {currentQuestion?.roundLabel && <span className="font-mono-studio px-2 py-0.5 rounded-md bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C] border border-[#E8A94C]/30 text-[10px] tracking-wide">
+                      {currentQuestion.roundLabel}
                     </span>}
                 </div>
                 <div className="font-serif-display text-xl sm:text-2xl text-[#1C1F24] dark:text-[#EDEEF0] leading-snug tracking-tight">
@@ -1940,7 +1969,9 @@ function Step2Interview({
                         </div>)}
                     </div>}
                 </div>}
-            </div> : answerMode === "voice" ? <VoiceAnswerPanel voice={voiceAnswer} onRepeat={handleRepeatQuestion} onSwitchToType={() => switchAnswerMode("type")} analyzing={isAnalyzing && !isCodingQuestion} analysisProgress={analysisProgress} /> : isAnalyzing ? <div className="flex-1 mt-3 relative overflow-hidden rounded-3xl bg-[#0C0E11] border border-[#1E2229] p-6 sm:p-8 flex flex-col items-center justify-center min-h-95">
+            </div> : isSqlQuestion ? <SqlWorkbench schemaSql={currentQuestion.sqlSchema} disabled={controlsDisabled} onPayload={p => {
+            sqlPayloadRef.current = p;
+          }} /> : answerMode === "voice" ? <VoiceAnswerPanel voice={voiceAnswer} onRepeat={handleRepeatQuestion} onSwitchToType={() => switchAnswerMode("type")} analyzing={isAnalyzing && !isHandsOnQuestion} analysisProgress={analysisProgress} /> : isAnalyzing ? <div className="flex-1 mt-3 relative overflow-hidden rounded-3xl bg-[#0C0E11] border border-[#1E2229] p-6 sm:p-8 flex flex-col items-center justify-center min-h-95">
               <div className="absolute inset-0 pointer-events-none" style={{
             background: "radial-gradient(ellipse 65% 55% at 50% 38%, rgba(232,169,76,0.14), transparent 70%)"
           }} />
@@ -1958,7 +1989,7 @@ function Step2Interview({
             </div>}
 
           <AnimatePresence>
-            {inactivityWarning && !isCodingQuestion && <motion.div initial={{
+            {inactivityWarning && !isCodingQuestion && !isSqlQuestion && <motion.div initial={{
             opacity: 0,
             y: 8
           }} animate={{
@@ -1989,8 +2020,8 @@ function Step2Interview({
               </motion.div>}
           </AnimatePresence>
 
-          {!feedback ? answerMode === "voice" && !isCodingQuestion ? (null) : <div className="flex items-center gap-3 mt-6">
-              {!isCodingQuestion && <motion.button onClick={toggleMic} whileTap={{
+          {!feedback ? answerMode === "voice" && !isHandsOnQuestion ? (null) : <div className="flex items-center gap-3 mt-6">
+              {!isHandsOnQuestion && <motion.button onClick={toggleMic} whileTap={{
             scale: 0.92
           }} disabled={controlsDisabled} className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center rounded-full shadow-lg disabled:opacity-60 transition-all duration-200 ${isMicOn ? "bg-[#1C1F24] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D]" : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#8B92A0] border border-[#E5E4E0] dark:border-[#262B34]"}`}>
                   {isMicOn ? <FaMicrophone size={19} /> : <FaMicrophoneSlash size={19} />}
@@ -2020,8 +2051,8 @@ function Step2Interview({
                 duration: 1,
                 ease: "linear"
               }} className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full" />
-                    {isCodingQuestion ? "Running tests & reviewing..." : "AI is evaluating your answer..."}
-                  </> : isCodingQuestion ? "Submit Code" : "Submit Answer"}
+                    {isCodingQuestion ? "Running tests & reviewing..." : isSqlQuestion ? "Checking your result..." : "AI is evaluating your answer..."}
+                  </> : isCodingQuestion ? "Submit Code" : isSqlQuestion ? "Submit Query" : "Submit Answer"}
               </motion.button>
 
               <motion.button onClick={skipQuestion} disabled={controlsDisabled} whileTap={{
@@ -2039,7 +2070,7 @@ function Step2Interview({
           opacity: 1,
           y: 0
         }} className="mt-6 bg-white dark:bg-[#131519] border border-[#E8A94C]/30 p-5 rounded-2xl shadow-[0_12px_30px_-16px_rgba(232,169,76,0.3)]">
-              {answerMode === "voice" && !isCodingQuestion ? (<div className="flex items-center gap-3 mb-4">
+              {answerMode === "voice" && !isHandsOnQuestion ? (<div className="flex items-center gap-3 mb-4">
                   <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
                   <p className="font-mono-studio text-xs tracking-[0.2em] uppercase text-[#B27E2E] dark:text-[#E8A94C]">
                     Interviewer is speaking…

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { FaUserTie, FaBriefcase, FaFileUpload, FaFileAlt } from "react-icons/fa";
-import { BsTerminal, BsChatLeftText, BsBuilding, BsCheckCircleFill, BsCheckLg, BsPeopleFill, BsPersonFill, BsBullseye, BsArrowRight } from "react-icons/bs";
+import { BsTerminal, BsChatLeftText, BsBuilding, BsCheckCircleFill, BsCheckLg, BsPeopleFill, BsPersonFill, BsBullseye, BsArrowRight, BsChevronDown } from "react-icons/bs";
 import { IoWarningOutline } from "react-icons/io5";
 import axios from "axios";
 import { ServerUrl } from "../App";
@@ -51,6 +51,7 @@ function Step1Setup({ onstart }) {
   const [interviewType, setInterviewType] = useState("solo");
   const [language, setLanguage] = useState("english");
   const [company, setCompany] = useState("");
+  const [companyMode, setCompanyMode] = useState(null);
   const [jobDescription, setJobDescription] = useState("");
   const [showJobDescription, setShowJobDescription] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
@@ -66,6 +67,7 @@ function Step1Setup({ onstart }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [resumeError, setResumeError] = useState("");
   const [startError, setStartError] = useState("");
+  const [showMoreCompanies, setShowMoreCompanies] = useState(false);
   const fieldsReady = [role, experience].filter(Boolean).length;
 
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }).toUpperCase();
@@ -73,6 +75,10 @@ function Step1Setup({ onstart }) {
   const typeLabel = interviewType === "solo" ? "Solo" : "Panel · 2 AI";
   const resumeLabel = analysisDone ? "Attached" : resumeFile ? "Selected" : "—";
 
+  const selectCompanyMode = (c) => {
+    setCompanyMode(c.id);
+    setCompany(c.id ? c.name : "");
+  };
   const handleUploadResume = async () => {
     if (!resumeFile || analyzing) return;
     setAnalyzing(true);
@@ -119,7 +125,7 @@ function Step1Setup({ onstart }) {
     setStartError("");
     try {
       const result = await axios.post(ServerUrl + "/api/interview/generate-questions", {
-        role, experience, mode, interviewType, company, jobDescription,
+        role, experience, mode, interviewType, company, companyMode, jobDescription,
         resumeText, projects, skills, candidateName, language
       }, { withCredentials: true });
       if (userData) {
@@ -147,6 +153,29 @@ function Step1Setup({ onstart }) {
     { value: "solo", icon: <BsPersonFill size={16} />, label: "Solo", sub: "One interviewer" },
     { value: "panel", icon: <BsPeopleFill size={16} />, label: "Panel · 2 AI", sub: "Technical + HR" },
   ];
+  const COMPANY_MODES_UI = [
+    { id: null, name: "Standard", tagline: "Adaptive questions, no company filter" },
+    { id: "google", name: "Google", tagline: "First-principles thinking, sealed with Googleyness" },
+    { id: "amazon", name: "Amazon", tagline: "16 Leadership Principles. STAR or nothing." },
+    { id: "meta", name: "Meta", tagline: "Move fast. Show impact. Prove it with numbers." },
+    { id: "microsoft", name: "Microsoft", tagline: "Collaborative problem-solving, growth mindset." },
+  ];
+  const MORE_COMPANY_MODES = [
+    { id: "infosys", name: "Infosys", tagline: "Fundamentals first. Clarity always." },
+    { id: "tcs", name: "TCS", tagline: "Honest basics, steady attitude." },
+    { id: "wipro", name: "Wipro", tagline: "Practical skills, clear thinking." },
+    { id: "hcltech", name: "HCLTech", tagline: "Role-ready fundamentals." },
+    { id: "techmahindra", name: "Tech Mahindra", tagline: "Connected thinking, clear delivery." },
+    { id: "ltimindtree", name: "LTIMindtree", tagline: "Engineering mindset, done right." },
+    { id: "cognizant", name: "Cognizant", tagline: "Friendly, but quietly sharp." },
+    { id: "capgemini", name: "Capgemini", tagline: "Structured thinking, European polish." },
+    { id: "deloitte", name: "Deloitte", tagline: "Consulting-grade clarity." },
+    { id: "accenture", name: "Accenture", tagline: "Deliver at scale, learn always." },
+    { id: "ibm", name: "IBM", tagline: "Enterprise-grade reliability." },
+    { id: "oracle", name: "Oracle", tagline: "Data is sacred. Precision wins." },
+  ];
+  const ALL_NAMED_MODES = [...COMPANY_MODES_UI.filter(c => c.id), ...MORE_COMPANY_MODES];
+  const moreSelected = MORE_COMPANY_MODES.some(c => c.id === companyMode);
 
   return (
     <div className="min-h-screen relative bg-[#F7F6F3] dark:bg-[#0A0B0D] flex items-center justify-center p-4 sm:p-6 py-12 transition-colors duration-300">
@@ -360,14 +389,74 @@ function Step1Setup({ onstart }) {
 
             <FormSection n="03" title="THE CONTEXT">
               <div>
-                <div className="studio-input relative rounded-2xl border border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] transition-all duration-200">
-                  <BsBuilding className="absolute top-4 left-4 text-[#9AA1AC] dark:text-[#565D68]" size={14} />
-                  <input type="text" list="company-suggestions" placeholder="Target company (optional, e.g. Google)" className="w-full pl-11 pr-4 py-3.5 bg-transparent text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] outline-none text-sm" onChange={e => setCompany(e.target.value)} value={company} />
-                  <datalist id="company-suggestions">
-                    {SUGGESTED_COMPANIES.map(c => <option key={c} value={c} />)}
-                  </datalist>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {COMPANY_MODES_UI.map(c => {
+                    const isSelected = companyMode === c.id;
+                    return (
+                      <motion.button key={c.id || "standard"} type="button" whileTap={{ scale: 0.98 }} onClick={() => selectCompanyMode(c)}
+                        className={`relative flex flex-col items-start gap-1 p-4 rounded-2xl border text-left transition-all duration-200 ${isSelected ? "border-[#E8A94C] bg-[#E8A94C]/8" : "border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] hover:border-[#E8A94C]/30"}`}>
+                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center mb-1 transition-colors duration-200 ${isSelected ? "bg-[#E8A94C] text-[#1C1F24]" : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#9AA1AC] dark:text-[#565D68]"}`}>
+                          {c.id ? <span className="font-serif-display italic text-lg leading-none">{c.name[0]}</span> : <BsBuilding size={14} />}
+                        </span>
+                        <span className={`text-sm font-semibold ${isSelected ? "text-[#B27E2E] dark:text-[#E8A94C]" : "text-[#1C1F24] dark:text-[#EDEEF0]"}`}>{c.name}</span>
+                        <span className="text-[11px] text-[#8B92A0] leading-snug">{c.tagline}</span>
+                        <AnimatePresence>
+                          {isSelected && (
+                            <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="absolute top-3 right-3">
+                              <BsCheckCircleFill className="text-[#E8A94C]" size={14} />
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
+                    );
+                  })}
                 </div>
-                <p className="mt-1.5 text-[11px] text-[#9AA1AC] dark:text-[#565D68] pl-1">Questions adapt to that company's known interview style.</p>
+                <button type="button" onClick={() => setShowMoreCompanies(v => !v)}
+                  className={`mt-3 w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all duration-200 ${moreSelected ? "border-[#E8A94C] bg-[#E8A94C]/8" : "border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] hover:border-[#E8A94C]/30"}`}>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${moreSelected ? "bg-[#E8A94C] text-[#1C1F24]" : "bg-[#EFEEEA] dark:bg-[#181B20] text-[#9AA1AC] dark:text-[#565D68]"}`}>
+                      <span className="font-mono-studio text-[10px] font-semibold">+12</span>
+                    </span>
+                    <span className="text-left min-w-0">
+                      <span className={`block text-sm font-semibold truncate ${moreSelected ? "text-[#B27E2E] dark:text-[#E8A94C]" : "text-[#1C1F24] dark:text-[#EDEEF0]"}`}>{moreSelected ? ALL_NAMED_MODES.find(c => c.id === companyMode)?.name : "More companies"}</span>
+                      <span className="block text-[11px] text-[#8B92A0] truncate">Infosys, TCS, Deloitte, Capgemini, Wipro + 7 more</span>
+                    </span>
+                  </span>
+                  <motion.span animate={{ rotate: showMoreCompanies ? 180 : 0 }} transition={{ duration: 0.2 }} className="text-[#9AA1AC] dark:text-[#565D68] shrink-0 ml-2">
+                    <BsChevronDown size={14} />
+                  </motion.span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {showMoreCompanies && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3">
+                        {MORE_COMPANY_MODES.map(c => {
+                          const isSelected = companyMode === c.id;
+                          return (
+                            <button key={c.id} type="button" onClick={() => selectCompanyMode(c)}
+                              className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border text-left transition-all duration-200 ${isSelected ? "border-[#E8A94C] bg-[#E8A94C]/8" : "border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] hover:border-[#E8A94C]/30"}`}>
+                              <span className="min-w-0">
+                                <span className={`block text-[13px] font-semibold truncate ${isSelected ? "text-[#B27E2E] dark:text-[#E8A94C]" : "text-[#1C1F24] dark:text-[#EDEEF0]"}`}>{c.name}</span>
+                                <span className="block text-[10px] text-[#8B92A0] leading-snug truncate">{c.tagline}</span>
+                              </span>
+                              {isSelected && <BsCheckCircleFill className="text-[#E8A94C] shrink-0" size={13} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {!companyMode && (
+                  <div className="mt-3 studio-input relative rounded-2xl border border-[#E5E4E0] dark:border-[#1E2229] bg-white dark:bg-[#0C0E11] transition-all duration-200">
+                    <BsBuilding className="absolute top-4 left-4 text-[#9AA1AC] dark:text-[#565D68]" size={14} />
+                    <input type="text" list="company-suggestions" placeholder="Target company (optional, e.g. Google)" className="w-full pl-11 pr-4 py-3.5 bg-transparent text-[#1C1F24] dark:text-[#EDEEF0] placeholder-[#9AA1AC] dark:placeholder-[#565D68] outline-none text-sm" onChange={e => setCompany(e.target.value)} value={company} />
+                    <datalist id="company-suggestions">
+                      {SUGGESTED_COMPANIES.map(c => <option key={c} value={c} />)}
+                    </datalist>
+                  </div>
+                )}
+                <p className="mt-1.5 text-[11px] text-[#9AA1AC] dark:text-[#565D68] pl-1">{companyMode ? `${ALL_NAMED_MODES.find(c => c.id === companyMode)?.name} loop: structured rounds, company-rubric scoring, bar-raiser finale.` : "Questions adapt to that company's known interview style."}</p>
               </div>
 
               <div>

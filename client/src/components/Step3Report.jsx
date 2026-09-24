@@ -14,7 +14,7 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { IoWarningOutline } from "react-icons/io5";
-import { BsCode, BsPersonFill, BsChatDots } from "react-icons/bs";
+import { BsCode, BsPersonFill, BsChatDots, BsTable } from "react-icons/bs";
 import QuestionCoaching from "./QuestionCoaching";
 import CoachChat from "./CoachChat";
 
@@ -246,6 +246,8 @@ function Step3Report({ report, showBackButton = true }) {
     questionWiseScore = [],
     role,
     company,
+    companyMode,
+    companyVerdict,
     hasJobDescription,
     proctoring,
     interviewType,
@@ -272,6 +274,11 @@ function Step3Report({ report, showBackButton = true }) {
     { label: "Communication", value: round1(communication) },
     { label: "Correctness", value: round1(correctness) },
   ];
+  const VERDICT_STYLES = {
+    "HIRE": { text: "#2F7D4F", bg: "rgba(47,125,79,0.08)", border: "rgba(47,125,79,0.35)" },
+    "LEAN HIRE": { text: "#B27E2E", bg: "rgba(232,169,76,0.10)", border: "rgba(232,169,76,0.40)" },
+    "NO HIRE": { text: "#B0503F", bg: "rgba(176,80,63,0.08)", border: "rgba(176,80,63,0.35)" },
+  };
 
   let performanceText = "";
   let shortTagline = "";
@@ -474,6 +481,46 @@ function Step3Report({ report, showBackButton = true }) {
     doc.text(verdictLines, margin + 40, currentY + 26);
 
     currentY += verdictH + 10;
+
+    if (companyVerdict) {
+      const verdictRgb = (s) => s === "HIRE" ? [47, 125, 79] : s === "LEAN HIRE" ? AMBER : [176, 80, 63];
+      const vRgb = verdictRgb(companyVerdict.signal);
+      const cRows = companyVerdict.roundSignals || [];
+      const summaryLines = companyVerdict.summary ? doc.splitTextToSize(companyVerdict.summary, contentWidth - 16) : [];
+      const cardH = 30 + cRows.length * 9 + summaryLines.length * 5 + 8;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(...LINE);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, currentY, contentWidth, cardH, 4, 4, "FD");
+      doc.setFillColor(...vRgb);
+      doc.rect(margin, currentY, 1.6, cardH, "F");
+      label("Company loop", margin + 8, currentY + 9, 7, AMBER_DK);
+      serifHead(`${company || ""} report card`, margin + 8, currentY + 18, 13, INK);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...vRgb);
+      doc.text(companyVerdict.signal, margin + contentWidth - 8, currentY + 16, { align: "right" });
+      let ry = currentY + 30;
+      cRows.forEach((r, i) => {
+        const rRgb = verdictRgb(r.signal);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...INK);
+        doc.text(`${i + 1}. ${r.label}`, margin + 8, ry);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(...rRgb);
+        doc.text(`${r.signal}  ${round1(r.avgScore)}/10`, margin + contentWidth - 8, ry, { align: "right" });
+        ry += 9;
+      });
+      if (summaryLines.length) {
+        doc.setFont("times", "italic");
+        doc.setFontSize(9.5);
+        doc.setTextColor(80, 85, 92);
+        doc.text(summaryLines, margin + 8, ry);
+      }
+      currentY += cardH + 10;
+    }
 
     if (isPanel) {
       currentY = sectionHead("02", "Panel verdict", currentY);
@@ -822,6 +869,63 @@ function Step3Report({ report, showBackButton = true }) {
                 </p>
               </div>
             </motion.div>
+
+            {companyVerdict && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.02 }}
+                className={`${CARD} p-6 sm:p-8`}
+              >
+                <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C] mb-2">
+                  COMPANY LOOP · {(company || "").toUpperCase()}
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <h3 className="font-serif-display text-2xl text-[#1C1F24] dark:text-[#EDEEF0] tracking-tight">
+                    {company} Report Card
+                  </h3>
+                  <span
+                    className="font-mono-studio text-xs tracking-[0.18em] px-4 py-2 rounded-md border-2 w-fit"
+                    style={{
+                      color: VERDICT_STYLES[companyVerdict.signal]?.text,
+                      borderColor: VERDICT_STYLES[companyVerdict.signal]?.border,
+                      backgroundColor: VERDICT_STYLES[companyVerdict.signal]?.bg,
+                    }}
+                  >
+                    {companyVerdict.signal}
+                  </span>
+                </div>
+                <div className="divide-y divide-[#EAE9E5] dark:divide-[#1E2229] border-y border-[#EAE9E5] dark:border-[#1E2229] mb-6">
+                  {(companyVerdict.roundSignals || []).map((r, i) => (
+                    <div key={r.roundId || i} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="font-mono-studio text-[10px] text-[#9AA1AC] dark:text-[#565D68] w-6 shrink-0">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className="text-sm text-[#1C1F24] dark:text-[#EDEEF0] truncate">{r.label}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-mono-studio text-xs text-[#8B92A0]">{round1(r.avgScore)}/10</span>
+                        <span
+                          className="font-mono-studio text-[10px] tracking-[0.12em] px-2 py-1 rounded"
+                          style={{
+                            color: VERDICT_STYLES[r.signal]?.text,
+                            backgroundColor: VERDICT_STYLES[r.signal]?.bg,
+                          }}
+                        >
+                          {r.signal}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {companyVerdict.summary && (
+                  <p className="font-serif-display italic text-[#1C1F24] dark:text-[#EDEEF0] text-base leading-relaxed">
+                    “{companyVerdict.summary}”
+                  </p>
+                )}
+              </motion.div>
+            )}
 
             {isPanel && (
               <motion.div
@@ -1214,6 +1318,16 @@ function Step3Report({ report, showBackButton = true }) {
                                 <BsCode size={9} /> CODING
                               </span>
                             )}
+                            {q.type === "sql" && (
+                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide bg-[#A78BFA]/10 text-[#6D4FC2] dark:text-[#A78BFA]">
+                                <BsTable size={9} /> SQL
+                              </span>
+                            )}
+                            {q.roundLabel && (
+                              <span className="font-mono-studio inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] tracking-wide bg-[#E8A94C]/10 text-[#B27E2E] dark:text-[#E8A94C]">
+                                {q.roundLabel.toUpperCase()}
+                              </span>
+                            )}
                           </div>
                           <p className="font-serif-display text-[#1C1F24] dark:text-[#EDEEF0] text-base sm:text-lg leading-relaxed mt-0.5 wrap-break-word">
                             {q.question || "Question not available"}
@@ -1232,6 +1346,17 @@ function Step3Report({ report, showBackButton = true }) {
                           </div>
                         )}
                       </div>
+
+                      {q.type === "sql" && q.answer && (
+                        <div className="mb-4">
+                          <p className="font-mono-studio text-[11px] tracking-widest text-[#9AA1AC] mb-1.5 flex items-center gap-1.5">
+                            <BsTable size={11} /> SUBMITTED QUERY
+                          </p>
+                          <pre className="font-mono-studio bg-[#0C0E11] text-[#D8DCE3] text-xs sm:text-sm p-4 rounded-xl overflow-x-auto whitespace-pre-wrap border border-[#1E2229]">
+                            <code>{q.answer}</code>
+                          </pre>
+                        </div>
+                      )}
 
                       {q.type === "coding" && q.answer && (
                         <div className="mb-4">

@@ -69,7 +69,7 @@ export const buildConfidenceMetrics = (raw) => {
 };
 
 export const summarizeInterviewConfidence = (questions) => {
-  const verbal = (questions || []).filter((q) => !q.skipped && q.type !== "coding");
+  const verbal = (questions || []).filter((q) => !q.skipped && q.type !== "coding" && q.type !== "sql");
   let eyeTotal = 0, eyeN = 0, scoreTotal = 0, scoreN = 0, fillerTotal = 0;
   for (const q of verbal) {
     const cm = q.confidenceMetrics;
