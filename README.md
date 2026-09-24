@@ -267,7 +267,7 @@ Pull requests are welcome! Fork the repo, create a feature branch, and open a PR
 
 ## 📄 License
 
-MIT License — Copyright (c) 2026 Ujjwal Maurya. See [LICENSE](LICENSE) for details.
+MIT License — Copyright (c) 2026 Vikash Kumar Singh. See [LICENSE](LICENSE) for details.
 
 ---
 
