@@ -6,6 +6,7 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { setUserData } from "./redux/userSlice";
 import InterviewPage from "./Pages/InterviewPage";
+import AptitudePage from "./Pages/AptitudePage";
 import InterviewHistory from "./Pages/InterviewHistory";
 import Pricing from "./Pages/Pricing";
 import InterviewReport from "./Pages/InterviewReport";
@@ -44,6 +45,14 @@ const App = () => {
         element={
           <ProtectedRoute>
             <InterviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/aptitude"
+        element={
+          <ProtectedRoute>
+            <AptitudePage />
           </ProtectedRoute>
         }
       />

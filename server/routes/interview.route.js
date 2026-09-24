@@ -19,6 +19,7 @@ import {
 
 } from '../controllers/interview.controller.js';
 import { clearCoachChat } from '../controllers/coachChat.controller.js';
+import { generateAptitudeSolution } from '../controllers/aptitude.controller.js';
 import { getTtsConfig, synthesizeSpeech } from '../controllers/tts.controller.js';
 // voice-to-voice answer transcription (Deepgram Nova) — the recorded answer
 // is transcribed server-side, then fed into the normal submit pipeline
@@ -51,6 +52,7 @@ interviewRouter.get("/get-interviews", isAuth, getMyInterviews)
 interviewRouter.get("/report/:id", isAuth, getInterviewReport)
 // AI coaching for one question of a finished interview (cached after first use)
 interviewRouter.post("/coaching/:questionId", isAuth, getQuestionCoaching)
+interviewRouter.post("/aptitude-solution", isAuth, generateAptitudeSolution)
 // full conversation with the AI coach about this finished interview
 interviewRouter.get("/coach/:id", isAuth, getCoachChat)
 interviewRouter.post("/coach/:id", isAuth, sendCoachMessage)

@@ -24,6 +24,7 @@ const popoverMotion = {
 
 const NAV_LINKS = [
   { label: "Practice", path: "/practice" },
+  { label: "Aptitude", path: "/aptitude" },
   { label: "Progress", path: "/progress" },
   { label: "History", path: "/history" },
   { label: "Pricing", path: "/pricing" },
