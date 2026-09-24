@@ -321,6 +321,11 @@ function Step2Interview({
     },
     onCommand: cmd => {
       handleVoiceCommandRef.current(cmd);
+    },
+    onSpeechActivity: () => {
+      if (!inactivityWarningRef.current && !isSubmittingRef.current && !terminatedRef.current) {
+        armInactivityTimer();
+      }
     }
   });
   const [subtitle, setSubtitle] = useState("");
@@ -457,7 +462,7 @@ function Step2Interview({
     if (isAIPlayingRef.current || isSubmittingRef.current || isCodingQuestionRef.current || showAnswerBoxRef.current || terminatedRef.current) {
       return;
     }
-    safeStopRecognition();
+    if (answerModeRef.current === "voice") voiceAnswer.stop(); else safeStopRecognition();
     await speakTextRef.current(STILL_THERE_SPEECH);
     if (terminatedRef.current) return;
     setInactivityWarning(true);
@@ -492,7 +497,7 @@ function Step2Interview({
     safeStopRecognition();
     await speakTextRef.current(TAKE_YOUR_TIME_OK);
     if (terminatedRef.current) return;
-    safeStartRecognition();
+    if (answerModeRef.current === "voice") voiceAnswer.start(); else safeStartRecognition();
     armInactivityTimer(WAIT_EXTENSION_MS);
   };
   const handleSkipCommand = () => {
@@ -523,6 +528,7 @@ function Step2Interview({
       }
     } else {
       voiceAnswer.start();
+      armInactivityTimer();
     }
   };
   const handleRepeatQuestion = async () => {
@@ -536,6 +542,7 @@ function Step2Interview({
     if (isCodingQuestionRef.current) return;
     if (answerModeRef.current === "voice") {
       voiceAnswer.start();
+      armInactivityTimer();
     } else if (isMicOnRef.current) {
       startMic();
       armInactivityTimer();
@@ -548,6 +555,7 @@ function Step2Interview({
     if (terminatedRef.current) return;
     if (answerModeRef.current === "voice" && !isSubmittingRef.current && !isCodingQuestionRef.current) {
       voiceAnswer.start();
+      armInactivityTimer();
     }
   };
   const handleVoiceWait = async () => {
@@ -559,6 +567,7 @@ function Step2Interview({
     if (terminatedRef.current) return;
     if (answerModeRef.current === "voice" && !isSubmittingRef.current && !isCodingQuestionRef.current) {
       voiceAnswer.start();
+      armInactivityTimer(WAIT_EXTENSION_MS);
     }
   };
   const handleVoiceCommand = cmd => {
@@ -825,6 +834,7 @@ function Step2Interview({
         if (currentQuestion.type !== "coding") {
           if (answerModeRef.current === "voice") {
             voiceAnswer.start();
+            armInactivityTimer();
           } else if (isMicOn) {
             hasSpokenRef.current = false;
             startMic();
@@ -1495,7 +1505,7 @@ function Step2Interview({
           type: "spring",
           stiffness: 260,
           damping: 20
-        }} className="font-serif-display text-[9rem] sm:text-[11rem] leading-none tabular-nums bg-linear-to-b from-[#F6D68A] via-[#E8A94C] to-[#B27E2E] bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(232,169,76,0.45)]">
+        }} className="font-serif-display text-[9rem] sm:text-[11rem] leading-none tabular-nums bg-linear-to-b from-[#F6D68A] via-[#E8A94C] to-[#B27E2E] bg-clip-text text-transparent drop-shadow-[0_4px_18px_rgba(0,0,0,0.45)]">
               {voiceAnswer.countdown}
             </motion.div>
             {}
@@ -1949,17 +1959,25 @@ function Step2Interview({
           }} exit={{
             opacity: 0,
             y: -8
-          }} className="mt-4 bg-white dark:bg-[#131519] border border-[#E8A94C]/35 rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-[0_10px_30px_-14px_rgba(232,169,76,0.45)]">
-                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C] shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-mono-studio text-[9px] tracking-[0.22em] text-[#B27E2E] dark:text-[#E8A94C] mb-0.5">STILL THERE?</p>
-                  <p className="text-[#5C6472] dark:text-[#9AA1AC] text-sm leading-snug">
-                    {STILL_THERE_BANNER}
-                  </p>
+          }} className="mt-4 relative overflow-hidden bg-white dark:bg-[#131519] border-2 border-[#E8A94C]/45 rounded-2xl px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rotate-45 bg-[#E8A94C] shrink-0 animate-pulse" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono-studio text-[9px] font-bold tracking-[0.24em] text-[#B27E2E] dark:text-[#E8A94C] mb-0.5">STILL THERE?</p>
+                    <p className="text-[#5C6472] dark:text-[#9AA1AC] text-sm leading-snug">
+                      {STILL_THERE_BANNER}
+                    </p>
+                  </div>
+                  <span className="font-mono-studio text-base font-bold tabular-nums text-[#B27E2E] dark:text-[#E8A94C] shrink-0">
+                    {warningSecondsLeft}s
+                  </span>
                 </div>
-                <span className="font-mono-studio text-sm tabular-nums text-[#B27E2E] dark:text-[#E8A94C] shrink-0">
-                  {warningSecondsLeft}s
-                </span>
+                <motion.div
+                  className="absolute bottom-0 left-0 h-0.5 bg-[#E8A94C]"
+                  initial={false}
+                  animate={{ width: `${(warningSecondsLeft / (INACTIVITY_GRACE_MS / 1000)) * 100}%` }}
+                  transition={{ duration: 0.9, ease: "linear" }}
+                />
               </motion.div>}
           </AnimatePresence>
 

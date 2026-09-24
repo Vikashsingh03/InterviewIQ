@@ -19,7 +19,7 @@ import {
 } from "recharts";
 import { FaArrowLeft } from "react-icons/fa";
 import { BsArrowUpRight, BsClockHistory } from "react-icons/bs";
-import { IoSparklesSharp, IoWarningOutline } from "react-icons/io5";
+import { IoWarningOutline } from "react-icons/io5";
 
 function TrendTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
@@ -237,8 +237,7 @@ function Analytics() {
               animate={{ opacity: 1, y: 0 }}
               className="rounded-3xl bg-[#14161A] text-[#EDEEF0] p-8 sm:p-10 relative overflow-hidden mb-6"
             >
-              <div className="absolute -top-28 -right-28 w-md h-112 rounded-full bg-[#E8A94C]/10 blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full bg-[#E8A94C]/5 blur-3xl pointer-events-none" />
+              <div className="absolute top-0 left-8 right-8 h-px bg-[#E8A94C]/50 pointer-events-none" />
               <div className="relative flex flex-col lg:flex-row lg:items-end gap-8">
                 <div>
                   <p className="font-mono-studio text-[10px] uppercase tracking-[0.25em] text-[#E8A94C] mb-4">
