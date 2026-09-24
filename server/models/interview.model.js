@@ -21,6 +21,21 @@ const coachingSchema = new mongoose.Schema({
 }, {
   _id: false
 });
+const confidenceMetricsSchema = new mongoose.Schema(
+  {
+    eyeContactPct: { type: Number, default: null },
+    framesSampled: { type: Number, default: 0 },
+    fillerWords: { type: Number, default: 0 },
+    fillerRatio: { type: Number, default: 0 },
+    wordCount: { type: Number, default: 0 },
+    wordsPerMinute: { type: Number, default: null },
+    speakingSeconds: { type: Number, default: 0 },
+    cameraUsed: { type: Boolean, default: false },
+    confidenceScore: { type: Number, default: null },
+    notes: { type: [String], default: [] }
+  },
+  { _id: false }
+);
 const questionSchema = new mongoose.Schema({
   question: String,
   difficulty: String,
@@ -59,6 +74,7 @@ const questionSchema = new mongoose.Schema({
     type: coachingSchema,
     default: undefined
   },
+  confidenceMetrics: { type: confidenceMetricsSchema, default: undefined },
   type: {
     type: String,
     enum: ["verbal", "coding"],

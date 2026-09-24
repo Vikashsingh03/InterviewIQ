@@ -9,6 +9,8 @@ import { ServerUrl } from "../App";
 import { createRecognition } from "../utils/speechRecognition";
 import { createTts } from "../utils/neuralTts";
 import { useVoiceAnswer } from "../hooks/useVoiceAnswer";
+import { useConfidenceAnalyzer } from "../hooks/useConfidenceAnalyzer";
+import ConfidenceLivePill from "./ConfidenceLivePill";
 import { getVoiceCommand } from "../utils/voiceCommands";
 import { BsSpeedometer2, BsSkipForward, BsCode, BsPlayFill, BsCheckCircleFill, BsXCircleFill, BsChevronDown, BsFullscreen, BsLightningCharge, BsArrowRight } from "react-icons/bs";
 import { IoWarningOutline } from "react-icons/io5";
@@ -337,6 +339,8 @@ function Step2Interview({
   const [errorMessage, setErrorMessage] = useState("");
   const [proctoringReady, setProctoringReady] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  const pipVideoRef = useRef(null);
+  const confidence = useConfidenceAnalyzer({ stream: cameraStream, videoRef: pipVideoRef });
   const [cameraError, setCameraError] = useState("");
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
@@ -348,7 +352,6 @@ function Step2Interview({
   const [fullscreenWarning, setFullscreenWarning] = useState(null);
   const [isTerminated, setIsTerminated] = useState(false);
   const selfVideoRef = useRef(null);
-  const pipVideoRef = useRef(null);
   const eyeContactTracking = useEyeContactTracking(pipVideoRef, {
     active: proctoringReady && !!cameraStream
   });
@@ -682,6 +685,7 @@ function Step2Interview({
     return () => {
       cameraStream?.getTracks().forEach(t => t.stop());
       screenStreamRef.current?.getTracks().forEach(t => t.stop());
+      confidence.release();
     };
   }, []);
   const startInterviewFromGate = () => {
@@ -831,6 +835,7 @@ function Step2Interview({
         }
         await speakText(currentQuestion.question);
         answerWindowStartRef.current = Date.now();
+        confidence.beginAnswer();
         if (currentQuestion.type !== "coding") {
           if (answerModeRef.current === "voice") {
             voiceAnswer.start();
@@ -1137,6 +1142,7 @@ function Step2Interview({
     setErrorMessage("");
     setFeedback("");
     const durationSeconds = answerWindowStartRef.current ? Math.max(1, Math.round((Date.now() - answerWindowStartRef.current) / 1000)) : currentQuestion.timeLimit - timeLeft;
+    const confidenceMetrics = confidence.endAnswer({ transcript: finalAnswer, durationSec: durationSeconds });
     const beatPromise = useBeat ? runAnalysisBeat() : Promise.resolve();
     let data = null;
     try {
@@ -1146,6 +1152,7 @@ function Step2Interview({
         answer: finalAnswer,
         timeTaken: currentQuestion.timeLimit - timeLeft,
         durationSeconds,
+        confidenceMetrics,
         ...(isCodingQuestion ? {
           language: codeLanguage
         } : {})
@@ -1224,6 +1231,7 @@ function Step2Interview({
     clearAllVoiceTimers();
     stopMic();
     voiceAnswer.stop();
+    confidence.cancelAnswer();
     setIsSubmitting(true);
     setErrorMessage("");
     setFeedback("");
@@ -1465,7 +1473,6 @@ function Step2Interview({
         @keyframes livePulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(232,169,76,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(232,169,76,0); } }
         .live-dot { animation: livePulse 1.8s ease-in-out infinite; }
 
-        /* ---- voice-to-voice mode ---- */
         @keyframes voiceRing { 0% { transform: scale(0.85); opacity: 0.65; } 100% { transform: scale(1.65); opacity: 0; } }
         .voice-ring { animation: voiceRing 1.9s ease-out infinite; }
         .voice-ring-2 { animation: voiceRing 1.9s ease-out 0.6s infinite; }
@@ -1659,6 +1666,7 @@ function Step2Interview({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <ConfidenceLivePill analyzer={confidence} />
             {cameraStream && <span className="font-mono-studio text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 CAM ●
               </span>}

@@ -7,6 +7,7 @@ import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
 import { runTestCases } from "../services/codeExecution.service.js";
 import { getCompanyStyleGuidance } from "../data/companyStyles.js";
 import { handleCodingCoaching } from "../services/codingCoaching.service.js";
+import { buildConfidenceMetrics, summarizeInterviewConfidence } from "./confidence.controller.js";
 import { sanitizeInterviewLanguage, buildLanguageInstruction, spokenStyleFor, firstQuestionFor, neutralAckFor, isJudgementalAck, fixedLineFor } from "../utils/language.js";
 const INTERVIEWER_PERSONAS = {
   interviewerA: {
@@ -726,7 +727,8 @@ export const submitAnswer = async (req, res) => {
       timeTaken,
       durationSeconds,
       skipped,
-      language
+      language,
+      confidenceMetrics
     } = req.body;
     if (!interviewId || questionIndex === undefined || questionIndex === null) {
       return res.status(400).json({
@@ -1077,6 +1079,7 @@ export const submitAnswer = async (req, res) => {
       question.score = 0;
       question.feedback = fixedLineFor("evalUnavailable", interviewLanguage);
       question.speakingMetrics = computeSpeakingMetrics(answer, durationSeconds);
+      question.confidenceMetrics = buildConfidenceMetrics(confidenceMetrics);
       await interview.save();
       const {
         continueInterview,
@@ -1101,6 +1104,7 @@ export const submitAnswer = async (req, res) => {
     question.score = parsed.finalScore;
     question.feedback = parsed.feedback;
     question.speakingMetrics = computeSpeakingMetrics(answer, durationSeconds);
+    question.confidenceMetrics = buildConfidenceMetrics(confidenceMetrics);
     await interview.save();
     const {
       continueInterview,
@@ -1206,6 +1210,7 @@ export const finishInterview = async (req, res) => {
     const avgDeliveryScore = totalVerbalQuestions ? totalDeliveryScore / totalVerbalQuestions : 0;
     const avgWpm = totalVerbalQuestions ? totalWpm / totalVerbalQuestions : 0;
     const perInterviewerScores = computePerInterviewerScores(interview, scorableQuestions);
+    const confidenceSummary = summarizeInterviewConfidence(interview.questions);
     interview.finalScore = finalScore;
     interview.status = "Completed";
     await interview.save();
@@ -1223,6 +1228,9 @@ export const finishInterview = async (req, res) => {
       avgDeliveryScore: Number(avgDeliveryScore.toFixed(1)),
       avgWordsPerMinute: Math.round(avgWpm),
       totalFillerWords,
+      avgEyeContactPct: confidenceSummary.avgEyeContactPct,
+      avgConfidenceScore: confidenceSummary.avgConfidenceScore,
+      confidenceSummaryLines: confidenceSummary.lines,
       questionWiseScore: interview.questions.map(q => ({
         _id: q._id,
         coaching: q.coaching || null,
@@ -1240,7 +1248,8 @@ export const finishInterview = async (req, res) => {
         testsPassedCount: q.testsPassedCount || 0,
         testsTotalCount: q.testsTotalCount || 0,
         testResults: q.testResults || null,
-        speakingMetrics: q.type === "coding" ? null : q.speakingMetrics || null
+        speakingMetrics: q.type === "coding" ? null : q.speakingMetrics || null,
+        confidenceMetrics: q.type === "coding" ? null : q.confidenceMetrics || null
       }))
     });
   } catch (error) {
@@ -1297,6 +1306,7 @@ export const getInterviewReport = async (req, res) => {
     const avgDeliveryScore = totalVerbalQuestions ? totalDeliveryScore / totalVerbalQuestions : 0;
     const avgWpm = totalVerbalQuestions ? totalWpm / totalVerbalQuestions : 0;
     const perInterviewerScores = computePerInterviewerScores(interview, scorableQuestions);
+    const confidenceSummary = summarizeInterviewConfidence(interview.questions);
     interview.status = "Completed";
     return res.status(200).json({
       interviewId: interview._id,
@@ -1313,6 +1323,9 @@ export const getInterviewReport = async (req, res) => {
       avgDeliveryScore: Number(avgDeliveryScore.toFixed(1)),
       avgWordsPerMinute: Math.round(avgWpm),
       totalFillerWords,
+      avgEyeContactPct: confidenceSummary.avgEyeContactPct,
+      avgConfidenceScore: confidenceSummary.avgConfidenceScore,
+      confidenceSummaryLines: confidenceSummary.lines,
       questionWiseScore: interview.questions
     });
   } catch (error) {

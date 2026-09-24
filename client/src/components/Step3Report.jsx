@@ -254,6 +254,9 @@ function Step3Report({ report, showBackButton = true }) {
     avgDeliveryScore = 0,
     avgWordsPerMinute = 0,
     totalFillerWords = 0,
+    avgEyeContactPct = null,
+    avgConfidenceScore = null,
+    confidenceSummaryLines = [],
   } = report;
 
   const isPanel = interviewType === "panel" && perInterviewerScores;
@@ -305,6 +308,8 @@ function Step3Report({ report, showBackButton = true }) {
   const wpm = Math.round(Number(avgWordsPerMinute) || 0);
   const hasDelivery = wpm > 0;
   const paceLabel = wpm < 90 ? "A little slow" : wpm > 190 ? "A little fast" : "Steady pace";
+  const hasConfidence = avgEyeContactPct != null || avgConfidenceScore != null;
+  const confTier = TIERS[tierFor(avgConfidenceScore ?? 0)];
 
   const jumpToQuestion = (index) => {
     setFilter("all");
@@ -518,6 +523,33 @@ function Step3Report({ report, showBackButton = true }) {
     });
     currentY += skillsH + 10;
 
+    if (hasConfidence) {
+      currentY = sectionHead(isPanel ? "04" : "03", "Body language & confidence", currentY);
+      if (avgConfidenceScore != null) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...INK);
+        doc.text(`Confidence score: ${formatScore(avgConfidenceScore)}/10`, margin, currentY);
+        currentY += 7;
+      }
+      if (avgEyeContactPct != null) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(80, 85, 92);
+        doc.text(`Eye contact held ${avgEyeContactPct}% of the time.`, margin, currentY);
+        currentY += 7;
+      }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(80, 85, 92);
+      (confidenceSummaryLines || []).forEach((line) => {
+        const split = doc.splitTextToSize(`\u2022 ${line}`, contentWidth - 8);
+        doc.text(split, margin, currentY);
+        currentY += split.length * 5.5;
+      });
+      currentY += 6;
+    }
+
     let advice = "";
     if (tierKey === "high") {
       advice =
@@ -529,7 +561,7 @@ function Step3Report({ report, showBackButton = true }) {
       advice =
         "Significant improvement required. Focus on structured thinking, clarity, and confident delivery. Practice answering aloud regularly.";
     }
-    currentY = sectionHead(isPanel ? "04" : "03", "Professional advice", currentY);
+    currentY = sectionHead(isPanel ? (hasConfidence ? "05" : "04") : (hasConfidence ? "04" : "03"), "Professional advice", currentY);
     doc.setFont("times", "bold");
     doc.setFontSize(26);
     doc.setTextColor(...AMBER);
@@ -545,7 +577,7 @@ function Step3Report({ report, showBackButton = true }) {
     doc.line(margin, currentY, pageWidth - margin, currentY);
     currentY += 10;
 
-    currentY = sectionHead(isPanel ? "05" : "04", "Question analysis", currentY);
+    currentY = sectionHead(isPanel ? (hasConfidence ? "06" : "05") : (hasConfidence ? "05" : "04"), "Question analysis", currentY);
 
     const tableHead = isPanel
       ? [["#", "Interviewer", "Question", "Score", "Feedback"]]
@@ -895,6 +927,54 @@ function Step3Report({ report, showBackButton = true }) {
               </motion.div>
             )}
 
+            {hasConfidence && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.11 }}
+                className={`${CARD} p-6 sm:p-8`}
+              >
+                <SectionHead num={isPanel ? (hasDelivery ? "05" : "04") : (hasDelivery ? "04" : "03")} label="Body Language & Confidence" />
+                {avgConfidenceScore != null && (
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-16 h-16 shrink-0 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${confTier.color}1A` }}>
+                      <span className="font-serif-display text-3xl" style={{ color: confTier.color }}>
+                        {formatScore(avgConfidenceScore)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">Confidence score</p>
+                      <p className="text-xs text-[#8B92A0] mt-0.5 leading-relaxed">Blends eye contact, filler words and speaking pace.</p>
+                    </div>
+                  </div>
+                )}
+                {avgEyeContactPct != null && (
+                  <div className="mb-5">
+                    <div className="flex justify-between items-baseline mb-2 text-sm">
+                      <span className="text-[#3D4148] dark:text-[#C7CBD1]">Eye contact</span>
+                      <span className="font-mono-studio font-semibold text-[#1C1F24] dark:text-[#EDEEF0]">
+                        {avgEyeContactPct}
+                        <span className="text-[10px] text-[#8B92A0] font-normal">% of the time</span>
+                      </span>
+                    </div>
+                    <div className="bg-[#EFEEEA] dark:bg-[#1B1E24] h-2 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${avgEyeContactPct}%` }} transition={{ duration: 0.9, ease: "easeOut" }} className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${confTier.color}99, ${confTier.color})` }} />
+                    </div>
+                  </div>
+                )}
+                {confidenceSummaryLines.length > 0 && (
+                  <ul className="space-y-2">
+                    {confidenceSummaryLines.map((line, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[13px] text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: confTier.color }} />
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </motion.div>
+            )}
+
             {proctoring && (
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
@@ -902,7 +982,7 @@ function Step3Report({ report, showBackButton = true }) {
                 transition={{ duration: 0.5, delay: 0.12 }}
                 className={`${CARD} p-6 sm:p-8`}
               >
-                <SectionHead num={isPanel ? (hasDelivery ? "05" : "04") : (hasDelivery ? "04" : "03")} label="Proctoring Summary" />
+                <SectionHead num={isPanel ? (hasDelivery ? (hasConfidence ? "06" : "05") : (hasConfidence ? "05" : "04")) : (hasDelivery ? (hasConfidence ? "05" : "04") : (hasConfidence ? "04" : "03"))} label="Proctoring Summary" />
                 <div className="space-y-3.5 text-sm">
                   {[
                     {
@@ -1007,7 +1087,7 @@ function Step3Report({ report, showBackButton = true }) {
               transition={{ duration: 0.5, delay: 0.1 }}
               className={`${CARD} p-6 sm:p-8`}
             >
-              <SectionHead num={isPanel ? (hasDelivery ? "06" : "05") : (hasDelivery ? "05" : "04")} label="Performance Trend" />
+              <SectionHead num={isPanel ? (hasDelivery ? (hasConfidence ? "07" : "06") : (hasConfidence ? "06" : "05")) : (hasDelivery ? (hasConfidence ? "06" : "05") : (hasConfidence ? "05" : "04"))} label="Performance Trend" />
 
               <div className="h-64 sm:h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1064,7 +1144,7 @@ function Step3Report({ report, showBackButton = true }) {
               className={`${CARD} p-6 sm:p-8`}
             >
               <div className="mb-6">
-                <SectionHead num={isPanel ? (hasDelivery ? "07" : "06") : (hasDelivery ? "06" : "05")} label="Questions Breakdown" />
+                <SectionHead num={isPanel ? (hasDelivery ? (hasConfidence ? "08" : "07") : (hasConfidence ? "07" : "06")) : (hasDelivery ? (hasConfidence ? "07" : "06") : (hasConfidence ? "06" : "05"))} label="Questions Breakdown" />
                 <div className="flex flex-wrap gap-2 -mt-2">
                   {FILTERS.map((f) => {
                     const count = filterCount(f.id);
@@ -1176,6 +1256,21 @@ function Step3Report({ report, showBackButton = true }) {
                         </p>
                       </div>
 
+                      {q.confidenceMetrics && (
+                        <div className="mt-3 rounded-xl border border-[#5EC8D8]/25 bg-[#5EC8D8]/5 px-3.5 py-2.5">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="font-mono-studio text-[10px] text-[#2E8494] dark:text-[#5EC8D8] tracking-wide uppercase">Body language</p>
+                            {q.confidenceMetrics.confidenceScore != null && (
+                              <span className="font-mono-studio text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${TIERS[tierFor(q.confidenceMetrics.confidenceScore)].color}1A`, color: TIERS[tierFor(q.confidenceMetrics.confidenceScore)].color }}>
+                                {formatScore(q.confidenceMetrics.confidenceScore)}/10
+                              </span>
+                            )}
+                          </div>
+                          {(q.confidenceMetrics.notes || []).map((note, ni) => (
+                            <p key={ni} className="text-[13px] text-[#3D4148] dark:text-[#C7CBD1] leading-relaxed">{note}</p>
+                          ))}
+                        </div>
+                      )}
                       <QuestionCoaching question={q} />
                     </div>
                   );
