@@ -20,6 +20,8 @@ import SqlWorkbench from "./SqlWorkbench";
 import { runSqlQuery } from "../utils/sqlRunner";
 import { useEyeContactTracking, EYE_CONTACT_WARNING_MS } from "../hooks/useEyeContactTracking";
 import { useTheme } from "../context/ThemeContext";
+import VideoCallStage from "./VideoCallStage";
+import { useTtsAudioLevel } from "../hooks/useTtsAudioLevel";
 const CODE_LANGUAGES = [{
   value: "javascript",
   label: "JavaScript"
@@ -256,7 +258,9 @@ function VoiceAnswerPanel({
 }
 function Step2Interview({
   interviewData,
-  onFinish
+  onFinish,
+  onLiveChange,
+  onCancel
 }) {
   const { theme } = useTheme();
   const {
@@ -299,6 +303,9 @@ function Step2Interview({
   const skipQuestionRef = useRef(() => {});
   const speakTextRef = useRef(() => Promise.resolve());
   const isAIPlayingRef = useRef(false);
+  const pausedRef = useRef(false);
+  const lastSpeechRef = useRef(null);
+  const wasSpeakingWhenPausedRef = useRef(false);
   const isSubmittingRef = useRef(false);
   const isIntroPhaseRef = useRef(true);
   const isCodingQuestionRef = useRef(false);
@@ -387,8 +394,13 @@ function Step2Interview({
   const fullscreenExitCountRef = useRef(0);
   const proctoringReadyRef = useRef(false);
   const terminatedRef = useRef(false);
+  useEffect(() => {
+    if (onLiveChange) onLiveChange(proctoringReady && !isTerminated);
+  }, [proctoringReady, isTerminated]);
   const isFinishingRef = useRef(false);
   const videoRef = useRef(null);
+  const ttsAudioLevel = useTtsAudioLevel(() => ttsRef.current && ttsRef.current.getCurrentAudio ? ttsRef.current.getCurrentAudio() : null);
+  const [isCameraOn, setIsCameraOn] = useState(true);
   const answerWindowStartRef = useRef(null);
   const currentQuestion = questions[currentIndex];
   const isCodingQuestion = currentQuestion?.type === "coding";
@@ -622,7 +634,7 @@ function Step2Interview({
     if (pipVideoRef.current && cameraStream) {
       pipVideoRef.current.srcObject = cameraStream;
     }
-  }, [cameraStream, proctoringReady]);
+  }, [cameraStream, proctoringReady, isCameraOn]);
   const requestLocation = () => {
     setLocationError("");
     if (!navigator.geolocation) {
@@ -659,6 +671,23 @@ function Step2Interview({
       el.requestFullscreen().catch(() => {});
     }
   };
+  const pauseInterview = () => {
+    if (terminatedRef.current || isFinishingRef.current) return;
+    if (pausedRef.current) return;
+    if (!proctoringReadyRef.current) return;
+    pausedRef.current = true;
+    wasSpeakingWhenPausedRef.current = isAIPlayingRef.current;
+    try {
+      ttsRef.current.cancel();
+    } catch {}
+    clearAllVoiceTimers();
+    try {
+      stopMic();
+    } catch {}
+    try {
+      voiceAnswer.stop();
+    } catch {}
+  };
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (document.fullscreenElement) {
@@ -669,6 +698,7 @@ function Step2Interview({
       if (isFinishingRef.current) return;
       if (!proctoringReadyRef.current) return;
       if (terminatedRef.current) return;
+      if (document.hidden) return;
       const nextCount = fullscreenExitCountRef.current + 1;
       fullscreenExitCountRef.current = nextCount;
       setFullscreenExitCount(nextCount);
@@ -680,6 +710,7 @@ function Step2Interview({
           isFinal: true
         });
       } else {
+        pauseInterview();
         setFullscreenWarning({
           count: nextCount,
           isFinal: false
@@ -693,6 +724,12 @@ function Step2Interview({
     const handleVisibility = () => {
       if (document.hidden) {
         setTabSwitchCount(c => c + 1);
+        if (proctoringReadyRef.current && !terminatedRef.current && !isFinishingRef.current && !pausedRef.current) {
+          pauseInterview();
+          setFullscreenWarning({
+            isTab: true
+          });
+        }
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -814,25 +851,39 @@ function Step2Interview({
       cancelled = true;
     };
   }, []);
-  const speakText = text => {
+  const waitWhilePaused = () => {
+    return new Promise(res => {
+      if (!pausedRef.current) return res();
+      const iv = setInterval(() => {
+        if (!pausedRef.current) {
+          clearInterval(iv);
+          res();
+        }
+      }, 150);
+    });
+  };
+  const speakNow = text => {
     return new Promise(async resolve => {
       ttsRef.current.cancel();
       setSubtitle(text);
       setIsAIPlaying(true);
       stopMic();
       voiceAnswer.stop();
-      videoRef.current?.play();
       try {
         await Promise.race([ttsRef.current.speak(text, voiceGender), new Promise(res => setTimeout(() => res("tts-timeout"), 25000))]);
       } catch {}
-      videoRef.current?.pause();
-      if (videoRef.current) videoRef.current.currentTime = 0;
       setIsAIPlaying(false);
       setTimeout(() => {
         setSubtitle("");
         resolve();
       }, 300);
     });
+  };
+  const speakText = async text => {
+    lastSpeechRef.current = { text, askedBy: null };
+    await waitWhilePaused();
+    await speakNow(text);
+    await waitWhilePaused();
   };
   useEffect(() => {
     if (!selectedVoice || !proctoringReady) {
@@ -1039,6 +1090,29 @@ function Step2Interview({
     }
     setIsMicOn(!isMicOn);
   };
+  const toggleCamera = () => {
+    if (!cameraStream) {
+      requestCamera();
+      return;
+    }
+    const next = !isCameraOn;
+    try {
+      cameraStream.getTracks().forEach(t => {
+        t.enabled = next;
+      });
+    } catch {}
+    setIsCameraOn(next);
+  };
+  const cancelInterview = () => {
+    terminatedRef.current = true;
+    try { ttsRef.current.cancel(); } catch (e) {}
+    try { stopMic(); } catch (e) {}
+    try { cameraStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    try { screenStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+    if (onLiveChange) onLiveChange(false);
+    if (onCancel) onCancel();
+  };
   const finishInterview = async ({
     terminatedForMisbehavior = false
   } = {}) => {
@@ -1080,15 +1154,17 @@ function Step2Interview({
       clearAllVoiceTimers();
       stopMic();
       voiceAnswer.stop();
-      ttsRef.current.cancel();
       if (fullscreenWarning.isFinal) {
+        try {
+          ttsRef.current.cancel();
+        } catch {}
         await speakText(`${userName}, you have left fullscreen mode ${MAX_FULLSCREEN_EXITS} times. I have to end this interview here.`);
         if (cancelled) return;
         await finishInterview({
           terminatedForMisbehavior: true
         });
-      } else {
-        await speakText(`Please stay in fullscreen mode. This is warning ${fullscreenWarning.count} of ${MAX_FULLSCREEN_EXITS}. If you leave fullscreen again, the interview will be ended.`);
+      } else if (!fullscreenWarning.isTab) {
+        await speakNow(`Please stay in fullscreen mode. This is warning ${fullscreenWarning.count} of ${MAX_FULLSCREEN_EXITS}. If you leave fullscreen again, the interview will be ended.`);
       }
     };
     handle();
@@ -1096,10 +1172,24 @@ function Step2Interview({
       cancelled = true;
     };
   }, [fullscreenWarning]);
-  const dismissWarningAndResume = () => {
+  const dismissWarningAndResume = async () => {
     enterFullscreen();
+    try {
+      ttsRef.current.cancel();
+    } catch {}
+    const wasSpeaking = wasSpeakingWhenPausedRef.current;
+    const lastSpeech = lastSpeechRef.current;
+    wasSpeakingWhenPausedRef.current = false;
+    if (wasSpeaking && lastSpeech) {
+      await speakNow(lastSpeech.text);
+      pausedRef.current = false;
+      setFullscreenWarning(null);
+      return;
+    }
+    pausedRef.current = false;
     setFullscreenWarning(null);
     if (isHandsOnQuestion) return;
+    if (isAIPlayingRef.current) return;
     if (answerModeRef.current === "voice") {
       setTimeout(() => voiceAnswer.start(), 400);
     } else if (isMicOn) {
@@ -1589,12 +1679,12 @@ function Step2Interview({
                     <IoWarningOutline size={20} />
                   </div>
                   <span className={`font-mono-studio text-[11px] tracking-[0.08em] ${fullscreenWarning.isFinal ? "text-red-600 dark:text-red-400" : "text-[#B27E2E] dark:text-[#E8A94C]"}`}>
-                    {fullscreenWarning.isFinal ? "SESSION TERMINATED" : `WARNING ${fullscreenWarning.count} OF ${MAX_FULLSCREEN_EXITS}`}
+                    {fullscreenWarning.isFinal ? "SESSION TERMINATED" : fullscreenWarning.isTab ? "PAUSED" : `WARNING ${fullscreenWarning.count} OF ${MAX_FULLSCREEN_EXITS}`}
                   </span>
                 </div>
 
                 <h3 className="font-serif-display text-2xl text-[#14171B] dark:text-[#EDEEF0] mb-2.5">
-                  {fullscreenWarning.isFinal ? "Interview ended" : "You left fullscreen mode"}
+                  {fullscreenWarning.isFinal ? "Interview ended" : fullscreenWarning.isTab ? "Interview paused" : "You left fullscreen mode"}
                 </h3>
 
                 <p className="text-sm text-[#3E4650] dark:text-[#8B93A1] leading-relaxed mb-6">
@@ -1602,6 +1692,10 @@ function Step2Interview({
                       You exited fullscreen {MAX_FULLSCREEN_EXITS} times during
                       this interview. The session has been ended and your report
                       will be marked as unsuccessful.
+                    </> : fullscreenWarning.isTab ? <>
+                      You switched tabs. The interview is frozen exactly where
+                      you left it — the timer, the interviewer and your answer
+                      window are all paused. Return to pick up from the same moment.
                     </> : <>
                       This interview must stay in fullscreen. Your timer is
                       paused right now. If you leave fullscreen{" "}
@@ -1624,7 +1718,7 @@ function Step2Interview({
               scale: 0.97
             }} className="w-full flex items-center justify-center gap-2 bg-[#14171B] dark:bg-[#EDEEF0] text-white dark:text-[#0A0B0D] font-semibold py-3.5 rounded-2xl shadow-lg transition">
                     <BsFullscreen size={14} />
-                    Return to fullscreen & continue
+                    {fullscreenWarning.isTab ? "Return & continue" : "Return to fullscreen & continue"}
                   </motion.button>}
               </div>
             </motion.div>
@@ -1670,27 +1764,15 @@ function Step2Interview({
           </div>
 
           {}
-          <div className={`relative rounded-2xl overflow-hidden bg-[#F5F4F1] dark:bg-[#0A0B0D] ring-1 transition-all duration-500 ${isAIPlaying ? "ring-[#E8A94C]/60" : "ring-[#14171B]/15 dark:ring-white/10"}`}>
-            {!personaVideoReady && <div className="w-full aspect-video animate-pulse bg-[#F5F4F1] dark:bg-[#15181D] flex items-center justify-center">
-                <span className="font-mono-studio text-[9px] tracking-[0.24em] text-[#8A929C] dark:text-[#565D68]">LOADING FEED</span>
-              </div>}
-            <video src={videoSource} key={videoSource} ref={videoRef} muted playsInline preload="auto" onLoadStart={() => setPersonaVideoReady(false)} onLoadedData={() => setPersonaVideoReady(true)} className={`w-full h-auto object-cover transition-opacity duration-700 ${personaVideoReady ? "opacity-100" : "opacity-0 absolute inset-0"}`} />
-            {isAIPlaying && personaVideoReady && <span className="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-black/55 backdrop-blur px-2 py-1 rounded-md">
-                <span className="w-1.5 h-1.5 rotate-45 bg-[#E8A94C]" />
-                <span className="font-mono-studio text-[8px] tracking-[0.2em] text-[#E8A94C]">SPEAKING</span>
-              </span>}
-            {personaVideoReady && <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 bg-black/55 backdrop-blur px-2 py-1 rounded-md">
-                <span className="font-mono-studio text-[8px] tracking-[0.2em] text-white/85">{personaName.toUpperCase()}</span>
-                <span className="w-px h-2.5 bg-white/25" />
-                <span className="font-mono-studio text-[8px] tracking-[0.14em] text-[#8B92A0]">INTERVIEWER</span>
-              </span>}
-
-            {}
-            {cameraStream && <div className="absolute bottom-2.5 right-2.5 w-16 sm:w-20 aspect-video rounded-lg overflow-hidden ring-1 ring-[#14171B]/20 dark:ring-white/20 shadow-lg">
-                <video ref={pipVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
-                <span className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-[#E8A94C] live-dot" />
-              </div>}
-          </div>
+          <VideoCallStage interviewers={[{
+          id: "solo",
+          name: personaName,
+          role: "INTERVIEWER",
+          video: videoSource,
+          speaking: isAIPlaying,
+          audioLevel: ttsAudioLevel,
+          listening: voiceAnswer.status === "listening" || voiceAnswer.status === "countdown"
+        }]} selfName={userName || "You"} cameraStream={cameraStream} selfVideoRef={pipVideoRef} micOn={isMicOn} cameraOn={isCameraOn} userLevel={voiceAnswer.level || 0} roomLabel={company ? `SOLO · ${company.toUpperCase()}` : "SOLO SESSION"} timerText={`${String(Math.floor((timeLeft || 0) / 60)).padStart(2, "0")}:${String((timeLeft || 0) % 60).padStart(2, "0")}`} captionText={isCodingQuestion ? "" : subtitle} progress={questions.length ? Math.min(1, (currentIndex + 1) / questions.length) : 0} onToggleMic={toggleMic} onToggleCamera={toggleCamera} onEndCall={cancelInterview} />
 
           <div className="flex items-center gap-2 flex-wrap">
             <ConfidenceLivePill analyzer={confidence} />
@@ -1730,7 +1812,7 @@ function Step2Interview({
 
           {}
           <AnimatePresence mode="wait">
-            {subtitle && !(answerMode === "voice" && !isCodingQuestion) && <motion.div key={subtitle} initial={{
+            {subtitle && !isCodingQuestion && answerMode !== "voice" && <motion.div key={subtitle} initial={{
             opacity: 0,
             y: 6
           }} animate={{

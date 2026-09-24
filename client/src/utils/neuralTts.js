@@ -64,7 +64,11 @@ export const createTts = ({
     };
     audio.onended = done(resolve);
     audio.onerror = done(() => reject(new Error("audio playback failed")));
-    audio.play().catch(done(() => reject(new Error("audio play() rejected"))));
+    const tryPlay = () => {
+      if (currentAudio !== audio) return;
+      audio.play().catch(done(() => reject(new Error("audio play() rejected"))));
+    };
+    tryPlay();
   });
   const speakNeural = async (chunk, voiceGender, myGeneration) => {
     const key = `${voiceGender}::${chunk}`;
@@ -124,6 +128,7 @@ export const createTts = ({
   return {
     speak,
     cancel,
-    getProvider
+    getProvider,
+    getCurrentAudio: () => currentAudio
   };
 };

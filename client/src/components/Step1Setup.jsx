@@ -351,25 +351,50 @@ function Step1Setup({ onstart }) {
               </div>
 
               <div>
-                <p className="text-xs font-medium text-[#5B636E] dark:text-[#8B92A0] mb-2 pl-1">Interviewer setup</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between mb-2.5 pl-1">
+                  <p className="text-xs font-medium text-[#5B636E] dark:text-[#8B92A0]">Interviewer setup</p>
+                  <span className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${interviewType === "panel" ? "bg-[#E8A94C]" : "bg-[#9A7B24] dark:bg-[#E8A94C]"} animate-pulse`} />
+                    <span className="font-mono-studio text-[9px] tracking-[0.2em] text-[#9A7B24] dark:text-[#E8A94C]">{interviewType === "panel" ? "2 AI · LIVE" : "1 AI · LIVE"}</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   {INTERVIEW_TYPES.map(t => {
                     const isSelected = interviewType === t.value;
+                    const isPanel = t.value === "panel";
                     return (
                       <motion.button key={t.value} type="button" whileTap={{ scale: 0.98 }} onClick={() => setInterviewType(t.value)}
-                        className={`relative flex flex-col items-start gap-1.5 p-3.5 rounded-2xl border text-left transition-all duration-200 ${isSelected ? OPT_SELECTED : OPT_IDLE}`}>
-                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center mb-0.5 transition-colors duration-200 ${isSelected ? OPT_ICON_SELECTED : OPT_ICON_IDLE}`}>
-                          {t.icon}
+                        className={`relative overflow-hidden rounded-2xl border text-left transition-all duration-300 ${isSelected ? "border-[#9A7B24] dark:border-[#E8A94C] shadow-[0_18px_44px_-14px_rgba(154,123,36,0.55)]" : "border-[#E8E6E1] dark:border-[#232830] bg-white dark:bg-[#111318] hover:border-[#9A7B24]/45 dark:hover:border-[#E8A94C]/45 hover:shadow-[0_14px_30px_-18px_rgba(0,0,0,0.45)]"}`}>
+                        <span className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${isSelected ? "opacity-100" : "opacity-0"}`} style={{ background: "linear-gradient(135deg, #17191D 0%, #0D0E11 60%, #151005 100%)" }} />
+                        <span className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent to-transparent transition-opacity duration-300 ${isSelected ? "opacity-100 via-white/30" : "opacity-0"}`} />
+                        <span className="relative flex flex-col gap-3 p-4">
+                          <span className="flex items-start justify-between">
+                            <span className="flex -space-x-2.5">
+                              {isPanel ? <>
+                                <span className={`w-9 h-9 rounded-full flex items-center justify-center font-serif-display italic text-[15px] ring-2 transition-all duration-300 ${isSelected ? "bg-linear-to-br from-[#E8A94C] to-[#7a5c28] text-black ring-[#0D0E11]" : "bg-[#F5F4F1] dark:bg-[#1A1D22] text-[#8A929C] dark:text-[#565D68] ring-white dark:ring-[#111318]"}`}>M</span>
+                                <span className={`w-9 h-9 rounded-full flex items-center justify-center font-serif-display italic text-[15px] ring-2 transition-all duration-300 ${isSelected ? "bg-linear-to-br from-[#E8A94C] to-[#7a5c28] text-black ring-[#0D0E11]" : "bg-[#F5F4F1] dark:bg-[#1A1D22] text-[#8A929C] dark:text-[#565D68] ring-white dark:ring-[#111318]"}`}>E</span>
+                              </> : <span className={`w-9 h-9 rounded-full flex items-center justify-center ring-2 transition-all duration-300 ${isSelected ? "bg-linear-to-br from-[#E8A94C] to-[#7a5c28] text-black ring-[#0D0E11]" : "bg-[#F5F4F1] dark:bg-[#1A1D22] text-[#8A929C] dark:text-[#565D68] ring-white dark:ring-[#111318]"}`}>
+                                <BsPersonFill size={15} />
+                              </span>}
+                            </span>
+                            <AnimatePresence>
+                              {isSelected && (
+                                <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ duration: 0.18 }}>
+                                  <BsCheckCircleFill className="text-[#E8A94C]" size={16} />
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
+                          </span>
+                          <span>
+                            <span className={`block text-[15px] font-semibold tracking-tight transition-colors duration-300 ${isSelected ? "text-[#F5F2EA]" : "text-[#14171B] dark:text-[#EDEEF0]"}`}>{t.label}</span>
+                            <span className={`block text-[11px] mt-1 leading-snug transition-colors duration-300 ${isSelected ? "text-white/55" : "text-[#8A929C] dark:text-[#565D68]"}`}>{isPanel ? "Technical depth + HR — they tag-team you" : "One interviewer, focused and fast"}</span>
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${isSelected ? "bg-[#E8A94C] animate-pulse" : "bg-[#C9C5B8] dark:bg-[#2E333C]"}`} />
+                            <span className={`font-mono-studio text-[8px] tracking-[0.22em] transition-colors duration-300 ${isSelected ? "text-[#E8A94C]" : "text-[#8A929C] dark:text-[#565D68]"}`}>{isPanel ? "2 IN CALL" : "1 IN CALL"}</span>
+                          </span>
                         </span>
-                        <span className={`text-sm font-semibold ${isSelected ? OPT_LABEL_SELECTED : OPT_LABEL_IDLE}`}>{t.label}</span>
-                        <span className="text-[11px] text-[#8A929C] dark:text-[#565D68] leading-snug">{t.sub}</span>
-                        <AnimatePresence>
-                          {isSelected && (
-                            <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="absolute top-3 right-3">
-                              <BsCheckCircleFill className={CHECK_GOLD} size={14} />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
+                        <span className={`absolute bottom-0 inset-x-0 h-[2.5px] bg-linear-to-r from-[#9A7B24] via-[#E8A94C] to-[#9A7B24] transition-opacity duration-300 ${isSelected ? "opacity-100" : "opacity-0"}`} />
                       </motion.button>
                     );
                   })}
@@ -377,7 +402,7 @@ function Step1Setup({ onstart }) {
                 <AnimatePresence>
                   {interviewType === "panel" && (
                     <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                      className="mt-2 text-[11px] text-[#8A929C] dark:text-[#565D68] pl-1 leading-relaxed overflow-hidden">
+                      className="mt-2.5 text-[11px] text-[#8A929C] dark:text-[#565D68] pl-1 leading-relaxed overflow-hidden">
                       Two interviewers alternate — one goes deep on technical depth, the other on communication and fit. Uses more credits than Solo.
                     </motion.p>
                   )}

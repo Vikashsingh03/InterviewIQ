@@ -18,6 +18,7 @@ function InterviewPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [interviewData, setinterviewData] = useState(null);
+  const [interviewLive, setInterviewLive] = useState(false);
   const isPanel = interviewData?.interviewType === "panel";
 
   return (
@@ -68,7 +69,16 @@ function InterviewPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(201,158,65,0.05),transparent_35%)]"></div>
       </div>
 
-      <div className="interviewpage-root relative z-10 pt-6 pb-2">
+      <AnimatePresence>
+        {!(step === 2 && interviewLive) && (
+        <motion.div
+          key="interview-nav"
+          initial={{ opacity: 0, y: -14 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -14 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+          className="interviewpage-root relative z-10 pt-6 pb-2"
+        >
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-center">
           <motion.button
             whileHover={{ x: -2 }}
@@ -126,7 +136,9 @@ function InterviewPage() {
             <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#565D68]">SESSION Nº 001</span>
           </div>
         </div>
-      </div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="relative z-10">
         <AnimatePresence mode="wait">
@@ -158,7 +170,13 @@ function InterviewPage() {
               >
                 <Step2PanelInterview
                   interviewData={interviewData}
+                  onLiveChange={setInterviewLive}
+                  onCancel={() => {
+                    setInterviewLive(false);
+                    setStep(1);
+                  }}
                   onFinish={(report) => {
+                    setInterviewLive(false);
                     setinterviewData(report);
                     setStep(3);
                   }}
@@ -174,7 +192,13 @@ function InterviewPage() {
               >
                 <Step2Interview
                   interviewData={interviewData}
+                  onLiveChange={setInterviewLive}
+                  onCancel={() => {
+                    setInterviewLive(false);
+                    setStep(1);
+                  }}
                   onFinish={(report) => {
+                    setInterviewLive(false);
                     setinterviewData(report);
                     setStep(3);
                   }}
