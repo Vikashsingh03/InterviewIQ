@@ -10,9 +10,20 @@ import paymentRouter from "./routes/payment.route.js";
 import practiceRouter from "./routes/practice.route.js";
 
 const app = express();
+
+app.set("trust proxy", 1);
+
+const FRONTEND_URL = "https://YOUR-FRONTEND.vercel.app";
+const allowedOrigins = ["http://localhost:5173", "http://localhost:3000", FRONTEND_URL];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS blocked: origin not allowed"));
+    },
     credentials: true,
   }),
 );

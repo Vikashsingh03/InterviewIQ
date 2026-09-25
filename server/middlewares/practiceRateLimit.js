@@ -44,3 +44,9 @@ export const codeSubmitLimiter = makeLimiter(
   10 * 60 * 1000,
   "Too many submissions. Take a breath and try again shortly.",
 );
+
+export const interviewCodeLimiter = makeLimiter(
+  60,
+  10 * 60 * 1000,
+  "Too many code runs. Slow down for a few minutes and try again.",
+);

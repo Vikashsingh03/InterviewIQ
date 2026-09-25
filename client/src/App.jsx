@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
 import Home from "./Pages/Home";
+import PracticeQuestion from "./Pages/PracticeQuestion";
 import Auth from "./Pages/Auth";
 import axios from "axios";
 import { useDispatch } from "react-redux";
@@ -12,10 +13,9 @@ import Pricing from "./Pages/Pricing";
 import InterviewReport from "./Pages/InterviewReport";
 import Analytics from "./Pages/Analytics";
 import PracticeHub from "./Pages/PracticeHub";
-import PracticeQuestion from "./Pages/PracticeQuestion";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-export const ServerUrl = "http://localhost:8000";
+export const ServerUrl = "https://YOUR-BACKEND.onrender.com";
 
 const App = () => {
   const dispatch = useDispatch();
