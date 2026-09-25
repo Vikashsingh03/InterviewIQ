@@ -15,7 +15,7 @@ import Analytics from "./Pages/Analytics";
 import PracticeHub from "./Pages/PracticeHub";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-export const ServerUrl = import.meta.env.DEV ? "http://localhost:8000" : "https://YOUR-BACKEND.onrender.com";
+export const ServerUrl = import.meta.env.DEV ? "http://localhost:8000" : "https://interviewiq-backend-61bf.onrender.com";
 
 const App = () => {
   const dispatch = useDispatch();
