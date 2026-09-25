@@ -37,6 +37,10 @@ app.use("/api/interview", interviewRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/practice", practiceRouter);
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 
 const PORT = process.env.PORT || 6000;
 app.listen(PORT, () => {
