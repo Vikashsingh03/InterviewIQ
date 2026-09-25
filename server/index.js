@@ -13,7 +13,7 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-const FRONTEND_URL = "https://YOUR-FRONTEND.vercel.app";
+const FRONTEND_URL = "https://interview-iq-gilt.vercel.app";
 const allowedOrigins = ["http://localhost:5173", "http://localhost:3000", FRONTEND_URL];
 
 app.use(
