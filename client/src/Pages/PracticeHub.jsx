@@ -3,10 +3,22 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion } from "motion/react";
 import { BsSearch } from "react-icons/bs";
-import { FaArrowLeft } from "react-icons/fa";
+import {
+  FaArrowLeft,
+  FaCheckCircle,
+  FaRegCircle,
+  FaChevronRight,
+} from "react-icons/fa";
 import { ServerUrl } from "../App";
 
 const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" };
+
+const DIFFICULTY_STYLE = {
+  easy: "text-[#2E9C5A] dark:text-[#4ADE80] border-[#2E9C5A]/30 dark:border-[#4ADE80]/30",
+  medium:
+    "text-[#9A7B24] dark:text-[#E8A94C] border-[#9A7B24]/30 dark:border-[#E8A94C]/30",
+  hard: "text-[#E05252] dark:text-[#F06A6A] border-[#E05252]/30 dark:border-[#F06A6A]/30",
+};
 
 const CARD_BASE =
   "bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830]";
@@ -29,8 +41,124 @@ function useCountUp(target, duration, active) {
   return val;
 }
 
+function useMidnightCountdown() {
+  const [left, setLeft] = useState("");
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      const ms = Math.max(0, end - now);
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLeft(
+        String(h).padStart(2, "0") +
+          ":" +
+          String(m).padStart(2, "0") +
+          ":" +
+          String(s).padStart(2, "0"),
+      );
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return left;
+}
+
+function StatusIcon({ state }) {
+  if (state === "solved") {
+    return (
+      <FaCheckCircle
+        size={16}
+        className="text-[#2E9C5A] dark:text-[#4ADE80] shrink-0"
+      />
+    );
+  }
+  if (state === "attempted") {
+    return (
+      <FaRegCircle
+        size={16}
+        className="text-[#9A7B24] dark:text-[#E8A94C] shrink-0"
+      />
+    );
+  }
+  return (
+    <span className="w-4 h-4 shrink-0 rounded-full bg-[#D8D4CC] dark:bg-[#2B3138]" />
+  );
+}
+
+function DsaRow({ q, index, state, onClick }) {
+  const num = String(index + 1).padStart(2, "0");
+  const companies = q.companies || [];
+  const visible = companies.slice(0, 3);
+  const extra = companies.length - visible.length;
+  const accent =
+    q.difficulty === "easy"
+      ? "bg-[#2E9C5A] dark:bg-[#4ADE80]"
+      : q.difficulty === "hard"
+        ? "bg-[#E05252] dark:bg-[#F06A6A]"
+        : "bg-[#C99E41] dark:bg-[#E8A94C]";
+
+  return (
+    <motion.button
+      onClick={onClick}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.45) }}
+      whileHover={{ x: 4 }}
+      whileTap={{ scale: 0.995 }}
+      className={`group relative w-full text-left ${CARD_BASE} rounded-xl px-4 sm:px-5 py-4 hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50 hover:shadow-[0_18px_44px_-20px_rgba(154,123,36,0.35)] transition-all duration-200 cursor-pointer shadow-[0_12px_36px_-24px_rgba(20,23,27,0.18)] overflow-hidden`}
+    >
+      <span
+        className={`absolute left-0 top-3 bottom-3 w-1 rounded-full ${accent} opacity-0 group-hover:opacity-100 transition-opacity duration-200`}
+      />
+      <div className="flex items-center gap-3 sm:gap-4">
+        <StatusIcon state={state} />
+        <span className="font-mono-studio text-xs tracking-[0.18em] text-[#9A7B24] dark:text-[#E8A94C] shrink-0 hidden sm:inline">
+          {num}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="font-serif-display text-base sm:text-lg text-[#14171B] dark:text-[#EDEEF0] leading-snug truncate group-hover:text-[#9A7B24] dark:group-hover:text-[#E8A94C] transition-colors duration-200">
+            {q.title}
+          </p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="font-mono-studio text-[10px] tracking-[0.14em] text-[#8A929C] dark:text-[#8B92A0] capitalize">
+              {q.topic}
+            </span>
+            <span
+              className={`font-mono-studio text-[10px] tracking-[0.14em] border px-2 py-0.5 rounded-md ${
+                DIFFICULTY_STYLE[q.difficulty] || DIFFICULTY_STYLE.medium
+              }`}
+            >
+              {(DIFFICULTY_LABEL[q.difficulty] || q.difficulty).toUpperCase()}
+            </span>
+            {visible.map((c) => (
+              <span
+                key={c}
+                className="font-mono-studio text-[10px] tracking-widest text-[#5B636E] dark:text-[#9AA1AC] bg-[#F1EFE9] dark:bg-[#161A1F] border border-[#E8E6E1] dark:border-[#232830] px-2 py-0.5 rounded-md"
+              >
+                {c.toUpperCase()}
+              </span>
+            ))}
+            {extra > 0 && (
+              <span className="font-mono-studio text-[10px] tracking-widest text-[#8A929C] dark:text-[#8B92A0]">
+                +{extra}
+              </span>
+            )}
+          </div>
+        </div>
+        <FaChevronRight
+          size={12}
+          className="text-[#C9C4B8] dark:text-[#3A4048] group-hover:text-[#9A7B24] dark:group-hover:text-[#E8A94C] group-hover:translate-x-1 transition-all duration-200 shrink-0"
+        />
+      </div>
+    </motion.button>
+  );
+}
+
 function QuestionCard({ q, onClick, index }) {
-  const isCoding = q.type === "coding";
   const num = String(index + 1).padStart(2, "0");
 
   return (
@@ -48,14 +176,8 @@ function QuestionCard({ q, onClick, index }) {
           Q.{num}
         </span>
         <div className="flex items-center gap-2">
-          <span
-            className={`font-mono-studio text-[10px] tracking-[0.16em] border px-2 py-1 rounded-md ${
-              isCoding
-                ? "text-[#2E8494] dark:text-[#5EC8D8] border-[#2E8494]/30 dark:border-[#5EC8D8]/30"
-                : "text-[#6A5FBF] dark:text-[#B3A9F5] border-[#6A5FBF]/30 dark:border-[#8B7FD6]/30"
-            }`}
-          >
-            {isCoding ? "CODING" : "HR"}
+          <span className="font-mono-studio text-[10px] tracking-[0.16em] border px-2 py-1 rounded-md text-[#6A5FBF] dark:text-[#B3A9F5] border-[#6A5FBF]/30 dark:border-[#8B7FD6]/30">
+            HR
           </span>
           {q.difficulty && (
             <span className="font-mono-studio text-[10px] tracking-[0.16em] text-[#8A929C] dark:text-[#8B92A0]">
@@ -74,7 +196,10 @@ function QuestionCard({ q, onClick, index }) {
           {q.category}
         </span>
         <span className="font-mono-studio text-xs tracking-[0.14em] text-[#8A929C] dark:text-[#9AA1AC] group-hover:text-[#9A7B24] dark:group-hover:text-[#E8A94C] transition-colors duration-200">
-          OPEN <span className="inline-block group-hover:translate-x-1 transition-transform duration-200">→</span>
+          OPEN{" "}
+          <span className="inline-block group-hover:translate-x-1 transition-transform duration-200">
+            →
+          </span>
         </span>
       </div>
     </motion.button>
@@ -82,6 +207,7 @@ function QuestionCard({ q, onClick, index }) {
 }
 
 function DailyChallengeCard({ daily, onClick }) {
+  const countdown = useMidnightCountdown();
   if (!daily) return null;
 
   const today = new Date()
@@ -132,6 +258,15 @@ function DailyChallengeCard({ daily, onClick }) {
           <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#8B92A0]">
             {today}
           </span>
+          {!daily.completed && (
+            <span className="flex items-center gap-2 font-mono-studio text-[10px] tracking-[0.2em] text-[#9A7B24] dark:text-[#E8A94C] bg-[#9A7B24]/8 dark:bg-[#E8A94C]/8 border border-[#9A7B24]/25 dark:border-[#E8A94C]/25 px-3 py-1.5 rounded-full">
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="absolute inline-flex w-full h-full rounded-full bg-[#C99E41] dark:bg-[#E8A94C] opacity-60 animate-ping" />
+                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[#C99E41] dark:bg-[#E8A94C]" />
+              </span>
+              ENDS IN {countdown}
+            </span>
+          )}
         </div>
 
         <h3 className="font-serif-display text-2xl sm:text-4xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-[1.15] line-clamp-3 max-w-3xl">
@@ -162,12 +297,12 @@ function DailyChallengeCard({ daily, onClick }) {
 }
 
 const TICKER_ITEMS = [
-  "DAILY REPS",
-  "SHARPEN ANSWERS",
+  "47 PROBLEMS",
+  "COMPANY TAGS",
+  "TOPIC TRACKS",
+  "HIDDEN TESTS",
+  "ZERO CREDITS",
   "BUILD STREAKS",
-  "CODING + HR",
-  "INSTANT AI FEEDBACK",
-  "NO CREDITS",
 ];
 
 function Ticker() {
@@ -201,16 +336,24 @@ function PracticeHub() {
   const [errorMessage, setErrorMessage] = useState("");
   const [coding, setCoding] = useState([]);
   const [hr, setHr] = useState([]);
+  const [topicsMeta, setTopicsMeta] = useState([]);
+  const [companiesList, setCompaniesList] = useState([]);
+  const [totalCoding, setTotalCoding] = useState(0);
   const [stats, setStats] = useState(null);
   const [daily, setDaily] = useState(null);
+  const [progressMap, setProgressMap] = useState({});
+  const [solvedCount, setSolvedCount] = useState(0);
 
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [tab, setTab] = useState("dsa");
+  const [topicFilter, setTopicFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
+  const [unsolvedOnly, setUnsolvedOnly] = useState(false);
   const [search, setSearch] = useState("");
 
+  const animSolved = useCountUp(solvedCount, 1100, !loading);
   const animStreak = useCountUp(stats ? stats.currentStreak : 0, 900, !!stats);
   const animAttempts = useCountUp(stats ? stats.totalAttempts : 0, 1100, !!stats);
-  const animAvg = useCountUp(stats ? stats.averageScore || 0 : 0, 1100, !!stats);
 
   useEffect(() => {
     const load = async () => {
@@ -218,27 +361,37 @@ function PracticeHub() {
       setErrorMessage("");
 
       try {
-        const [questionsRes, statsRes, dailyRes] = await Promise.all([
+        const [questionsRes, statsRes, dailyRes, progressRes] = await Promise.all([
           axios.get(ServerUrl + "/api/practice/questions", {
             withCredentials: true,
           }),
-
           axios.get(ServerUrl + "/api/practice/stats", {
             withCredentials: true,
           }),
-
           axios.get(ServerUrl + "/api/practice/daily", {
+            withCredentials: true,
+          }),
+          axios.get(ServerUrl + "/api/practice/dsa-progress", {
             withCredentials: true,
           }),
         ]);
 
         setCoding(questionsRes.data.coding || []);
         setHr(questionsRes.data.hr || []);
+        setTopicsMeta(questionsRes.data.topics || []);
+        setCompaniesList(questionsRes.data.companies || []);
+        setTotalCoding(questionsRes.data.totalCoding || 0);
         setStats(statsRes.data);
         setDaily(dailyRes.data);
+
+        const map = {};
+        (progressRes.data.progress || []).forEach((p) => {
+          map[p.id] = p;
+        });
+        setProgressMap(map);
+        setSolvedCount(progressRes.data.solvedCount || 0);
       } catch (error) {
         console.log(error);
-
         setErrorMessage(
           error?.response?.data?.message ||
             "Couldn't load practice questions. Please try again."
@@ -251,61 +404,82 @@ function PracticeHub() {
     load();
   }, []);
 
-  const allQuestions = useMemo(() => [...coding, ...hr], [coding, hr]);
-
-  const filtered = useMemo(() => {
-    return allQuestions.filter((q) => {
-      if (typeFilter !== "all" && q.type !== typeFilter) return false;
-
-      if (
-        difficultyFilter !== "all" &&
-        q.difficulty !== difficultyFilter
-      ) {
+  const dsaFiltered = useMemo(() => {
+    return coding.filter((q) => {
+      if (topicFilter !== "all" && q.topic !== topicFilter) return false;
+      if (difficultyFilter !== "all" && q.difficulty !== difficultyFilter)
         return false;
-      }
-
       if (
-        search.trim() &&
-        !q.title.toLowerCase().includes(search.trim().toLowerCase()) &&
-        !q.category?.toLowerCase().includes(search.trim().toLowerCase())
-      ) {
+        companyFilter !== "all" &&
+        !(q.companies || []).includes(companyFilter)
+      )
         return false;
+      if (unsolvedOnly && progressMap[q.id]?.solved) return false;
+      if (search.trim()) {
+        const s = search.trim().toLowerCase();
+        if (
+          !q.title.toLowerCase().includes(s) &&
+          !q.topic.toLowerCase().includes(s)
+        )
+          return false;
       }
-
       return true;
     });
-  }, [allQuestions, typeFilter, difficultyFilter, search]);
+  }, [coding, topicFilter, difficultyFilter, companyFilter, unsolvedOnly, search, progressMap]);
 
-  const openQuestion = (q) =>
-    navigate(`/practice/${q.type}/${q.id}`);
+  const hrFiltered = useMemo(() => {
+    return hr.filter((q) => {
+      if (difficultyFilter !== "all" && q.difficulty !== difficultyFilter)
+        return false;
+      if (search.trim()) {
+        const s = search.trim().toLowerCase();
+        if (
+          !q.title.toLowerCase().includes(s) &&
+          !q.category?.toLowerCase().includes(s)
+        )
+          return false;
+      }
+      return true;
+    });
+  }, [hr, difficultyFilter, search]);
+
+  const openQuestion = (type, id) => navigate(`/practice/${type}/${id}`);
 
   const practiceRandom = () => {
-    const pool = filtered.length ? filtered : allQuestions;
-
+    const pool = dsaFiltered.length ? dsaFiltered : coding;
     if (!pool.length) return;
-
-    const random =
-      pool[Math.floor(Math.random() * pool.length)];
-
-    openQuestion(random);
+    const unsolved = pool.filter((q) => !progressMap[q.id]?.solved);
+    const pickFrom = unsolved.length ? unsolved : pool;
+    const random = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+    openQuestion("coding", random.id);
   };
 
-  const typeCount = (t) =>
-    t === "all"
-      ? allQuestions.length
-      : allQuestions.filter((q) => q.type === t).length;
+  const solvedPct = totalCoding
+    ? Math.round((solvedCount / totalCoding) * 100)
+    : 0;
 
-  const statItems = stats
-    ? [
-        {
-          label: "Day streak",
-          value: animStreak,
-          suffix: stats.currentStreak === 1 ? "day" : "days",
-        },
-        { label: "Attempts", value: animAttempts, suffix: "total" },
-        { label: "Average score", value: animAvg, suffix: "/ 10" },
-      ]
-    : [];
+  const statCards = [
+    {
+      label: "Solved",
+      value: animSolved,
+      suffix: `/ ${totalCoding}`,
+      bar: true,
+    },
+    {
+      label: "Day streak",
+      value: animStreak,
+      suffix: stats && stats.currentStreak === 1 ? "day" : "days",
+    },
+    { label: "Attempts", value: animAttempts, suffix: "total" },
+  ];
+
+  const stateFor = (id) => {
+    const p = progressMap[id];
+    if (!p) return "untouched";
+    if (p.solved) return "solved";
+    if (p.attempted) return "attempted";
+    return "untouched";
+  };
 
   return (
     <div className="min-h-screen relative bg-[#FAFAF9] dark:bg-[#0A0B0D] transition-colors duration-300 px-4 sm:px-6 pb-16 overflow-hidden">
@@ -355,21 +529,50 @@ function PracticeHub() {
           60%, 100% { transform: translateX(340%) skewX(-12deg); opacity: 0; }
         }
         .shine-sweep { animation: shineSweep 7s ease-in-out infinite; }
+
+        @keyframes gradientShift {
+          0% { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
+
+        @keyframes auroraDrift {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(4%, -6%) scale(1.08); }
+          66% { transform: translate(-5%, 4%) scale(0.96); }
+        }
+        .aurora-orb {
+          position: fixed;
+          border-radius: 9999px;
+          pointer-events: none;
+          z-index: 0;
+          animation: auroraDrift 18s ease-in-out infinite;
+        }
       `}</style>
 
       <div className="film-grain" />
+      <div
+        aria-hidden="true"
+        className="aurora-orb w-2xl h-168 -top-40 -left-40 bg-[#C99E41]/[0.07] dark:bg-[#E8A94C]/5 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="aurora-orb w-xl h-144 top-1/3 -right-48 bg-[#2E8494]/6 dark:bg-[#5EC8D8]/4 blur-3xl"
+        style={{ animationDelay: "-6s" }}
+      />
+      <div
+        aria-hidden="true"
+        className="aurora-orb w-120 h-120 -bottom-40 left-1/4 bg-[#9A7B24]/5 dark:bg-[#E8A94C]/3 blur-3xl"
+        style={{ animationDelay: "-12s" }}
+      />
 
       <div className="practice-root relative z-10 max-w-6xl mx-auto">
-
         <div className="pt-6 sm:pt-10 mb-8">
-
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className="flex items-center gap-3 mb-6"
           >
-
             <motion.button
               whileHover={{ scale: 1.06, y: -1 }}
               whileTap={{ scale: 0.94 }}
@@ -377,10 +580,7 @@ function PracticeHub() {
               aria-label="Go back to home"
               className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center rounded-full bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] transition-all duration-200 cursor-pointer"
             >
-              <FaArrowLeft
-                className="text-[#5B636E] dark:text-[#9AA1AC]"
-                size={14}
-              />
+              <FaArrowLeft className="text-[#5B636E] dark:text-[#9AA1AC]" size={14} />
             </motion.button>
 
             <div className="flex items-center gap-2 min-w-0 bg-[#9A7B24]/8 dark:bg-[#E8A94C]/8 border border-[#9A7B24]/20 dark:border-[#E8A94C]/20 px-3 py-1.5 rounded-full">
@@ -389,30 +589,25 @@ function PracticeHub() {
                 PRACTICE HUB · FREE · UNLIMITED
               </span>
             </div>
-
           </motion.div>
 
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: "easeOut" }}
               className="min-w-0"
             >
-
               <h1 className="font-serif-display text-4xl sm:text-6xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight mb-4 leading-[1.04]">
-                Sharpen one question{" "}
-                <em className="text-[#9A7B24] dark:text-[#E8A94C]">
-                  at a time.
+                DSA{" "}
+                <em className="bg-linear-to-r from-[#9A7B24] via-[#C99E41] to-[#9A7B24] dark:from-[#E8A94C] dark:via-[#F5D48A] dark:to-[#E8A94C] bg-clip-text text-transparent bg-size-[200%_auto] animate-[gradientShift_6s_linear_infinite]">
+                  Preparation
                 </em>
               </h1>
-
               <p className="text-sm text-[#3E4650] dark:text-[#8B92A0] max-w-xl leading-relaxed">
-                No credits, no full mock interview — just pick a question and
-                get instant AI feedback. Daily reps build interview muscle.
+                {totalCoding || 47} problems. Company tags. Hidden test cases. Zero
+                credits — grind like it's the real round.
               </p>
-
             </motion.div>
 
             <motion.button
@@ -422,12 +617,11 @@ function PracticeHub() {
               onClick={practiceRandom}
               whileHover={{ scale: 1.03, y: -2 }}
               whileTap={{ scale: 0.97 }}
-              disabled={!allQuestions.length}
+              disabled={!coding.length}
               className="shrink-0 w-full sm:w-auto bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] font-mono-studio text-xs font-bold tracking-[0.14em] px-7 py-4 rounded-full disabled:opacity-60 hover:opacity-90 transition-all duration-200 cursor-pointer"
             >
               SURPRISE ME →
             </motion.button>
-
           </div>
         </div>
 
@@ -438,147 +632,284 @@ function PracticeHub() {
 
         <Ticker />
 
-        {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-            {statItems.map((s, i) => (
-              <motion.div
-                key={s.label}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: i * 0.08 }}
-                whileHover={{ y: -3 }}
-                className={`${CARD_BASE} relative rounded-3xl p-6 sm:p-7 overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]`}
-              >
-                <motion.span
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ duration: 0.6, delay: 0.2 + i * 0.08, ease: "easeOut" }}
-                  className="absolute top-0 left-6 right-6 h-0.5 bg-[#C99E41] dark:bg-[#E8A94C] origin-left"
-                />
-                <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8A929C] dark:text-[#8B92A0] mb-3">
-                  {s.label.toUpperCase()}
-                </p>
-                <p className="font-serif-display text-5xl sm:text-6xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-none">
-                  {s.value}
-                  <span className="font-mono-studio text-xs tracking-[0.14em] text-[#8A929C] dark:text-[#8B92A0] ml-2 align-middle">
-                    {s.suffix.toUpperCase()}
-                  </span>
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#9A7B24] dark:text-[#E8A94C] mb-3">
-          02 · THE BANK
-        </p>
-
-        <div className="flex items-end justify-between gap-4 mb-5 pb-4 border-b-2 border-[#14171B] dark:border-[#EDEEF0]">
-          <h2 className="font-serif-display text-2xl sm:text-3xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
-            The question bank
-          </h2>
-          <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#8B92A0] shrink-0">
-            {String(filtered.length).padStart(2, "0")} QUESTIONS
-          </span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+          {statCards.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: i * 0.08 }}
+              whileHover={{ y: -3 }}
+              className={`${CARD_BASE} relative rounded-3xl p-6 sm:p-7 overflow-hidden shadow-[0_24px_60px_-30px_rgba(20,23,27,0.16)]`}
+            >
+              <motion.span
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: 0.6, delay: 0.2 + i * 0.08, ease: "easeOut" }}
+                className="absolute top-0 left-6 right-6 h-0.5 bg-[#C99E41] dark:bg-[#E8A94C] origin-left"
+              />
+              <p className="font-mono-studio text-[10px] tracking-[0.22em] text-[#8A929C] dark:text-[#8B92A0] mb-3">
+                {s.label.toUpperCase()}
+              </p>
+              <p className="font-serif-display text-5xl sm:text-6xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight leading-none">
+                {s.value}
+                <span className="font-mono-studio text-xs tracking-[0.14em] text-[#8A929C] dark:text-[#8B92A0] ml-2 align-middle">
+                  {String(s.suffix).toUpperCase()}
+                </span>
+              </p>
+              {s.bar && (
+                <div className="mt-4 h-1 rounded-full bg-[#EDEBE4] dark:bg-[#1B2026] overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${solvedPct}%` }}
+                    transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
+                    className="h-full rounded-full bg-[#C99E41] dark:bg-[#E8A94C]"
+                  />
+                </div>
+              )}
+            </motion.div>
+          ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex items-center gap-1 mb-6 border-b border-[#E8E6E1] dark:border-[#232830]">
+          {[
+            { id: "dsa", label: "DSA" },
+            { id: "hr", label: "HR QUESTIONS" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`relative font-mono-studio text-xs font-bold tracking-[0.18em] px-4 sm:px-6 py-3.5 cursor-pointer transition-colors duration-200 ${
+                tab === t.id
+                  ? "text-[#14171B] dark:text-[#EDEEF0]"
+                  : "text-[#8A929C] dark:text-[#565D68] hover:text-[#3E4650] dark:hover:text-[#9AA1AC]"
+              }`}
+            >
+              {t.label}
+              {t.id === "dsa" && (
+                <span className="opacity-50"> · {totalCoding || "—"}</span>
+              )}
+              {t.id === "hr" && (
+                <span className="opacity-50"> · {hr.length || "—"}</span>
+              )}
+              {tab === t.id && (
+                <motion.span
+                  layoutId="hub-tab-underline"
+                  className="absolute bottom-0 left-3 right-3 h-0.5 bg-[#C99E41] dark:bg-[#E8A94C] rounded-full"
+                />
+              )}
+            </button>
+          ))}
+        </div>
 
-          <div className="relative flex-1 min-w-0">
+        {tab === "dsa" && (
+          <div>
+            <div className="flex items-end justify-between gap-4 mb-5 pb-4 border-b-2 border-[#14171B] dark:border-[#EDEEF0]">
+              <h2 className="font-serif-display text-2xl sm:text-3xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
+                The DSA bank
+              </h2>
+              <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#8B92A0] shrink-0">
+                {String(dsaFiltered.length).padStart(2, "0")} /{" "}
+                {String(coding.length).padStart(2, "0")}
+              </span>
+            </div>
 
-            <BsSearch
-              size={14}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A929C] dark:text-[#9AA1AC]"
-            />
-
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search questions or topics..."
-              className="w-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] placeholder:text-[#8A929C] dark:placeholder:text-[#565D68] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition"
-            />
-
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto">
-
-            {["all", "coding", "hr"].map((t) => (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
-                key={t}
-                onClick={() => setTypeFilter(t)}
-                className={`shrink-0 font-mono-studio text-xs px-3.5 py-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
-                  typeFilter === t
+                onClick={() => setTopicFilter("all")}
+                className={`font-mono-studio text-xs px-3.5 py-2 rounded-full border transition-all duration-200 cursor-pointer ${
+                  topicFilter === "all"
                     ? "bg-[#14171B] dark:bg-[#EDEEF0] text-[#FAFAF9] dark:text-[#0A0B0D] border-transparent"
                     : "bg-white dark:bg-[#0C0E11] text-[#3E4650] dark:text-[#8B92A0] border-[#E8E6E1] dark:border-[#232830] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
                 }`}
               >
-                {t === "all" ? "All" : t === "coding" ? "Coding" : "HR"}
-                <span className="opacity-50"> · {typeCount(t)}</span>
+                ALL
               </button>
-            ))}
-
-          </div>
-
-          <select
-            value={difficultyFilter}
-            onChange={(e) =>
-              setDifficultyFilter(e.target.value)
-            }
-            className="w-full sm:w-auto bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl px-3.5 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition cursor-pointer"
-          >
-            <option value="all">Any difficulty</option>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-
-        </div>
-
-        {errorMessage && (
-          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 text-red-700 dark:text-red-400 text-sm">
-            {errorMessage}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-44 rounded-2xl bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] animate-pulse"
-              />
-            ))}
-
-          </div>
-        ) : filtered.length ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((q, i) => (
-              <QuestionCard
-                key={`${q.type}-${q.id}`}
-                q={q}
-                index={i}
-                onClick={() => openQuestion(q)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20">
-
-            <div className="flex items-center justify-center gap-2.5 mb-4">
-              <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
-              <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#9A7B24] dark:text-[#E8A94C]">
-                NO MATCHES
-              </p>
+              {topicsMeta.map((t) => (
+                <button
+                  key={t.topic}
+                  onClick={() => setTopicFilter(t.topic)}
+                  className={`font-mono-studio text-xs px-3.5 py-2 rounded-full border transition-all duration-200 cursor-pointer capitalize ${
+                    topicFilter === t.topic
+                      ? "bg-[#14171B] dark:bg-[#EDEEF0] text-[#FAFAF9] dark:text-[#0A0B0D] border-transparent"
+                      : "bg-white dark:bg-[#0C0E11] text-[#3E4650] dark:text-[#8B92A0] border-[#E8E6E1] dark:border-[#232830] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
+                  }`}
+                >
+                  {t.topic}
+                  <span className="opacity-50"> · {t.total}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => setUnsolvedOnly((v) => !v)}
+                className={`font-mono-studio text-xs px-3.5 py-2 rounded-full border transition-all duration-200 cursor-pointer ${
+                  unsolvedOnly
+                    ? "bg-[#C99E41] dark:bg-[#E8A94C] text-[#14171B] dark:text-[#0A0B0D] border-transparent font-bold"
+                    : "bg-white dark:bg-[#0C0E11] text-[#3E4650] dark:text-[#8B92A0] border-[#E8E6E1] dark:border-[#232830] hover:border-[#9A7B24]/50 dark:hover:border-[#E8A94C]/50"
+                }`}
+              >
+                UNSOLVED ONLY
+              </button>
             </div>
 
-            <p className="text-[#3E4650] dark:text-[#8B92A0] text-sm">
-              No questions match those filters. Try clearing them.
-            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="relative flex-1 min-w-0">
+                <BsSearch
+                  size={14}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A929C] dark:text-[#9AA1AC]"
+                />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search problems or topics..."
+                  className="w-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] placeholder:text-[#8A929C] dark:placeholder:text-[#565D68] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition"
+                />
+              </div>
 
+              <select
+                value={difficultyFilter}
+                onChange={(e) => setDifficultyFilter(e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl px-3.5 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition cursor-pointer"
+              >
+                <option value="all">Any difficulty</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+
+              <select
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl px-3.5 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition cursor-pointer max-w-full"
+              >
+                <option value="all">All companies</option>
+                {companiesList.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {errorMessage && (
+              <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 text-red-700 dark:text-red-400 text-sm">
+                {errorMessage}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex flex-col gap-2.5">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-20 rounded-xl bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : dsaFiltered.length ? (
+              <div className="flex flex-col gap-2.5">
+                {dsaFiltered.map((q, i) => (
+                  <DsaRow
+                    key={q.id}
+                    q={q}
+                    index={i}
+                    state={stateFor(q.id)}
+                    onClick={() => openQuestion("coding", q.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <div className="flex items-center justify-center gap-2.5 mb-4">
+                  <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
+                  <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#9A7B24] dark:text-[#E8A94C]">
+                    NO MATCHES
+                  </p>
+                </div>
+                <p className="text-[#3E4650] dark:text-[#8B92A0] text-sm">
+                  No problems match those filters. Try clearing them.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
+        {tab === "hr" && (
+          <div>
+            <div className="flex items-end justify-between gap-4 mb-5 pb-4 border-b-2 border-[#14171B] dark:border-[#EDEEF0]">
+              <h2 className="font-serif-display text-2xl sm:text-3xl text-[#14171B] dark:text-[#EDEEF0] tracking-tight">
+                HR questions
+              </h2>
+              <span className="font-mono-studio text-[10px] tracking-[0.2em] text-[#8A929C] dark:text-[#8B92A0] shrink-0">
+                {String(hrFiltered.length).padStart(2, "0")} QUESTIONS
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="relative flex-1 min-w-0">
+                <BsSearch
+                  size={14}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A929C] dark:text-[#9AA1AC]"
+                />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search questions or categories..."
+                  className="w-full bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] placeholder:text-[#8A929C] dark:placeholder:text-[#565D68] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition"
+                />
+              </div>
+              <select
+                value={difficultyFilter}
+                onChange={(e) => setDifficultyFilter(e.target.value)}
+                className="w-full sm:w-auto bg-white dark:bg-[#111318] border border-[#E8E6E1] dark:border-[#232830] rounded-xl px-3.5 py-2.5 text-sm text-[#14171B] dark:text-[#EDEEF0] focus:border-[#9A7B24] dark:focus:border-[#E8A94C] focus:outline-none transition cursor-pointer"
+              >
+                <option value="all">Any difficulty</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            {errorMessage && (
+              <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl p-3 text-red-700 dark:text-red-400 text-sm">
+                {errorMessage}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-44 rounded-2xl bg-white dark:bg-[#0C0E11] border border-[#E8E6E1] dark:border-[#232830] animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : hrFiltered.length ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {hrFiltered.map((q, i) => (
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    index={i}
+                    onClick={() => openQuestion("hr", q.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <div className="flex items-center justify-center gap-2.5 mb-4">
+                  <span className="w-1.5 h-1.5 rotate-45 bg-[#C99E41] dark:bg-[#E8A94C] shrink-0" />
+                  <p className="font-mono-studio text-[10px] tracking-[0.24em] text-[#9A7B24] dark:text-[#E8A94C]">
+                    NO MATCHES
+                  </p>
+                </div>
+                <p className="text-[#3E4650] dark:text-[#8B92A0] text-sm">
+                  No questions match those filters. Try clearing them.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

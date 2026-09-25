@@ -1,8 +1,8 @@
 import { askAi } from "./openRouter.service.js";
 import { buildLanguageInstruction } from "../utils/language.js";
-import { runTestCases } from "./codeExecution.service.js";
+import { runTestCases } from "./interviewCodeExecution.service.js";
 import interviewModel from "../models/interview.model.js";
-import DSA_QUESTION_BANK from "../data/dsaQuestions.js";
+import DSA_QUESTION_BANK from "../data/interviewDsaQuestions.js";
 const cleanCoachingText = (value, maxLength) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : "";
 const cleanCoachingList = (value, maxItems = 3, maxLength = 220) => Array.isArray(value) ? value.map(item => cleanCoachingText(item, maxLength)).filter(Boolean).slice(0, maxItems) : [];
 const CODING_LANGUAGES = ["javascript", "python", "cpp", "java"];
