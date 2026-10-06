@@ -26,6 +26,13 @@ InterviewIQ is a full-stack **MERN** platform that simulates real job interviews
 Built for one goal: **cracking 8+ LPA placements in India.** 🇮🇳
 
 ---
+## 🌍 Live Demo
+
+🔗 **Try it now: [https://interviewiqpro.vercel.app/](https://interviewiqpro.vercel.app/)**
+
+No setup needed, just open the link, log in with Google, and start your first mock interview.
+
+> 💡 **Tip:** Use Chrome or Edge on desktop and allow microphone + camera access for the best voice-to-voice and body-language experience.
 
 ## 🚀 Features
 
@@ -258,6 +265,7 @@ node index.js
 - [ ] Real asked-questions bank per company
 
 ---
+🌐 **[Try InterviewIQ Live](https://interviewiqpro.vercel.app/)**
 
 ## 🤝 Contributing
 
